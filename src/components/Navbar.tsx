@@ -26,6 +26,7 @@ interface NavbarProps {
   user: AppUser | null;
   lang: Lang;
   toggleLanguage: () => void;
+   onTabChange?: (tabId: string) => void;
   ini?: string; // Made optional since it's not used
 }
 
@@ -34,6 +35,7 @@ export default function Navbar({
   user,
   lang,
   toggleLanguage,
+   onTabChange,
 }: NavbarProps) {
   const isAr = lang === "ar";
   const navigate = useNavigate();
