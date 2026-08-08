@@ -176,7 +176,7 @@ export default function Signup() {
   setLoading(true);
   try {
     const res = await fetch(
-      "https://marhababackend.onrender.com/api/v1/auth/register",
+      "https://marhaba.ly/api/v1/auth/register",
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
