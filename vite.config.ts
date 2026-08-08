@@ -2,12 +2,12 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // All static assets should be in the 'public' folder
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'Marhaba - Find Your Perfect Stay',
@@ -21,13 +21,14 @@ export default defineConfig({
         start_url: '/',
         icons: [
           {
-            src: '/assets/icon-192x192.png',
+            // ✅ All icons should be in the 'public' folder
+            src: '/icon-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/assets/icon-512x512.png',
+            src: '/icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
@@ -41,6 +42,8 @@ export default defineConfig({
         ]
       },
       workbox: {
+        // Exclude CSS from being cached by Workbox if needed, or let it handle it.
+        // The default globPatterns should work.
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
         runtimeCaching: [
           {
