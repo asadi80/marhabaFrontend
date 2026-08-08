@@ -4,6 +4,15 @@ import { useLanguage } from "../../hooks/useLanguage";
 import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
 
+
+// ─── Google Maps Type Declaration ──────────────────────────────────────────
+declare global {
+  interface Window {
+    google: typeof google;
+    handleDirections: (listingId: number) => void;
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const fmt = (d: string | Date) =>
   new Date(d).toLocaleDateString("en-US", {
@@ -84,36 +93,37 @@ interface GoogleMapProps {
   userLocation: { lat: number; lng: number } | null;
   listings: any[];
   onDirections: (listing: any) => void;
-  onOpenMaps: (listing: any) => void;
   isAr: boolean;
 }
 
-const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: GoogleMapProps) => {
+const GoogleMap = ({ userLocation, listings, onDirections, isAr }: GoogleMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
   const [infoWindows, setInfoWindows] = useState<google.maps.InfoWindow[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load Google Maps API
+  // Check if Google Maps is loaded
   useEffect(() => {
-    if (!window.google) {
-      // Load Google Maps API script
-      const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
-      script.async = true;
-      script.defer = true;
-      document.head.appendChild(script);
-      
-      script.onload = () => {
+    const checkGoogleMaps = () => {
+      if (typeof window !== 'undefined' && window.google && window.google.maps) {
+        setIsLoaded(true);
         initializeMap();
-      };
-    } else {
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.google && window.google.maps) {
+      setIsLoaded(true);
       initializeMap();
+      return;
     }
+
+    const interval = setInterval(checkGoogleMaps, 500);
+    return () => clearInterval(interval);
   }, []);
 
   const initializeMap = () => {
-    if (!mapRef.current || !userLocation) return;
+    if (!mapRef.current || !userLocation || !window.google) return;
 
     const mapOptions: google.maps.MapOptions = {
       center: { lat: userLocation.lat, lng: userLocation.lng },
@@ -124,15 +134,15 @@ const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: G
       zoomControl: true,
     };
 
-    const newMap = new google.maps.Map(mapRef.current, mapOptions);
+    const newMap = new window.google.maps.Map(mapRef.current, mapOptions);
     setMap(newMap);
 
     // Add user location marker
-    const userMarker = new google.maps.Marker({
+    const userMarker = new window.google.maps.Marker({
       position: { lat: userLocation.lat, lng: userLocation.lng },
       map: newMap,
       icon: {
-        path: google.maps.SymbolPath.CIRCLE,
+        path: window.google.maps.SymbolPath.CIRCLE,
         fillColor: "#4285F4",
         fillOpacity: 1,
         strokeColor: "#ffffff",
@@ -142,7 +152,7 @@ const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: G
       title: isAr ? "موقعك الحالي" : "Your Location",
     });
 
-    const userInfo = new google.maps.InfoWindow({
+    const userInfo = new window.google.maps.InfoWindow({
       content: `<div style="font-size:12px;font-weight:bold;">📍 ${isAr ? "موقعك الحالي" : "Your Location"}</div>`,
     });
 
@@ -156,9 +166,8 @@ const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: G
 
   // Update markers when listings change
   useEffect(() => {
-    if (!map || !window.google) return;
+    if (!map || !window.google || !isLoaded) return;
 
-    // Clear old markers
     markers.forEach(marker => marker.setMap(null));
     infoWindows.forEach(win => win.close());
 
@@ -168,7 +177,7 @@ const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: G
     listings.forEach((listing) => {
       if (!listing.coordinates) return;
 
-      const marker = new google.maps.Marker({
+      const marker = new window.google.maps.Marker({
         position: { lat: listing.coordinates.lat, lng: listing.coordinates.lng },
         map,
         icon: {
@@ -178,13 +187,12 @@ const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: G
                 fill="#e8c547" stroke="#1a1a2e" stroke-width="1.5" stroke-linejoin="round"/>
             </svg>
           `)}`,
-          scaledSize: new google.maps.Size(32, 32),
-          anchor: new google.maps.Point(16, 32),
+          scaledSize: new window.google.maps.Size(32, 32),
+          anchor: new window.google.maps.Point(16, 32),
         },
         title: listing.title,
       });
 
-      // Create info window
       const infoContent = `
         <div style="min-width:160px;font-family:sans-serif;">
           ${listing.images?.[0] ? `<img src="${listing.images[0]}" alt="${listing.title}" style="width:100%;height:90px;object-fit:cover;border-radius:4px;margin-bottom:8px;" />` : ''}
@@ -201,11 +209,10 @@ const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: G
         </div>
       `;
 
-      const infoWindow = new google.maps.InfoWindow({
+      const infoWindow = new window.google.maps.InfoWindow({
         content: infoContent,
       });
 
-      // Store listing id for click handler
       (marker as any).listingId = listing.id;
 
       marker.addListener("click", () => {
@@ -216,7 +223,6 @@ const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: G
       newInfoWindows.push(infoWindow);
     });
 
-    // Add click handler to window for directions
     (window as any).handleDirections = (listingId: number) => {
       const listing = listings.find(l => l.id === listingId);
       if (listing) {
@@ -226,21 +232,29 @@ const GoogleMap = ({ userLocation, listings, onDirections, onOpenMaps, isAr }: G
 
     setMarkers(newMarkers);
     setInfoWindows(newInfoWindows);
-  }, [listings, map]);
+  }, [listings, map, isLoaded]);
 
-  // Center map on user location
-  const centerMap = () => {
-    if (map && userLocation) {
-      map.panTo({ lat: userLocation.lat, lng: userLocation.lng });
-      map.setZoom(12);
-    }
-  };
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[400px] bg-gray-100 rounded-xl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1a1a2e] mx-auto mb-4"></div>
+          <p className="text-sm text-gray-500">{isAr ? "جاري تحميل الخريطة..." : "Loading map..."}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="relative">
-      <div ref={mapRef} className="h-full w-full min-h-[400px]" />
+    <div className="relative h-full min-h-[400px]">
+      <div ref={mapRef} className="h-full w-full rounded-xl" />
       <button
-        onClick={centerMap}
+        onClick={() => {
+          if (map && userLocation) {
+            map.panTo({ lat: userLocation.lat, lng: userLocation.lng });
+            map.setZoom(12);
+          }
+        }}
         className="absolute bottom-4 right-4 bg-white border border-gray-300 rounded-lg px-3 py-2 shadow-md hover:shadow-lg transition-shadow z-10"
         title={isAr ? "مركز الخريطة" : "Center map"}
       >
@@ -273,7 +287,6 @@ export default function UserDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Get user
         const userRes = await fetchWithAuth("/auth/me");
         if (!userRes.ok) throw new Error("Not authenticated");
         const userData = await userRes.json();
@@ -292,8 +305,6 @@ export default function UserDashboard() {
         getUserLocation();
         await fetchListings();
         await fetchBookings();
-        
-        // Load Google Maps API
         loadGoogleMaps();
       } catch (error) {
         console.error("Auth error:", error);
@@ -332,7 +343,7 @@ export default function UserDashboard() {
   // ─── Location ─────────────────────────────────────────────────────────────
   const getUserLocation = () => {
     if (!("geolocation" in navigator)) {
-      setUserLocation({ lat: 32.8872, lng: 13.1913 }); // Tripoli, Libya default
+      setUserLocation({ lat: 32.8872, lng: 13.1913 });
       return;
     }
     navigator.geolocation.getCurrentPosition(
@@ -435,8 +446,8 @@ export default function UserDashboard() {
     : "font-['DM_Mono',monospace]";
 
   const TABS = [
-    { id: "nearby", label: isAr ? "الأماكن القريبة" : "Nearby Places" },
-    { id: "bookings", label: `${isAr ? "الحجوزات" : "Bookings"} (${bookings.length})` },
+    { id: "nearby", label: isAr ? "الأماكن القريبة" : "Nearby Places", href: "#" },
+    { id: "bookings", label: `${isAr ? "الحجوزات" : "Bookings"} (${bookings.length})`, href: "#" },
     { id: "listings", label: isAr ? "تصفح العقارات" : "Browse Listings", href: "/listings" },
   ];
 
@@ -521,7 +532,6 @@ export default function UserDashboard() {
                   userLocation={userLocation}
                   listings={filtered}
                   onDirections={getDirections}
-                  onOpenMaps={openMaps}
                   isAr={isAr}
                 />
               </div>

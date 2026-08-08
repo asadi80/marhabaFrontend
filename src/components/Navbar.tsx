@@ -1,13 +1,32 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { Lang, NavLink, AppUser } from "../types";
+
+// ─── Type Definitions ──────────────────────────────────────────────────────
+export type Lang = "en" | "ar";
+
+export interface NavLink {
+  id: string;
+  label: string;
+  href: string;
+}
+
+export interface AppUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "user" | "host" | "admin" | "super_admin";
+  status?: string;
+  phone_number?: string;
+  email_verified?: boolean;
+  createdAt?: string;
+}
 
 interface NavbarProps {
   NAV_LINKS: NavLink[];
   user: AppUser | null;
   lang: Lang;
   toggleLanguage: () => void;
-  ini: string;
+  ini?: string; // Made optional since it's not used
 }
 
 export default function Navbar({
@@ -15,7 +34,6 @@ export default function Navbar({
   user,
   lang,
   toggleLanguage,
-  ini,
 }: NavbarProps) {
   const isAr = lang === "ar";
   const navigate = useNavigate();
@@ -29,7 +47,7 @@ export default function Navbar({
       ? isAr
         ? "مضيف"
         : "Host"
-      : user?.role === "admin"
+      : user?.role === "admin" || user?.role === "super_admin"
       ? isAr
         ? "مدير"
         : "Admin"
@@ -39,11 +57,19 @@ export default function Navbar({
 
   const handleLogout = async () => {
     try {
-      await fetch("/api/auth/logout", {
+      const token = localStorage.getItem("token");
+      await fetch("https://marhababackend.onrender.com/api/v1/auth/logout", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
         credentials: "include",
       });
+    } catch (error) {
+      console.error("Logout error:", error);
     } finally {
+      localStorage.removeItem("token");
       navigate("/login");
     }
   };
@@ -55,12 +81,15 @@ export default function Navbar({
     >
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-5">
         {/* Logo */}
-<Link
-  to="/"
-  className={`font-medium text-[26px] text-white tracking-[1px] flex-shrink-0 no-underline ${isAr ? "font-arabic" : "font-arabic"}`}
->
-  مر<span className="font-bold text-[#e8c547]">حبا</span>
-</Link>
+        <Link
+          to="/"
+          className={`font-medium text-[26px] text-white tracking-[1px] flex-shrink-0 no-underline ${
+            isAr ? "font-arabic" : "font-arabic"
+          }`}
+        >
+          مر<span className="font-bold text-[#e8c547]">حبا</span>
+        </Link>
+
         {/* Desktop Navigation */}
         <nav className="hidden md:flex flex-1 items-center gap-1">
           {NAV_LINKS?.map((link) => (

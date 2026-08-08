@@ -72,10 +72,119 @@ export interface Listing {
   tags?: string[];
   images?: string[];
   distance?: number;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+  is_active?: boolean;
+  status?: string;
+  host_id?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AppUser {
-  name?: string;
-  role?: "user" | "host" | string;
+  id: string;
+  name: string;
+  email: string;
+  role: "user" | "host" | "admin" | "super_admin";
+  status?: string;
+  phone_number?: string;
+  email_verified?: boolean;
+  createdAt?: string;
+  userType?: string;
   [key: string]: unknown;
+}
+
+export interface Booking {
+  id: string;
+  listing_id: string;
+  user_id: string;
+  check_in: string | Date;
+  check_out: string | Date;
+  total_price: number;
+  guests: number;
+  status: "pending" | "confirmed" | "checked_in" | "checked_out" | "cancelled" | "no_show";
+  listing?: Listing;
+  user?: AppUser;
+  created_at?: string;
+  updated_at?: string;
+  checked_in_at?: string | Date;
+  checked_out_at?: string | Date;
+  no_show?: boolean;
+}
+
+export interface Coordinates {
+  lat: number;
+  lng: number;
+}
+
+export interface Location {
+  lat: number;
+  lng: number;
+  address?: string;
+  city?: string;
+  country?: string;
+}
+
+// ─── API Response Types ──────────────────────────────────────────────────────
+
+export interface ApiResponse<T = any> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  errors?: Array<{
+    field: string;
+    message: string;
+    value?: any;
+  }>;
+}
+
+export interface AuthResponse {
+  user: AppUser;
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+  };
+}
+
+export interface ListingsResponse {
+  listings: Listing[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+}
+
+export interface BookingsResponse {
+  bookings: Booking[];
+  total?: number;
+  page?: number;
+  limit?: number;
+  totalPages?: number;
+}
+
+// ─── Component Props Types ──────────────────────────────────────────────────
+
+export interface NavbarProps {
+  NAV_LINKS: NavLink[];
+  user: AppUser | null;
+  lang: Lang;
+  toggleLanguage: () => void;
+  onTabChange?: (tabId: string) => void;
+}
+
+export interface GoogleMapProps {
+  userLocation: Coordinates | null;
+  listings: Listing[];
+  onDirections: (listing: Listing) => void;
+  isAr: boolean;
+}
+
+export interface ListingCardProps {
+  listing: Listing;
+  userLocation?: Coordinates | null;
+  onOpenMaps?: (listing: Listing) => void;
+  onGetDirections?: (listing: Listing) => void;
+  isAr?: boolean;
 }
