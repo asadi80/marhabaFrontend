@@ -1,0 +1,67 @@
+/* =====================================================
+   ALL @import STATEMENTS MUST COME FIRST
+   ===================================================== */
+
+/* Tailwind CSS */
+
+/* Space Grotesk - Modern geometric sans-serif */
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+/* Arabic fonts */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&family=Tajawal:wght@200;300;400;500;700;800;900&family=Almarai:wght@300;400;700;800&family=IBM+Plex+Sans+Arabic:wght@100;200;300;400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* =====================================================
+   BASE STYLES
+   ===================================================== */
+
+@layer base {
+  html {
+    font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  }
+
+  /* Arabic language override */
+  html[dir="rtl"],
+  .font-arabic {
+    font-family: "Cairo", "Tajawal", "Almarai", "IBM Plex Sans Arabic", sans-serif;
+  }
+
+  /* English/Space Grotesk */
+  .font-sans {
+    font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* =====================================================
+   GLOBAL STYLES
+   ===================================================== */
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* =====================================================
+   UTILITY CLASSES
+   ===================================================== */
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
