@@ -111,7 +111,7 @@ export default function LoginPage() {
     setHtmlError("");
 
     try {
-      const res = await fetch("https://mar-haba.ly/api/v1/auth/login", {
+      const res = await fetch("https://api.mar-haba.ly/api/v1/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
