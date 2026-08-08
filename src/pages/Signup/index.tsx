@@ -171,7 +171,7 @@ export default function Signup() {
     role: formData.userType === "host" ? "host" : "user",
   };
 
-  console.log('📤 Sending registration payload:', payload);
+//   console.log('📤 Sending registration payload:', payload);
 
   setLoading(true);
   try {
