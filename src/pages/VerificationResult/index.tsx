@@ -1,4 +1,4 @@
-// pages/VerificationResult.jsx
+// src/pages/VerificationResult/index.tsx
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
@@ -21,6 +21,17 @@ const VerificationResult = () => {
     const roleParam = searchParams.get('role');
     const redirectParam = searchParams.get('redirect');
 
+    // Debug: Log all params
+    console.log('🔍 Verification Result Params:', {
+      statusParam,
+      errorParam,
+      messageParam,
+      emailParam,
+      nameParam,
+      roleParam,
+      redirectParam,
+    });
+
     if (emailParam) setEmail(emailParam);
     if (nameParam) setName(nameParam);
     if (roleParam) setRole(roleParam);
@@ -35,6 +46,7 @@ const VerificationResult = () => {
         setCountdown((prev) => {
           if (prev <= 1) {
             clearInterval(timer);
+            console.log('🔴 Redirecting to:', redirectTo);
             navigate(redirectTo);
             return 0;
           }
@@ -49,7 +61,10 @@ const VerificationResult = () => {
       setMessage(messageParam || 'This email is already verified.');
       
       // Auto redirect to login after 3 seconds
-      setTimeout(() => navigate('/login'), 3000);
+      const timer = setTimeout(() => {
+        navigate('/login');
+      }, 3000);
+      return () => clearTimeout(timer);
       
     } else if (statusParam === 'expired') {
       setStatus('expired');
@@ -77,18 +92,35 @@ const VerificationResult = () => {
     }
   };
 
-  const renderContent = () => {
-    switch (status) {
-      case 'loading':
-        return (
+  // Loading state
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
           <div className="flex flex-col items-center justify-center py-12">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
             <p className="mt-4 text-gray-600">Verifying your email...</p>
           </div>
-        );
+        </div>
+      </div>
+    );
+  }
 
-      case 'success':
-        return (
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-[#1a1a2e]">
+            <span className="font-arabic">مر</span>
+            <span className="font-bold text-[#e8c547]">حبا</span>
+            {' '}
+            <span className="text-gray-400">|</span>
+            {' '}
+            <span className="text-gray-600">Verification</span>
+          </h1>
+        </div>
+
+        {status === 'success' && (
           <div className="text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -133,10 +165,9 @@ const VerificationResult = () => {
               </p>
             </div>
           </div>
-        );
+        )}
 
-      case 'already-verified':
-        return (
+        {status === 'already-verified' && (
           <div className="text-center">
             <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -155,10 +186,9 @@ const VerificationResult = () => {
               Go to Login
             </button>
           </div>
-        );
+        )}
 
-      case 'expired':
-        return (
+        {status === 'expired' && (
           <div className="text-center">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -186,10 +216,9 @@ const VerificationResult = () => {
               </button>
             </div>
           </div>
-        );
+        )}
 
-      default:
-        return (
+        {status === 'error' && (
           <div className="text-center">
             <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -217,25 +246,7 @@ const VerificationResult = () => {
               </button>
             </div>
           </div>
-        );
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-[#1a1a2e]">
-            <span className="font-arabic">مر</span>
-            <span className="font-bold text-[#e8c547]">حبا</span>
-            {' '}
-            <span className="text-gray-400">|</span>
-            {' '}
-            <span className="text-gray-600">Verification</span>
-          </h1>
-        </div>
-        
-        {renderContent()}
+        )}
       </div>
     </div>
   );
