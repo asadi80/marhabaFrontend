@@ -104,44 +104,49 @@ export default function LoginPage() {
   };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    setHtmlError("");
+  // LoginPage.jsx - Update handleSubmit
 
-    try {
-      const res = await fetch("https://api.mar-haba.ly/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
-      });
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
+  setHtmlError("");
 
-      const data = await res.json();
+  try {
+    const res = await fetch("https://api.mar-haba.ly/api/v1/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+      credentials: "include",
+    });
 
-      if (res.ok) {
-        const role = data.user?.role;
-        if (role === "admin" || role === "super_admin") {
-          navigate("/admin");
-        } else if (role === "host") {
-          navigate("/host-dashboard");
-        } else {
-          navigate("/user-dashboard");
-        }
+    const data = await res.json();
+
+    if (res.ok) {
+      const role = data.data?.user?.role;
+      if (role === "admin" || role === "super_admin") {
+        navigate("/login");
+      } else if (role === "host") {
+        navigate("/host-dashboard");
       } else {
-        if (data.requiresVerification && data.htmlMessage) {
-          setHtmlError(data.htmlMessage);
-        } else {
-          setError(data.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"));
-        }
-        setLoading(false);
+        navigate("/user-dashboard");
       }
-    } catch {
-      setError(copy.error);
+    } else {
+      // Check for email verification error
+      if (data.code === "EMAIL_NOT_VERIFIED") {
+        // Navigate to resend verification page with email
+        navigate(`/resend-verification?email=${encodeURIComponent(email)}`);
+      } else {
+        setError(data.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"));
+      }
       setLoading(false);
     }
-  };
+  } catch (err) {
+    console.error("Login error:", err);
+    setError(copy.error);
+    setLoading(false);
+  }
+};
 
   return (
     <>
