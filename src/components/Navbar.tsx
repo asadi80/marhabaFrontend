@@ -1,13 +1,15 @@
+// src/components/Navbar.tsx
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
+import { User } from "../context/AuthContext";
 // ─── Type Definitions ──────────────────────────────────────────────────────
 export type Lang = "en" | "ar";
 
 export interface NavLink {
   id: string;
   label: string;
-  href: string;
+  href?: string; // Make href optional
+  onClick?: () => void; // Add optional onClick
 }
 
 export interface AppUser {
@@ -18,6 +20,7 @@ export interface AppUser {
   status?: string;
   phone_number?: string;
   email_verified?: boolean;
+  created_at?: string;
   createdAt?: string;
 }
 
@@ -26,8 +29,7 @@ interface NavbarProps {
   user: AppUser | null;
   lang: Lang;
   toggleLanguage: () => void;
-   onTabChange?: (tabId: string) => void;
-  ini?: string; // Made optional since it's not used
+  onTabChange?: (tabId: string) => void;
 }
 
 export default function Navbar({
@@ -35,13 +37,12 @@ export default function Navbar({
   user,
   lang,
   toggleLanguage,
-   onTabChange,
+  onTabChange,
 }: NavbarProps) {
   const isAr = lang === "ar";
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // Sharp, geometric font per language
   const fontClass = isAr ? "font-arabic" : "font-sans";
 
   const roleLabel =
@@ -60,7 +61,7 @@ export default function Navbar({
   const handleLogout = async () => {
     try {
       const token = localStorage.getItem("token");
-      await fetch("https://marhababackend.onrender.com/api/v1/auth/logout", {
+      await fetch("https://api.mar-haba.ly/api/v1/auth/logout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -72,8 +73,20 @@ export default function Navbar({
       console.error("Logout error:", error);
     } finally {
       localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("tokens");
       navigate("/login");
     }
+  };
+
+  const handleLinkClick = (link: NavLink) => {
+    if (link.onClick) {
+      link.onClick();
+    }
+    if (onTabChange && link.id) {
+      onTabChange(link.id);
+    }
+    setMenuOpen(false);
   };
 
   return (
@@ -94,24 +107,51 @@ export default function Navbar({
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex flex-1 items-center gap-1">
-          {NAV_LINKS?.map((link) => (
-            <Link
-              key={link.id}
-              to={link.href}
-              className={`
-                px-3 py-1.5 rounded-md
-                text-[12px]
-                text-white/50
-                no-underline
-                transition-all
-                hover:text-[#e8c547]
-                hover:bg-[#e8c547]/10
-                ${fontClass}
-              `}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {NAV_LINKS?.map((link) => {
+            // If href exists, use Link, otherwise use button
+            if (link.href) {
+              return (
+                <Link
+                  key={link.id}
+                  to={link.href}
+                  onClick={() => handleLinkClick(link)}
+                  className={`
+                    px-3 py-1.5 rounded-md
+                    text-[12px]
+                    text-white/50
+                    no-underline
+                    transition-all
+                    hover:text-[#e8c547]
+                    hover:bg-[#e8c547]/10
+                    ${fontClass}
+                  `}
+                >
+                  {link.label}
+                </Link>
+              );
+            }
+            return (
+              <button
+                key={link.id}
+                onClick={() => handleLinkClick(link)}
+                className={`
+                  px-3 py-1.5 rounded-md
+                  text-[12px]
+                  text-white/50
+                  no-underline
+                  transition-all
+                  hover:text-[#e8c547]
+                  hover:bg-[#e8c547]/10
+                  ${fontClass}
+                  cursor-pointer
+                  bg-transparent
+                  border-none
+                `}
+              >
+                {link.label}
+              </button>
+            );
+          })}
         </nav>
 
         {/* Right Side */}
@@ -149,7 +189,6 @@ export default function Navbar({
               >
                 {user.name}
               </span>
-
               <span
                 className={`
                   text-[10px]
@@ -232,23 +271,47 @@ export default function Navbar({
             ${fontClass}
           `}
         >
-          {NAV_LINKS?.map((link) => (
-            <Link
-              key={link.id}
-              to={link.href}
-              onClick={() => setMenuOpen(false)}
-              className={`
-                px-5 py-3
-                text-sm
-                no-underline
-                text-white/70
-                hover:text-[#e8c547]
-                ${fontClass}
-              `}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {NAV_LINKS?.map((link) => {
+            if (link.href) {
+              return (
+                <Link
+                  key={link.id}
+                  to={link.href}
+                  onClick={() => handleLinkClick(link)}
+                  className={`
+                    px-5 py-3
+                    text-sm
+                    no-underline
+                    text-white/70
+                    hover:text-[#e8c547]
+                    ${fontClass}
+                  `}
+                >
+                  {link.label}
+                </Link>
+              );
+            }
+            return (
+              <button
+                key={link.id}
+                onClick={() => handleLinkClick(link)}
+                className={`
+                  px-5 py-3
+                  text-sm
+                  text-left
+                  no-underline
+                  text-white/70
+                  hover:text-[#e8c547]
+                  ${fontClass}
+                  bg-transparent
+                  border-none
+                  cursor-pointer
+                `}
+              >
+                {link.label}
+              </button>
+            );
+          })}
 
           {user && (
             <div

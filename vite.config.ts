@@ -73,7 +73,7 @@ export default defineConfig({
       }
     },
     sourcemap: false,
-    minify: 'terser',
+    minify: 'esbuild',
     chunkSizeWarningLimit: 1000,
   },
 })

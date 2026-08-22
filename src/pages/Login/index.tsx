@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useLanguage } from "../../hooks/useLanguage";
+import { useAuth } from "../../context/AuthContext";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -47,6 +48,7 @@ function Input({ className, ...props }: InputProps) {
 export default function LoginPage() {
   const navigate = useNavigate();
   const { lang, toggleLanguage } = useLanguage();
+    const { login } = useAuth(); 
   const isAr = lang === "ar";
   const fontClass = isAr ? "font-arabic" : "font-sans";
 
@@ -107,46 +109,52 @@ export default function LoginPage() {
   // LoginPage.jsx - Update handleSubmit
 
 const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setLoading(true);
-  setError("");
-  setHtmlError("");
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setHtmlError("");
 
-  try {
-    const res = await fetch("https://api.mar-haba.ly/api/v1/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-      credentials: "include",
-    });
+    try {
+      const res = await fetch("https://api.mar-haba.ly/api/v1/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (res.ok) {
-      const role = data.data?.user?.role;
-      if (role === "admin" || role === "super_admin") {
-        navigate("/login");
-      } else if (role === "host") {
-        navigate("/host-dashboard");
+      if (res.ok) {
+        // Save user and tokens using auth context
+        const userData = data.data?.user;
+        const tokens = data.data?.tokens;
+        
+        if (userData && tokens) {
+          login(userData, tokens);
+          
+          const role = userData.role;
+          if (role === "admin" || role === "super_admin") {
+            navigate("/admin");
+          } else if (role === "host") {
+            navigate("/host-dashboard");
+          } else {
+            navigate("/user-dashboard");
+          }
+        }
       } else {
-        navigate("/user-dashboard");
+        if (data.code === "EMAIL_NOT_VERIFIED") {
+          navigate(`/resend-verification?email=${encodeURIComponent(email)}`);
+        } else {
+          setError(data.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"));
+        }
+        setLoading(false);
       }
-    } else {
-      // Check for email verification error
-      if (data.code === "EMAIL_NOT_VERIFIED") {
-        // Navigate to resend verification page with email
-        navigate(`/resend-verification?email=${encodeURIComponent(email)}`);
-      } else {
-        setError(data.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"));
-      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError(copy.error);
       setLoading(false);
     }
-  } catch (err) {
-    console.error("Login error:", err);
-    setError(copy.error);
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <>
