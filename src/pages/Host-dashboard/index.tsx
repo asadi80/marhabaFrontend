@@ -267,49 +267,54 @@ export default function HostDashboard() {
     }
   };
 
-  const handleUploadID = async () => {
-    if (!idFile) return;
+const handleUploadID = async () => {
+  if (!idFile) return;
 
-    setUploading(true);
-    setUploadError("");
+  setUploading(true);
+  setUploadError("");
 
-    try {
-      const fileToUpload = await compressImage(idFile);
-      const { url: imageUrl, public_id } = await uploadToCloudinary(
-        fileToUpload,
-        "marhaba-hostId",
+  try {
+    const formData = new FormData();
+
+    // IMPORTANT: backend expects "image"
+    formData.append("image", idFile);
+
+    const response = await apiService.postProtectedData(
+      "/api/v1/uploads/ids",
+      formData
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.message || "Failed to upload ID verification"
       );
-
-      const saveResponse = await apiService.postProtectedData(
-        "/api/host/upload-id",
-        {
-          idVerificationUrl: imageUrl,
-          publicId: public_id,
-        },
-      );
-
-      if (!saveResponse.success) {
-        throw new Error(
-          saveResponse.message || "Failed to save ID verification",
-        );
-      }
-
-      setUploadDone(true);
-      setIdFile(null);
-      setIdPreview(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (error) {
-      console.error("ID upload error:", error);
-      setUploadError(
-        isAr
-          ? `فشل الرفع: ${error instanceof Error ? error.message : "خطأ غير معروف"}`
-          : `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-    } finally {
-      setUploading(false);
     }
-  };
 
+    console.log("ID uploaded:", response.data);
+
+    setUploadDone(true);
+    setIdFile(null);
+    setIdPreview(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  } catch (error) {
+    console.error("ID upload error:", error);
+
+    setUploadError(
+      isAr
+        ? `فشل الرفع: ${
+            error instanceof Error ? error.message : "خطأ غير معروف"
+          }`
+        : `Upload failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+    );
+  } finally {
+    setUploading(false);
+  }
+};
   // ─────────────────────────────────────────────────────────────────────────
   // Payment receipt file
   // ─────────────────────────────────────────────────────────────────────────
@@ -350,48 +355,54 @@ export default function HostDashboard() {
     }
   };
 
-  const handleUploadReceipt = async () => {
-    if (!receiptFile) return;
+const handleUploadReceipt = async () => {
+  if (!receiptFile) return;
 
-    setReceiptUploading(true);
-    setReceiptError("");
+  setReceiptUploading(true);
+  setReceiptError("");
 
-    try {
-      const fileToUpload = await compressImage(receiptFile);
-      const { url: receiptUrl, public_id } = await uploadToCloudinary(
-        fileToUpload,
-        "marhaba-payment-receipts",
+  try {
+    const formData = new FormData();
+
+    // IMPORTANT: backend expects "image"
+    formData.append("image", receiptFile);
+
+    const response = await apiService.postProtectedData(
+      "/api/v1/uploads/payments",
+      formData
+    );
+
+    if (!response.success) {
+      throw new Error(
+        response.message || "Failed to upload payment receipt"
       );
-
-      const saveResponse = await apiService.postProtectedData(
-        "/api/host/upload-payment-receipt",
-        {
-          paymentReceiptUrl: receiptUrl,
-          publicId: public_id,
-        },
-      );
-
-      if (!saveResponse.success) {
-        throw new Error(
-          saveResponse.message || "Failed to save payment receipt",
-        );
-      }
-
-      setReceiptUploaded(true);
-      setReceiptFile(null);
-      setReceiptPreview(null);
-      if (receiptInputRef.current) receiptInputRef.current.value = "";
-    } catch (error) {
-      console.error("Payment receipt upload error:", error);
-      setReceiptError(
-        isAr
-          ? `فشل الرفع: ${error instanceof Error ? error.message : "خطأ غير معروف"}`
-          : `Upload failed: ${error instanceof Error ? error.message : "Unknown error"}`,
-      );
-    } finally {
-      setReceiptUploading(false);
     }
-  };
+
+    console.log("Payment receipt uploaded:", response.data);
+
+    setReceiptUploaded(true);
+    setReceiptFile(null);
+    setReceiptPreview(null);
+
+    if (receiptInputRef.current) {
+      receiptInputRef.current.value = "";
+    }
+  } catch (error) {
+    console.error("Payment receipt upload error:", error);
+
+    setReceiptError(
+      isAr
+        ? `فشل الرفع: ${
+            error instanceof Error ? error.message : "خطأ غير معروف"
+          }`
+        : `Upload failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+    );
+  } finally {
+    setReceiptUploading(false);
+  }
+};
 
   // ─────────────────────────────────────────────────────────────────────────
   // Loading / guard states
