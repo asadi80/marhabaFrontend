@@ -11,6 +11,21 @@ import {
 export type Lang = "en" | "ar";
 
 export interface Content {
+  browse: string;
+  explore: ReactNode;
+  browseListings: ReactNode;
+  location: ReactNode;
+  anywhere: string | undefined;
+  found: ReactNode;
+  in: any;
+  night: ReactNode;
+  noListingsFound: ReactNode;
+  tryAdjustingFilters: ReactNode;
+  clearFilters: ReactNode;
+  minPrice: ReactNode;
+  maxPrice: ReactNode;
+  search: ReactNode;
+  listing: ReactNode;
   heroBadge: string;
   heroTitle1: string;
   heroTitle2: string;

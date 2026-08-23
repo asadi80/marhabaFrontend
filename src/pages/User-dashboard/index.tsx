@@ -1,11 +1,15 @@
 // src/pages/User-dashboard/index.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../hooks/useLanguage';
 import LoadingScreen from '../../components/LoadingScreen';
 import Navbar from '../../components/Navbar';
 import { apiService } from '../../services/api';
+
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string;
+const MAP_LIBRARIES: 'places'[] = ['places'];
 
 // Types
 interface Listing {
@@ -39,7 +43,8 @@ const fmt = (d: string) =>
     year: 'numeric',
   });
 
-const nights = (a: string, b: string) => Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+const nights = (a: string, b: string) =>
+  Math.ceil((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
 
 const haversine = (la1: number, lo1: number, la2: number, lo2: number) => {
   const R = 6371;
@@ -64,6 +69,7 @@ const AVATAR_PAL = [
 ];
 
 const avi = (name: string) => AVATAR_PAL[(name?.charCodeAt(0) ?? 0) % AVATAR_PAL.length];
+
 const initials = (name: string) =>
   name
     ?.split(' ')
@@ -90,9 +96,16 @@ export default function UserDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [searchRadius, setSearchRadius] = useState(10);
   const [mapCenter, setMapCenter] = useState({ lat: 51.505, lng: -0.09 });
+  const [searchRadius, setSearchRadius] = useState(10);
   const [activeTab, setActiveTab] = useState('nearby');
+  const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
+
+  const { isLoaded: mapsLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: MAP_LIBRARIES,
+  });
 
   // Check authentication
   useEffect(() => {
@@ -126,40 +139,40 @@ export default function UserDashboard() {
   };
 
   const fetchListings = async () => {
-  try {
-    const response = await apiService.getProtectedData<{ listings: Listing[] }>('/api/listings');
-    if (response.success && response.data) {
-      // Handle both response formats: { listings: [...] } or just [...]
-      const allListings = Array.isArray(response.data) 
-        ? response.data 
-        : response.data.listings || [];
-      const active = allListings.filter((l: Listing) => l.is_active !== false);
-      setListings(active);
-      setFiltered(active);
-    } else {
-      console.error('Failed to fetch listings:', response.message);
+    try {
+      const response = await apiService.getProtectedData<{ listings: Listing[] }>('/api/listings');
+      if (response.success && response.data) {
+        // Handle both response formats: { listings: [...] } or just [...]
+        const allListings = Array.isArray(response.data)
+          ? response.data
+          : response.data.listings || [];
+        const active = allListings.filter((l: Listing) => l.is_active !== false);
+        setListings(active);
+        setFiltered(active);
+      } else {
+        console.error('Failed to fetch listings:', response.message);
+      }
+    } catch (error) {
+      console.error('Error fetching listings:', error);
     }
-  } catch (error) {
-    console.error('Error fetching listings:', error);
-  }
-};
+  };
 
-const fetchBookings = async () => {
-  try {
-    const response = await apiService.getProtectedData<{ bookings: Booking[] }>('/api/bookings');
-    if (response.success && response.data) {
-      // Handle both response formats
-      const bookingsData = Array.isArray(response.data) 
-        ? response.data 
-        : response.data.bookings || [];
-      setBookings(bookingsData);
-    } else {
-      console.error('Failed to fetch bookings:', response.message);
+  const fetchBookings = async () => {
+    try {
+      const response = await apiService.getProtectedData<{ bookings: Booking[] }>('/api/bookings');
+      if (response.success && response.data) {
+        // Handle both response formats
+        const bookingsData = Array.isArray(response.data)
+          ? response.data
+          : response.data.bookings || [];
+        setBookings(bookingsData);
+      } else {
+        console.error('Failed to fetch bookings:', response.message);
+      }
+    } catch (error) {
+      console.error('Error fetching bookings:', error);
     }
-  } catch (error) {
-    console.error('Error fetching bookings:', error);
-  }
-};
+  };
 
   const filterByDistance = (radius: number) => {
     if (!userLocation) return;
@@ -167,12 +180,8 @@ const fetchBookings = async () => {
       listings.filter(
         (l) =>
           l.coordinates &&
-          haversine(
-            userLocation.lat,
-            userLocation.lng,
-            l.coordinates.lat,
-            l.coordinates.lng,
-          ) <= radius,
+          haversine(userLocation.lat, userLocation.lng, l.coordinates.lat, l.coordinates.lng) <=
+            radius,
       ),
     );
     setSearchRadius(radius);
@@ -189,11 +198,7 @@ const fetchBookings = async () => {
 
   const getDirections = (l: Listing) => {
     if (!userLocation) {
-      alert(
-        isAr
-          ? 'قم بتفعيل خدمات الموقع أولاً'
-          : 'Enable location services first',
-      );
+      alert(isAr ? 'قم بتفعيل خدمات الموقع أولاً' : 'Enable location services first');
       return;
     }
     if (l.coordinates) {
@@ -205,8 +210,7 @@ const fetchBookings = async () => {
   };
 
   const cancelBooking = async (id: string) => {
-    if (!confirm(isAr ? 'هل تريد إلغاء هذا الحجز؟' : 'Cancel this booking?'))
-      return;
+    if (!confirm(isAr ? 'هل تريد إلغاء هذا الحجز؟' : 'Cancel this booking?')) return;
     try {
       const response = await apiService.putProtectedData(`/api/bookings/${id}`, {
         action: 'cancel',
@@ -232,19 +236,10 @@ const fetchBookings = async () => {
     { id: 'listings', label: isAr ? 'تصفح العقارات' : 'Browse Listings', href: '/listings' },
   ];
 
-  const displayFontClass = isAr
-    ? "font-['Cairo','Tajawal',sans-serif]"
-    : "font-['Fraunces',serif]";
+  const displayFontClass = isAr ? "font-['Cairo','Tajawal',sans-serif]" : "font-['Fraunces',serif]";
   const bodyFontClass = isAr
     ? "font-['Cairo','Tajawal',sans-serif]"
     : "font-['DM_Mono',monospace]";
-
-  const userInitials = user?.name
-    ?.split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() ?? 'H';
 
   return (
     <div className={`min-h-screen bg-[#f7f6f2] ${isAr ? 'rtl' : 'ltr'} ${bodyFontClass}`}>
@@ -267,11 +262,14 @@ const fetchBookings = async () => {
               {ini}
             </div>
             <div>
-              <div className={`${displayFontClass} font-light text-xl text-[#111118] leading-tight ${isAr ? 'italic' : ''}`}>
+              <div
+                className={`${displayFontClass} font-light text-xl text-[#111118] leading-tight ${isAr ? 'italic' : ''}`}
+              >
                 {user.name}
               </div>
               <div className="text-[11px] text-gray-400 mt-0.5">
-                {isAr ? 'عضو منذ' : 'member since'} {fmt(user.created_at || user.createdAt || new Date().toISOString())}
+                {isAr ? 'عضو منذ' : 'member since'}{' '}
+                {fmt(user.created_at || user.createdAt || new Date().toISOString())}
               </div>
             </div>
           </div>
@@ -281,12 +279,12 @@ const fetchBookings = async () => {
               { l: isAr ? 'القريبة' : 'nearby', v: filtered.length },
             ].map(({ l, v }) => (
               <div key={l} className={isAr ? 'text-left' : 'text-right'}>
-                <div className={`${displayFontClass} font-light text-2xl text-[#111118] leading-tight ${isAr ? 'italic' : ''}`}>
+                <div
+                  className={`${displayFontClass} font-light text-2xl text-[#111118] leading-tight ${isAr ? 'italic' : ''}`}
+                >
                   {v}
                 </div>
-                <div className="text-[10px] tracking-wide uppercase text-gray-300 mt-0.5">
-                  {l}
-                </div>
+                <div className="text-[10px] tracking-wide uppercase text-gray-300 mt-0.5">{l}</div>
               </div>
             ))}
           </div>
@@ -320,15 +318,50 @@ const fetchBookings = async () => {
               </div>
             </div>
 
-            {/* Map placeholder */}
-            <div className="rounded-xl overflow-hidden border border-black/8 mb-5 h-[clamp(280px,45vw,440px)] bg-gray-200 flex items-center justify-center">
-              <p className="text-gray-500">
-                {isAr ? 'خريطة الأماكن القريبة' : 'Nearby Places Map'}
-                <br />
-                <span className="text-xs">
-                  {isAr ? '(يتم تحميل الخريطة...)' : '(Loading map...)'}
-                </span>
-              </p>
+            {/* Map */}
+            <div className="rounded-xl overflow-hidden border border-black/8 mb-5 h-[clamp(280px,45vw,440px)] bg-gray-200">
+              {mapsLoaded ? (
+                <GoogleMap
+                  mapContainerStyle={{ width: '100%', height: '100%' }}
+                  center={mapCenter}
+                  zoom={12}
+                  options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false }}
+                >
+                  {userLocation && (
+                    <Marker
+                      position={userLocation}
+                      title={isAr ? 'موقعك' : 'Your location'}
+                      icon={{
+                        path: window.google.maps.SymbolPath.CIRCLE,
+                        scale: 8,
+                        fillColor: '#1D9E75',
+                        fillOpacity: 1,
+                        strokeColor: '#fff',
+                        strokeWeight: 2,
+                      }}
+                    />
+                  )}
+                  {filtered
+                    .filter((l) => l.coordinates)
+                    .map((l) => (
+                      <Marker
+                        key={l.id}
+                        position={l.coordinates as { lat: number; lng: number }}
+                        title={l.title}
+                        onClick={() => setActiveMarkerId(l.id === activeMarkerId ? null : l.id)}
+                        onMouseOver={() => setActiveMarkerId(l.id)}
+                      />
+                    ))}
+                </GoogleMap>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-gray-500">
+                    {isAr ? 'خريطة الأماكن القريبة' : 'Nearby Places Map'}
+                    <br />
+                    <span className="text-xs">{isAr ? '(يتم تحميل الخريطة...)' : '(Loading map...)'}</span>
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Listing cards */}
@@ -365,12 +398,20 @@ const fetchBookings = async () => {
                         <div>
                           <div className="text-base font-medium text-[#111118] mb-1.5">{l.title}</div>
                           <div className="text-[13px] text-gray-400 mb-2.5 flex items-center gap-1">
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-[#e8c547]">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              className="text-[#e8c547]"
+                            >
                               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                             </svg>
                             {l.location}
                           </div>
-                          <div className={`${displayFontClass} font-light text-2xl text-[#1a1a2e] mb-3 ${isAr ? 'italic' : ''}`}>
+                          <div
+                            className={`${displayFontClass} font-light text-2xl text-[#1a1a2e] mb-3 ${isAr ? 'italic' : ''}`}
+                          >
                             {l.price} {isAr ? ' دينار' : 'LYD'}
                             <span className="text-base font-normal not-italic text-[#242323]">
                               / {isAr ? 'ليلة' : 'night'}
@@ -416,7 +457,9 @@ const fetchBookings = async () => {
               </div>
             ) : (
               <div className="text-center py-16 px-8 bg-white rounded-xl border border-black/7">
-                <div className={`${displayFontClass} font-light text-2xl text-gray-300 mb-3 ${isAr ? 'italic' : ''}`}>
+                <div
+                  className={`${displayFontClass} font-light text-2xl text-gray-300 mb-3 ${isAr ? 'italic' : ''}`}
+                >
                   {isAr ? 'لا توجد أماكن قريبة' : 'nothing nearby'}
                 </div>
                 <p className="text-sm text-gray-400 mb-4">
@@ -441,7 +484,9 @@ const fetchBookings = async () => {
             </div>
             {bookings.length === 0 ? (
               <div className="text-center py-16 px-4 bg-white rounded-xl border border-black/7">
-                <div className={`${displayFontClass} font-light text-2xl text-gray-300 mb-3 ${isAr ? 'italic' : ''}`}>
+                <div
+                  className={`${displayFontClass} font-light text-2xl text-gray-300 mb-3 ${isAr ? 'italic' : ''}`}
+                >
                   {isAr ? 'لا توجد حجوزات بعد' : 'no bookings yet'}
                 </div>
                 <p className="text-[13px] text-gray-400 mb-4">
@@ -480,11 +525,19 @@ const fetchBookings = async () => {
                         {[
                           { label: isAr ? 'تسجيل الوصول' : 'check-in', val: fmt(b.check_in) },
                           { label: isAr ? 'تسجيل المغادرة' : 'check-out', val: fmt(b.check_out) },
-                          { label: isAr ? 'الليالي' : 'nights', val: `${n} ${n === 1 ? (isAr ? 'ليلة' : 'night') : (isAr ? 'ليالي' : 'nights')}` },
-                          { label: isAr ? 'الضيوف' : 'guests', val: `${b.guests} ${b.guests === 1 ? (isAr ? 'ضيف' : 'guest') : (isAr ? 'ضيوف' : 'guests')}` },
+                          {
+                            label: isAr ? 'الليالي' : 'nights',
+                            val: `${n} ${n === 1 ? (isAr ? 'ليلة' : 'night') : isAr ? 'ليالي' : 'nights'}`,
+                          },
+                          {
+                            label: isAr ? 'الضيوف' : 'guests',
+                            val: `${b.guests} ${b.guests === 1 ? (isAr ? 'ضيف' : 'guest') : isAr ? 'ضيوف' : 'guests'}`,
+                          },
                         ].map(({ label, val }) => (
                           <div key={label}>
-                            <div className="text-[10px] tracking-wide uppercase text-gray-300 mb-0.5">{label}</div>
+                            <div className="text-[10px] tracking-wide uppercase text-gray-300 mb-0.5">
+                              {label}
+                            </div>
                             <div className="text-xs text-[#111118]">{val}</div>
                           </div>
                         ))}
@@ -530,7 +583,8 @@ const fetchBookings = async () => {
                         )}
                       </div>
                       <div className="text-[11px] text-gray-300 mt-3">
-                        {isAr ? 'تم الحجز' : 'booked'} {fmt(b.created_at || b.createdAt || new Date().toISOString())}
+                        {isAr ? 'تم الحجز' : 'booked'}{' '}
+                        {fmt(b.created_at || b.createdAt || new Date().toISOString())}
                       </div>
                     </div>
                   );

@@ -79,6 +79,31 @@ export default function Navbar({
     }
   };
 
+  const handleDashboardClick = () => {
+  setMenuOpen(false);
+
+  if (!user) {
+    navigate("/login");
+    return;
+  }
+
+  switch (user.role) {
+    case "host":
+      navigate("/host-dashboard");
+      break;
+
+    case "admin":
+    case "super_admin":
+      navigate("/admin-dashboard");
+      break;
+
+    case "user":
+    default:
+      navigate("/user-dashboard");
+      break;
+  }
+};
+
   const handleLinkClick = (link: NavLink) => {
     if (link.onClick) {
       link.onClick();
@@ -107,51 +132,76 @@ export default function Navbar({
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex flex-1 items-center gap-1">
-          {NAV_LINKS?.map((link) => {
-            // If href exists, use Link, otherwise use button
-            if (link.href) {
-              return (
-                <Link
-                  key={link.id}
-                  to={link.href}
-                  onClick={() => handleLinkClick(link)}
-                  className={`
-                    px-3 py-1.5 rounded-md
-                    text-[12px]
-                    text-white/50
-                    no-underline
-                    transition-all
-                    hover:text-[#e8c547]
-                    hover:bg-[#e8c547]/10
-                    ${fontClass}
-                  `}
-                >
-                  {link.label}
-                </Link>
-              );
-            }
-            return (
-              <button
-                key={link.id}
-                onClick={() => handleLinkClick(link)}
-                className={`
-                  px-3 py-1.5 rounded-md
-                  text-[12px]
-                  text-white/50
-                  no-underline
-                  transition-all
-                  hover:text-[#e8c547]
-                  hover:bg-[#e8c547]/10
-                  ${fontClass}
-                  cursor-pointer
-                  bg-transparent
-                  border-none
-                `}
-              >
-                {link.label}
-              </button>
-            );
-          })}
+ {NAV_LINKS?.map((link) => {
+  // Dashboard should go to the correct dashboard based on role
+  if (link.id === "dashboard") {
+    return (
+      <button
+        key={link.id}
+        onClick={handleDashboardClick}
+        className={`
+          px-3 py-1.5 rounded-md
+          text-[12px]
+          text-white/50
+          no-underline
+          transition-all
+          hover:text-[#e8c547]
+          hover:bg-[#e8c547]/10
+          ${fontClass}
+          cursor-pointer
+          bg-transparent
+          border-none
+        `}
+      >
+        {link.label}
+      </button>
+    );
+  }
+
+  if (link.href) {
+    return (
+      <Link
+        key={link.id}
+        to={link.href}
+        onClick={() => handleLinkClick(link)}
+        className={`
+          px-3 py-1.5 rounded-md
+          text-[12px]
+          text-white/50
+          no-underline
+          transition-all
+          hover:text-[#e8c547]
+          hover:bg-[#e8c547]/10
+          ${fontClass}
+        `}
+      >
+        {link.label}
+      </Link>
+    );
+  }
+
+  return (
+    <button
+      key={link.id}
+      onClick={() => handleLinkClick(link)}
+      className={`
+        px-3 py-1.5 rounded-md
+        text-[12px]
+        text-white/50
+        no-underline
+        transition-all
+        hover:text-[#e8c547]
+        hover:bg-[#e8c547]/10
+        ${fontClass}
+        cursor-pointer
+        bg-transparent
+        border-none
+      `}
+    >
+      {link.label}
+    </button>
+  );
+})}
         </nav>
 
         {/* Right Side */}
