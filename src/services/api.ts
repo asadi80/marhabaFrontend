@@ -1,5 +1,3 @@
-// src/services/api.ts
-
 const API_URL = "https://api.mar-haba.ly";
 
 export interface ApiResponse<T = any> {
@@ -12,8 +10,24 @@ export interface ApiResponse<T = any> {
 class ApiService {
   private accessToken: string | null = null;
 
+  constructor() {
+    // Restore token after page refresh
+    this.accessToken = localStorage.getItem("authToken");
+  }
+
   setAccessToken(token: string | null) {
     this.accessToken = token;
+
+    if (token) {
+      localStorage.setItem("authToken", token);
+    } else {
+      localStorage.removeItem("authToken");
+    }
+  }
+
+  getAccessToken() {
+    // Always prefer memory token, otherwise use localStorage
+    return this.accessToken || localStorage.getItem("authToken");
   }
 
   private async request<T>(
@@ -22,22 +36,25 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     const url = `${API_URL}${endpoint}`;
 
-    // Check if the request body is FormData
+    /*
+     * IMPORTANT:
+     * Always get the latest token from localStorage.
+     * This fixes the upload 401 after login/page refresh.
+     */
+    const token = this.getAccessToken();
+
     const isFormData = options.body instanceof FormData;
 
     const headers: Record<string, string> = {};
 
-    // IMPORTANT:
-    // Do NOT manually set Content-Type for FormData.
-    // The browser will automatically set:
-    // multipart/form-data; boundary=....
+    // Do NOT set Content-Type for FormData.
     if (!isFormData) {
       headers["Content-Type"] = "application/json";
     }
 
-    // Add Authorization header
-    if (this.accessToken) {
-      headers["Authorization"] = `Bearer ${this.accessToken}`;
+    // Add JWT
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
     }
 
     // Merge custom headers
@@ -55,10 +72,19 @@ class ApiService {
       credentials: "include",
     };
 
-    try {
-      const response = await fetch(url, config);
+    console.log("🌐 API Request:", {
+      url,
+      method: options.method || "GET",
+      hasToken: !!token,
+      tokenPreview: token
+        ? `${token.substring(0, 15)}...`
+        : null,
+      isFormData,
+    });
 
-      // Try to parse JSON response
+    try {
+      let response = await fetch(url, config);
+
       let data: any;
 
       try {
@@ -67,12 +93,39 @@ class ApiService {
         data = {};
       }
 
-      if (!response.ok) {
-        // Handle token expiration
-        if (response.status === 401) {
-          throw new Error("UNAUTHORIZED");
-        }
+      console.log("🌐 API Response:", {
+        url,
+        status: response.status,
+        data,
+      });
 
+      // ─────────────────────────────────────
+      // UNAUTHORIZED
+      // ─────────────────────────────────────
+
+  if (response.status === 401) {
+  console.error("❌ API returned 401:", {
+    url,
+    hasToken: !!token,
+    message: data?.message,
+    code: data?.code,
+  });
+
+  const error = new Error(
+    data?.message || "Unauthorized"
+  );
+
+  // Keep the backend error code available
+  (error as any).code = data?.code;
+
+  throw error;
+}
+
+      // ─────────────────────────────────────
+      // OTHER ERRORS
+      // ─────────────────────────────────────
+
+      if (!response.ok) {
         return {
           success: false,
           message: data.message || "Request failed",
@@ -87,14 +140,19 @@ class ApiService {
         code: data.code,
       };
     } catch (error) {
-      if (error instanceof Error && error.message === "UNAUTHORIZED") {
+      if (
+        error instanceof Error &&
+        error.message === "UNAUTHORIZED"
+      ) {
         throw error;
       }
 
       return {
         success: false,
         message:
-          error instanceof Error ? error.message : "Network error",
+          error instanceof Error
+            ? error.message
+            : "Network error",
       };
     }
   }
@@ -152,15 +210,29 @@ class ApiService {
   // PROTECTED GET
   // ─────────────────────────────────────────────
 
-  async getProtectedData<T = any>(
-    endpoint: string,
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint);
+async getProtectedData<T = any>(
+  endpoint: string,
+  params?: Record<string, any>
+): Promise<ApiResponse<T>> {
+  // Build URL with query parameters
+  let url = endpoint;
+  if (params) {
+    const queryString = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        queryString.append(key, String(params[key]));
+      }
+    });
+    const qs = queryString.toString();
+    if (qs) {
+      url = `${endpoint}?${qs}`;
+    }
   }
-
+  
+  return this.request<T>(url);
+}
   // ─────────────────────────────────────────────
   // PROTECTED POST
-  // Supports JSON + FormData
   // ─────────────────────────────────────────────
 
   async postProtectedData<T = any>(
@@ -169,9 +241,6 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "POST",
-
-      // If data is FormData, send it directly.
-      // Otherwise convert it to JSON.
       body:
         data instanceof FormData
           ? data
@@ -181,7 +250,6 @@ class ApiService {
 
   // ─────────────────────────────────────────────
   // PROTECTED PUT
-  // Supports JSON + FormData
   // ─────────────────────────────────────────────
 
   async putProtectedData<T = any>(
@@ -190,7 +258,6 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "PUT",
-
       body:
         data instanceof FormData
           ? data
@@ -203,12 +270,32 @@ class ApiService {
   // ─────────────────────────────────────────────
 
   async deleteProtectedData<T = any>(
-    endpoint: string,
+endpoint: string, p0: { userId: string; },
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "DELETE",
     });
   }
+
+
+  
+// ─────────────────────────────────────────────
+// PROTECTED PATCH
+// ─────────────────────────────────────────────
+async patchProtectedData<T = any>(
+  endpoint: string,
+  data: any,
+): Promise<ApiResponse<T>> {
+  return this.request<T>(endpoint, {
+    method: "PATCH",
+    body:
+      data instanceof FormData
+        ? data
+        : JSON.stringify(data),
+  });
+}
+
+
 }
 
 export const apiService = new ApiService();

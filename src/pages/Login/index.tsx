@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useLanguage } from "../../hooks/useLanguage";
 import { useAuth } from "../../context/AuthContext";
+import { apiService } from "../../services/api";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -48,7 +49,7 @@ function Input({ className, ...props }: InputProps) {
 export default function LoginPage() {
   const navigate = useNavigate();
   const { lang, toggleLanguage } = useLanguage();
-    const { login } = useAuth(); 
+  const { login } = useAuth();
   const isAr = lang === "ar";
   const fontClass = isAr ? "font-arabic" : "font-sans";
 
@@ -61,14 +62,26 @@ export default function LoginPage() {
   // ── Translations ────────────────────────────────────────────────────────────
   const copy = {
     logo: isAr ? (
-      <>مر<span className="font-bold text-[#e8c547]">حبا</span></>
+      <>
+        مر<span className="font-bold text-[#e8c547]">حبا</span>
+      </>
     ) : (
-      <>mar<span className="font-bold text-[#e8c547]">haba</span></>
+      <>
+        mar<span className="font-bold text-[#e8c547]">haba</span>
+      </>
     ),
     heroTitle: isAr ? (
-      <>يسعدنا<br />عودتك.</>
+      <>
+        يسعدنا
+        <br />
+        عودتك.
+      </>
     ) : (
-      <>Good to see<br />you again.</>
+      <>
+        Good to see
+        <br />
+        you again.
+      </>
     ),
     heroSub: isAr
       ? "سجّل دخولك لإدارة حجوزاتك وقوائمك وإعدادات حسابك."
@@ -100,38 +113,43 @@ export default function LoginPage() {
     forgot: isAr ? "نسيت؟" : "forgot?",
     submit: isAr ? "تسجيل الدخول ←" : "sign in →",
     submitting: isAr ? "جارٍ الدخول..." : "signing in...",
-    security: isAr ? "محمي بتشفير معياري" : "Protected by industry-standard encryption",
+    security: isAr
+      ? "محمي بتشفير معياري"
+      : "Protected by industry-standard encryption",
     langToggle: isAr ? "🇬🇧" : "🇱🇾",
     error: isAr ? "حدث خطأ ما" : "Something went wrong",
   };
 
   // ── Handlers ──────────────────────────────────────────────────────────────
-  // LoginPage.jsx - Update handleSubmit
 
-const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
     setHtmlError("");
 
     try {
-      const res = await fetch("https://api.mar-haba.ly/api/v1/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-        credentials: "include",
-      });
+      // Use apiService instead of direct fetch
+      const response = await apiService.login(email, password);
 
-      const data = await res.json();
+      if (response.success && response.data) {
+        const userData = response.data.user;
+        const tokens = response.data.tokens;
+        const verificationStatus = response.data.verificationStatus;
 
-      if (res.ok) {
-        // Save user and tokens using auth context
-        const userData = data.data?.user;
-        const tokens = data.data?.tokens;
-        
         if (userData && tokens) {
+          // If user is a host, include verification status in user data
+          if (userData.role === "host" && verificationStatus) {
+            userData.verificationStatus = verificationStatus;
+          }
+
+          // Set the access token in apiService
+          apiService.setAccessToken(tokens.accessToken);
+
+          // Login the user through context
           login(userData, tokens);
-          
+
+          // Redirect based on role
           const role = userData.role;
           if (role === "admin" || role === "super_admin") {
             navigate("/admin");
@@ -140,18 +158,28 @@ const handleSubmit = async (e: React.FormEvent) => {
           } else {
             navigate("/user-dashboard");
           }
+        } else {
+          setError(
+            isAr ? "بيانات تسجيل الدخول غير مكتملة" : "Incomplete login data",
+          );
+          setLoading(false);
         }
       } else {
-        if (data.code === "EMAIL_NOT_VERIFIED") {
+        // Handle API error
+        if (response.code === "EMAIL_NOT_VERIFIED") {
           navigate(`/resend-verification?email=${encodeURIComponent(email)}`);
         } else {
-          setError(data.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"));
+          setError(
+            response.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"),
+          );
         }
         setLoading(false);
       }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError(copy.error);
+    } catch (error: any) {
+      console.error("Login error:", error);
+
+      setError(error?.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"));
+
       setLoading(false);
     }
   };
@@ -197,14 +225,20 @@ const handleSubmit = async (e: React.FormEvent) => {
               >
                 {copy.heroTitle}
               </h2>
-              <p className="text-[13px] text-white/35 leading-relaxed">{copy.heroSub}</p>
+              <p className="text-[13px] text-white/35 leading-relaxed">
+                {copy.heroSub}
+              </p>
             </div>
           </div>
 
           {/* Stats */}
           <div className="flex flex-col gap-5 relative">
             {copy.stats.map(({ val, label, color }) => (
-              <div key={label} style={{ borderTop: `3px solid ${color}` }} className="pt-3">
+              <div
+                key={label}
+                style={{ borderTop: `3px solid ${color}` }}
+                className="pt-3"
+              >
                 <div
                   className={`text-[26px] text-white font-light leading-none ${
                     isAr ? "font-arabic" : "font-serif-italic"
@@ -256,7 +290,10 @@ const handleSubmit = async (e: React.FormEvent) => {
               </h1>
               <p className="text-[12px] text-[#999]">
                 {copy.noAccount}{" "}
-                <Link to="/signup" className="text-[#185FA5] no-underline font-medium">
+                <Link
+                  to="/signup"
+                  className="text-[#185FA5] no-underline font-medium"
+                >
                   {copy.signupFree}
                 </Link>
               </p>
@@ -265,9 +302,26 @@ const handleSubmit = async (e: React.FormEvent) => {
             {/* Error - Regular Text Error */}
             {error && !htmlError && (
               <div className="animate-fadeUp flex items-center gap-2 px-3.5 py-2.5 bg-[#FCEBEB] border border-[#a32d2d]/15 rounded-lg text-[12px] text-[#791F1F] mb-5">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
-                  <circle cx="7" cy="7" r="6" stroke="#A32D2D" strokeWidth="1.2" />
-                  <path d="M7 4v3.5M7 9.5h.01" stroke="#A32D2D" strokeWidth="1.2" strokeLinecap="round" />
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  className="shrink-0"
+                >
+                  <circle
+                    cx="7"
+                    cy="7"
+                    r="6"
+                    stroke="#A32D2D"
+                    strokeWidth="1.2"
+                  />
+                  <path
+                    d="M7 4v3.5M7 9.5h.01"
+                    stroke="#A32D2D"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
                 </svg>
                 {error}
               </div>
@@ -282,7 +336,10 @@ const handleSubmit = async (e: React.FormEvent) => {
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="animate-fadeUp fu2 space-y-3.5">
+            <form
+              onSubmit={handleSubmit}
+              className="animate-fadeUp fu2 space-y-3.5"
+            >
               <Field label={copy.emailLabel}>
                 <Input
                   type="email"
@@ -298,7 +355,10 @@ const handleSubmit = async (e: React.FormEvent) => {
                   <label className="block text-[10px] tracking-widest uppercase text-[#999]">
                     {copy.passLabel}
                   </label>
-                  <Link to="/forgot-password" className="text-[11px] text-[#185FA5] no-underline">
+                  <Link
+                    to="/forgot-password"
+                    className="text-[11px] text-[#185FA5] no-underline"
+                  >
                     {copy.forgot}
                   </Link>
                 </div>

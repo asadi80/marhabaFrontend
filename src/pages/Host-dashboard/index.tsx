@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "../../context/AuthContext";
@@ -6,1178 +6,1530 @@ import { useLanguage } from "../../hooks/useLanguage";
 import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
-// import { uploadToCloudinary } from "../../lib/uploadToCloudinary";
-// import { compressImage } from "../../lib/compressImage";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────────────────────────────────────
+/* ==========================================================================
+   TYPES
+========================================================================== */
 
-interface HostDetails {
-  rating?: number;
-}
-
-interface HostUser {
-  id: string;
-  name: string;
-  email: string;
-  role: "user" | "host" | "admin" | "super_admin";
-  status?: string;
-  phone_number?: string;
-  email_verified?: boolean;
-  created_at?: string;
-  createdAt?: string;
-  statusReason?: string;
-  idVerificationUrl?: string;
-  paymentReceiptUrl?: string;
-  hostExpiryDate?: string;
-  hostDetails?: HostDetails;
+interface BlockedDateRange {
+  id?: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
 }
 
 interface Listing {
   id: string;
   title?: string;
+  name?: string;
+  status?: string;
+  price?: number | string;
+  price_per_night?: number | string;
+  created_at?: string;
+  createdAt?: string;
   location?: string;
-  price?: number;
-  is_active?: boolean;
+  blocked_dates?: BlockedDateRange[];
+}
+
+interface BookingUser {
+  id: string;
+  name?: string;
+  email?: string;
+  phone_number?: string;
+}
+
+interface BookingListing {
+  id: string;
+  title?: string;
+  location?: string;
+  blocked_dates?: BlockedDateRange[];
+  price?: number | string;
 }
 
 interface Booking {
   id: string;
+
   listing_id?: string;
-  listing?: Listing;
+  user_id?: string;
+
   check_in?: string;
   check_out?: string;
-  guests?: number;
+
   total_price?: number | string;
+  total_amount?: number | string;
+  totalAmount?: number | string;
+  amount?: number | string;
+
+  guests?: number;
+
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
+
+  no_show?: boolean;
+
   status?: string;
+
   created_at?: string;
   createdAt?: string;
+  updated_at?: string;
+
+  listing?: BookingListing;
+  user?: BookingUser;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Avatar
-// ─────────────────────────────────────────────────────────────────────────────
+interface HostSubscriptionPayment {
+  id: string;
+  host_id: string;
+  amount: number | string;
+  status: "pending" | "approved" | "rejected";
+  receipt_images: string[];
+  paid_at: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  reference: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
-const AVATAR_PAL = [
-  { bg: "#EEEDFE", color: "#3C3489" },
-  { bg: "#E6F1FB", color: "#0C447C" },
-  { bg: "#EAF3DE", color: "#27500A" },
-  { bg: "#FAEEDA", color: "#633806" },
-  { bg: "#E1F5EE", color: "#085041" },
-  { bg: "#FBEAF0", color: "#72243E" },
+interface IDDocument {
+  id: string;
+  user_id?: string;
+  document_type?: string;
+  side?: string;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_type?: string | null;
+  status?: string;
+  rejection_reason?: string | null;
+  reviewed_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface VerificationStatus {
+  id: {
+    documents?: IDDocument[];
+    uploaded: boolean;
+    verified: boolean;
+    verified_at: string | null;
+    rejected?: boolean;
+    rejection_reason?: string | null;
+    status?: string;
+  };
+
+  payment: {
+    uploaded: boolean;
+    status: "pending" | "approved" | "rejected";
+    amount: number | string | null;
+    submitted_at: string | null;
+    rejection_reason: string | null;
+    rejected?: boolean;
+    approved_at?: string | null;
+    payment?: HostSubscriptionPayment | null;
+  };
+
+  overall_status?: string;
+}
+
+/* ==========================================================================
+   CONSTANTS
+========================================================================== */
+
+const HOST_ROLE = "host";
+
+/* ==========================================================================
+   NAVIGATION
+========================================================================== */
+
+const NAV_LINKS = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    labelAr: "لوحة التحكم",
+    href: "/host/dashboard",
+  },
+  {
+    id: "listings",
+    label: "My Listings",
+    labelAr: "إعلاناتي",
+    href: "/host/listings",
+  },
+  {
+    id: "bookings",
+    label: "Bookings",
+    labelAr: "الحجوزات",
+    href: "/host/bookings",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    labelAr: "الإعدادات",
+    href: "/host/settings",
+  },
 ];
 
-const avi = (name?: string) =>
-  AVATAR_PAL[(name?.charCodeAt(0) ?? 0) % AVATAR_PAL.length];
+const QUICK_ACTIONS = [
+  {
+    href: "/host/listings",
+    icon: "🏠",
+    label: {
+      en: "Manage Listings",
+      ar: "إدارة الإعلانات",
+    },
+    desc: {
+      en: "Add and edit your listings",
+      ar: "إضافة وتعديل إعلاناتك",
+    },
+  },
+  {
+    href: "/host/listings/new",
+    icon: "+",
+    iconClass: "text-[#e8c547]",
+    label: {
+      en: "Create Listing",
+      ar: "إضافة إعلان",
+    },
+    desc: {
+      en: "Create a new listing",
+      ar: "أنشئ إعلاناً جديداً",
+    },
+  },
+  {
+    href: "/host/bookings",
+    icon: "📅",
+    label: {
+      en: "View Bookings",
+      ar: "الحجوزات",
+    },
+    desc: {
+      en: "Review your bookings",
+      ar: "راجع حجوزاتك",
+    },
+  },
+  {
+    href: "/host/settings",
+    icon: "⚙️",
+    label: {
+      en: "Settings",
+      ar: "الإعدادات",
+    },
+    desc: {
+      en: "ID and payment receipt",
+      ar: "الهوية وإيصال الدفع",
+    },
+  },
+] as const;
 
-const initials = (name?: string) =>
+/* ==========================================================================
+   HELPERS
+========================================================================== */
+
+const toRole = (role?: string) => String(role || "").toLowerCase();
+
+const formatCurrency = (
+  value: number | string | null | undefined,
+  isArabic: boolean,
+) => {
+  const numValue = typeof value === "string" ? parseFloat(value) : value;
+
+  if (value === null || value === undefined || Number.isNaN(numValue)) {
+    return isArabic ? "غير محدد" : "Not specified";
+  }
+
+  return new Intl.NumberFormat(isArabic ? "ar-LY" : "en-LY", {
+    style: "currency",
+    currency: "LYD",
+    maximumFractionDigits: 2,
+  }).format(numValue as number);
+};
+
+const getInitials = (name?: string) =>
   name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
+    ?.trim()
+    .split(/\s+/)
     .slice(0, 2)
-    .toUpperCase() ?? "H";
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "H";
 
-// Shared config for the two upload widgets (ID doc + payment receipt)
-const ACCEPTED_FILE_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "application/pdf",
-  "image/heic",
-  "image/heif",
-];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+/* ==========================================================================
+   HOST STATUS
+========================================================================== */
 
-const isHeicFile = (file: File) =>
-  ["image/heic", "image/heif", "application/octet-stream", ""].includes(
-    file.type,
-  ) || /\.(heic|heif)$/i.test(file.name);
+const STATUS_LABELS: Record<string, [string, string]> = {
+  pending: ["Pending Review", "قيد المراجعة"],
+  verified: ["Active", "نشط"],
+  active: ["Active", "نشط"],
+  approved: ["Approved", "تمت الموافقة"],
+  suspended: ["Suspended", "موقوف"],
+  expired: ["Expired", "منتهي"],
+  confirmed: ["Confirmed", "مؤكد"],
+};
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────────────────────────────────────
+const getStatusLabel = (status: string, isArabic: boolean) => {
+  const label = STATUS_LABELS[toRole(status)];
 
-export default function HostDashboard() {
-  const navigate = useNavigate();
-  const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { lang, toggleLanguage } = useLanguage();
-  const isAr = lang === "ar";
-  const user = authUser as HostUser | null;
+  return label
+    ? label[isArabic ? 1 : 0]
+    : status || (isArabic ? "غير معروف" : "Unknown");
+};
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // State
-  // ─────────────────────────────────────────────────────────────────────────
+const getStatusClasses = (status: string) => {
+  const normalized = toRole(status);
 
-  const [stats, setStats] = useState({
-    totalListings: 0,
-    totalBookings: 0,
-    confirmedBookings: 0,
-    totalEarnings: 0,
-    rating: 0,
+  if (normalized === "pending") {
+    return "bg-yellow-400/15 text-[#946f00] border border-yellow-400/40";
+  }
+
+  if (["verified", "active", "approved", "confirmed"].includes(normalized)) {
+    return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+  }
+
+  if (["suspended", "expired", "rejected"].includes(normalized)) {
+    return "bg-red-50 text-red-700 border border-red-200";
+  }
+
+  return "bg-gray-100 text-gray-600 border border-gray-200";
+};
+
+/* ==========================================================================
+   BOOKING STATUS
+========================================================================== */
+
+const BOOKING_STATUS_LABELS: Record<string, [string, string]> = {
+  pending: ["Pending", "قيد الانتظار"],
+
+  confirmed: ["Confirmed", "مؤكد"],
+
+  checked_in: ["Checked In", "تم تسجيل الوصول"],
+
+  checked_out: ["Checked Out", "تم تسجيل المغادرة"],
+
+  approved: ["Approved", "تمت الموافقة"],
+
+  completed: ["Completed", "مكتمل"],
+
+  cancelled: ["Cancelled", "ملغى"],
+
+  rejected: ["Rejected", "مرفوض"],
+
+  no_show: ["No Show", "لم يحضر"],
+};
+
+const getBookingStatusLabel = (
+  status: string | undefined,
+  isArabic: boolean,
+) => {
+  const normalized = toRole(status);
+
+  const label = BOOKING_STATUS_LABELS[normalized];
+
+  if (label) {
+    return label[isArabic ? 1 : 0];
+  }
+
+  return status || (isArabic ? "غير معروف" : "Unknown");
+};
+
+const getBookingStatusClasses = (status?: string) => {
+  const normalized = toRole(status);
+
+  if (
+    [
+      "confirmed",
+      "approved",
+      "completed",
+      "checked_in",
+      "checked_out",
+    ].includes(normalized)
+  ) {
+    return "bg-emerald-50 text-emerald-700 border border-emerald-200";
+  }
+
+  if (["cancelled", "rejected", "no_show"].includes(normalized)) {
+    return "bg-red-50 text-red-700 border border-red-200";
+  }
+
+  return "bg-yellow-400/15 text-[#946f00] border border-yellow-400/30";
+};
+
+/* ==========================================================================
+   BOOKING HELPERS
+========================================================================== */
+
+/**
+ * Your API returns:
+ *
+ * "total_price": "1000.01"
+ *
+ * So total_price must be checked first.
+ */
+const getBookingAmount = (booking: Booking) => {
+  return Number(
+    booking.total_price ??
+      booking.total_amount ??
+      booking.totalAmount ??
+      booking.amount ??
+      0,
+  );
+};
+
+const getBookingDate = (booking: Booking) => {
+  return booking.created_at || booking.createdAt || "";
+};
+
+const formatBookingDate = (date: string | undefined, isArabic: boolean) => {
+  if (!date) {
+    return isArabic ? "غير محدد" : "Not specified";
+  }
+
+  const parsedDate = new Date(date);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return isArabic ? "غير محدد" : "Not specified";
+  }
+
+  return parsedDate.toLocaleDateString(isArabic ? "ar-LY" : "en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
+};
+
+const formatBookingDateRange = (booking: Booking, isArabic: boolean) => {
+  const checkIn = formatBookingDate(booking.check_in, isArabic);
+
+  const checkOut = formatBookingDate(booking.check_out, isArabic);
+
+  return `${checkIn} → ${checkOut}`;
+};
+
+/**
+ * Dates that count as real reservations.
+ * Cancelled/rejected bookings do not count.
+ */
+const isValidBookingStatus = (status?: string) => {
+  return !["cancelled", "rejected"].includes(toRole(status));
+};
+
+/**
+ * Used for confirmed booking count
+ * and earnings.
+ */
+const isConfirmedBookingStatus = (status?: string) => {
+  return ["confirmed", "checked_in", "checked_out", "completed"].includes(
+    toRole(status),
+  );
+};
+
+/* ==========================================================================
+   COMPONENT
+========================================================================== */
+
+const HostDashboard: React.FC = () => {
+  const navigate = useNavigate();
+
+  const {
+    user,
+    isAuthenticated,
+    isLoading: authLoading,
+    updateVerificationStatus,
+  } = useAuth();
+
+  const { lang, toggleLanguage } = useLanguage();
+
+  const isArabic = lang === "ar";
+
+  const fontClass = isArabic ? "font-arabic" : "font-sans";
+
+  /* ------------------------------------------------------------------------
+     STATE
+  ------------------------------------------------------------------------ */
+
   const [loading, setLoading] = useState(true);
 
-  // ID upload
-  const [idFile, setIdFile] = useState<File | null>(null);
-  const [idPreview, setIdPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadDone, setUploadDone] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
 
-  // Payment receipt upload
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
-  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
-  const [receiptUploading, setReceiptUploading] = useState(false);
-  const [receiptUploaded, setReceiptUploaded] = useState(false);
-  const [receiptError, setReceiptError] = useState("");
-  const [receiptDragOver, setReceiptDragOver] = useState(false);
-  const receiptInputRef = useRef<HTMLInputElement | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Authentication
-  // ─────────────────────────────────────────────────────────────────────────
+  const [error, setError] = useState("");
+
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  const [blockedDates, setBlockedDates] = useState<
+    Record<string, BlockedDateRange[]>
+  >({});
+
+  const isAuthorizedHost =
+    isAuthenticated && !!user && toRole(user.role) === HOST_ROLE;
+
+  /* ==========================================================================
+     AUTHORIZATION
+  ========================================================================== */
 
   useEffect(() => {
     if (authLoading) return;
+
     if (!isAuthenticated || !user) {
-      navigate("/login", { replace: true });
+      navigate("/login", {
+        replace: true,
+      });
+
       return;
     }
-    if (user.role !== "host") {
-      navigate("/user-dashboard", { replace: true });
+
+    if (toRole(user.role) !== HOST_ROLE) {
+      navigate("/user-dashboard", {
+        replace: true,
+      });
     }
   }, [authLoading, isAuthenticated, user, navigate]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Fetch host dashboard data
-  // ─────────────────────────────────────────────────────────────────────────
+  /* ==========================================================================
+     LOAD DASHBOARD DATA
+  ========================================================================== */
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !user) return;
-    if (user.role !== "host") return;
+    if (authLoading || !isAuthorizedHost || dataLoaded) {
+      return;
+    }
 
     const loadDashboard = async () => {
+      setLoading(true);
+      setError("");
+
+      console.log("========================================");
+      console.log("🏠 HOST DASHBOARD LOADING");
+      console.log("👤 User ID:", user?.id);
+      console.log("👤 User:", user);
+      console.log("🌐 API BASE:", import.meta.env.VITE_API_URL);
+      console.log("========================================");
+
       try {
-        const [listingsResponse, bookingsResponse] = await Promise.all([
-          apiService.getProtectedData<{ listings?: Listing[] }>(
-            "/api/host/listings",
-          ),
-          apiService.getProtectedData<{ bookings?: Booking[] }>(
-            "/api/bookings",
-          ),
-        ]);
+        const [listingsRes, bookingsRes, verificationRes] =
+          await Promise.allSettled([
+            // ============================================================
+            // LISTINGS API
+            // ============================================================
+            apiService
+              .getProtectedData<{
+                listings?: Listing[];
+              }>(`/api/v1/listings/host/${user.id}`)
+              .then((res) => {
+                console.log("========================================");
+                console.log("🏠 LISTINGS API");
+                console.log("➡️ URL:", `/api/v1/listings/host/${user.id}`);
+                console.log("⬅️ RESPONSE:", res);
+                console.log("⬅️ SUCCESS:", res?.success);
+                console.log("⬅️ DATA:", res?.data);
+                console.log("⬅️ LISTINGS:", res?.data?.listings);
+                console.log("========================================");
 
-        let listings: Listing[] = [];
-        if (listingsResponse.success && listingsResponse.data) {
-          const data = listingsResponse.data;
-          listings = Array.isArray(data) ? data : data.listings || [];
+                return res;
+              }),
+
+            // ============================================================
+            // BOOKINGS API
+            // ============================================================
+            apiService
+              .getProtectedData<
+                | Booking[]
+                | {
+                    bookings?: Booking[];
+                  }
+              >("/api/v1/bookings/host")
+              .then((res) => {
+                console.log("========================================");
+                console.log("📅 BOOKINGS API");
+                console.log("➡️ URL:", "/api/v1/bookings/host");
+                console.log("⬅️ RESPONSE:", res);
+                console.log("⬅️ SUCCESS:", res?.success);
+                console.log("⬅️ DATA:", res?.data);
+
+                if (Array.isArray(res?.data)) {
+                  console.log("📊 BOOKINGS COUNT:", res.data.length);
+
+                  console.table(
+                    res.data.map((booking: any) => ({
+                      id: booking.id,
+                      listing_id: booking.listing_id,
+                      listing: booking.listing?.title,
+                      guest: booking.user?.name,
+                      email: booking.user?.email,
+                      phone: booking.user?.phone_number,
+                      check_in: booking.check_in,
+                      check_out: booking.check_out,
+                      guests: booking.guests,
+                      total_price: booking.total_price,
+                      status: booking.status,
+                      checked_in_at: booking.checked_in_at,
+                      checked_out_at: booking.checked_out_at,
+                      no_show: booking.no_show,
+                      created_at: booking.created_at,
+                      updated_at: booking.updated_at,
+                    })),
+                  );
+                } else {
+                  console.log("📊 BOOKINGS:", res?.data?.bookings);
+
+                  if (Array.isArray(res?.data?.bookings)) {
+                    console.log("📊 BOOKINGS COUNT:", res.data.bookings.length);
+
+                    console.table(
+                      res.data.bookings.map((booking: any) => ({
+                        id: booking.id,
+                        listing_id: booking.listing_id,
+                        listing: booking.listing?.title,
+                        guest: booking.user?.name,
+                        email: booking.user?.email,
+                        phone: booking.user?.phone_number,
+                        check_in: booking.check_in,
+                        check_out: booking.check_out,
+                        guests: booking.guests,
+                        total_price: booking.total_price,
+                        status: booking.status,
+                        checked_in_at: booking.checked_in_at,
+                        checked_out_at: booking.checked_out_at,
+                        no_show: booking.no_show,
+                        created_at: booking.created_at,
+                        updated_at: booking.updated_at,
+                      })),
+                    );
+                  }
+                }
+
+                console.log("========================================");
+
+                return res;
+              }),
+
+            // ============================================================
+            // VERIFICATION API
+            // ============================================================
+            apiService
+              .getProtectedData<VerificationStatus>(
+                "/api/v1/auth/host-verification-status",
+              )
+              .then((res) => {
+                console.log("========================================");
+                console.log("🔐 VERIFICATION API");
+                console.log("➡️ URL:", "/api/v1/auth/host-verification-status");
+                console.log("⬅️ RESPONSE:", res);
+                console.log("⬅️ SUCCESS:", res?.success);
+                console.log("⬅️ DATA:", res?.data);
+                console.log("========================================");
+
+                return res;
+              }),
+          ]);
+
+        // ============================================================
+        // LOG ALL PROMISE RESULTS
+        // ============================================================
+
+        console.log("========================================");
+        console.log("📦 ALL DASHBOARD API RESULTS");
+        console.log("========================================");
+
+        console.log("🏠 Listings:", listingsRes.status, listingsRes);
+
+        console.log("📅 Bookings:", bookingsRes.status, bookingsRes);
+
+        console.log(
+          "🔐 Verification:",
+          verificationRes.status,
+          verificationRes,
+        );
+
+        // ============================================================
+        // LISTINGS
+        // ============================================================
+        if (listingsRes.status === "fulfilled" && listingsRes.value.success) {
+          const responseData = listingsRes.value.data;
+
+          const fetchedListings: Listing[] = Array.isArray(responseData)
+            ? responseData
+            : Array.isArray(responseData?.listings)
+              ? responseData.listings
+              : [];
+
+          console.log("🏠 TOTAL LISTINGS:", fetchedListings.length);
+
+          setListings(fetchedListings);
+        } else {
+          console.error("❌ LISTINGS API FAILED:", listingsRes);
         }
 
-        let bookings: Booking[] = [];
-        if (bookingsResponse.success && bookingsResponse.data) {
-          const data = bookingsResponse.data;
-          bookings = Array.isArray(data) ? data : data.bookings || [];
+        // ============================================================
+        // BOOKINGS
+        // ============================================================
+
+        if (bookingsRes.status === "fulfilled" && bookingsRes.value.success) {
+          const responseData = bookingsRes.value.data;
+
+          console.log("📅 RAW BOOKING DATA:", responseData);
+
+          const fetchedBookings: Booking[] = Array.isArray(responseData)
+            ? responseData
+            : Array.isArray(responseData?.bookings)
+              ? responseData.bookings
+              : [];
+
+          console.log("📅 FINAL BOOKINGS:", fetchedBookings);
+
+          console.log("📊 BOOKING COUNT:", fetchedBookings.length);
+
+          setBookings(fetchedBookings);
+
+          // ==========================================================
+          // BLOCKED DATES
+          // ==========================================================
+
+          const blockedMap: Record<string, BlockedDateRange[]> = {};
+
+          fetchedBookings.forEach((booking) => {
+            console.log("----------------------------------------");
+
+            console.log("📅 PROCESSING BOOKING:", booking.id);
+
+            const listing = booking.listing;
+
+            console.log("🏠 BOOKING LISTING:", listing);
+
+            if (!listing?.id) {
+              console.warn("⚠️ Booking has no listing:", booking);
+              return;
+            }
+
+            const dates = Array.isArray(listing.blocked_dates)
+              ? listing.blocked_dates
+              : [];
+
+            console.log("🚫 BLOCKED DATES:", dates);
+
+            const existing = blockedMap[listing.id] ?? [];
+
+            dates.forEach((blockedDate) => {
+              console.log("🚫 BLOCKED DATE:", blockedDate);
+
+              if (
+                !existing.some(
+                  (existingDate) => existingDate.id === blockedDate.id,
+                )
+              ) {
+                existing.push(blockedDate);
+              }
+            });
+
+            blockedMap[listing.id] = existing;
+          });
+
+          console.log("🚫 FINAL BLOCKED DATES MAP:", blockedMap);
+
+          setBlockedDates(blockedMap);
+        } else {
+          console.error("❌ BOOKINGS API FAILED:", bookingsRes);
         }
 
-        const confirmed = bookings.filter(
-          (booking) => booking.status === "confirmed",
-        );
-        const totalEarnings = confirmed.reduce(
-          (sum, booking) =>
-            sum + (parseFloat(String(booking.total_price ?? 0)) || 0),
-          0,
-        );
+        // ============================================================
+        // VERIFICATION
+        // ============================================================
 
-        setStats({
-          totalListings: listings.length,
-          totalBookings: bookings.length,
-          confirmedBookings: confirmed.length,
-          totalEarnings,
-          rating: user.hostDetails?.rating || 0,
-        });
+        if (
+          verificationRes.status === "fulfilled" &&
+          verificationRes.value.success &&
+          verificationRes.value.data
+        ) {
+          console.log("🔐 UPDATING VERIFICATION:", verificationRes.value.data);
 
-        if (user.idVerificationUrl) setUploadDone(true);
-        if (user.paymentReceiptUrl) setReceiptUploaded(true);
-      } catch (error) {
-        console.error("Failed to load host dashboard:", error);
+          updateVerificationStatus(verificationRes.value.data);
+        } else {
+          console.error("❌ VERIFICATION API FAILED:", verificationRes);
+        }
+
+        console.log("========================================");
+        console.log("✅ HOST DASHBOARD LOADING COMPLETE");
+        console.log("========================================");
+      } catch (err: any) {
+        console.error("❌ Dashboard loading error:", err);
+
+        console.error("❌ Error message:", err?.message);
+
+        console.error("❌ Error stack:", err?.stack);
+
+        setError(
+          isArabic
+            ? "حدث خطأ أثناء تحميل لوحة التحكم"
+            : "Failed to load dashboard",
+        );
       } finally {
+        setDataLoaded(true);
         setLoading(false);
+
+        console.log("🏁 Dashboard loading finished");
       }
     };
 
     loadDashboard();
-  }, [authLoading, isAuthenticated, user]);
+  }, [
+    authLoading,
+    isAuthorizedHost,
+    dataLoaded,
+    isArabic,
+    updateVerificationStatus,
+  ]);
+  /* ==========================================================================
+     FETCH BOOKINGS
+  ========================================================================== */
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Logout
-  // ─────────────────────────────────────────────────────────────────────────
+  const fetchBookings = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-  const handleLogout = async () => {
     try {
-      await apiService.postProtectedData("/api/auth/logout", {});
-    } catch (error) {
-      console.error("Logout error:", error);
+      const response = await apiService.getProtectedData<
+        | Booking[]
+        | {
+            bookings: Booking[];
+          }
+      >("/api/v1/bookings/host");
+
+      console.log("HOST BOOKINGS:", response);
+
+      if (response.success && response.data) {
+        const fetchedBookings: Booking[] = Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response.data.bookings)
+            ? response.data.bookings
+            : [];
+
+        setBookings(fetchedBookings);
+
+        /* --------------------------------------------------------------
+             BUILD BLOCKED DATE MAP
+          -------------------------------------------------------------- */
+
+        const blockedMap: Record<string, BlockedDateRange[]> = {};
+
+        fetchedBookings.forEach((booking) => {
+          const listing = booking.listing;
+
+          if (!listing?.id) {
+            return;
+          }
+
+          const dates = Array.isArray(listing.blocked_dates)
+            ? listing.blocked_dates
+            : [];
+
+          const existing = blockedMap[listing.id] ?? [];
+
+          dates.forEach((blockedDate) => {
+            if (!existing.some((date) => date.id === blockedDate.id)) {
+              existing.push(blockedDate);
+            }
+          });
+
+          blockedMap[listing.id] = existing;
+        });
+
+        setBlockedDates(blockedMap);
+      } else {
+        setBookings([]);
+        setBlockedDates({});
+
+        setError(
+          response.message ||
+            (isArabic ? "لم يتم العثور على حجوزات" : "No bookings found"),
+        );
+      }
+    } catch (err: any) {
+      console.error("Fetch bookings error:", err);
+
+      setError(
+        err?.message ||
+          (isArabic ? "فشل تحميل الحجوزات" : "Failed to fetch bookings"),
+      );
+
+      setBookings([]);
+      setBlockedDates({});
     } finally {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("tokens");
-      navigate("/login", { replace: true });
+      setLoading(false);
     }
-  };
+  }, [isArabic]);
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // ID file
-  // ─────────────────────────────────────────────────────────────────────────
+  /* ==========================================================================
+     DERIVED DATA
+  ========================================================================== */
 
-  const handleFileChange = async (file?: File) => {
-    if (!file) return;
+  const stats = useMemo(() => {
+    const confirmedBookings = bookings.filter((booking) =>
+      isConfirmedBookingStatus(booking.status),
+    ).length;
 
-    if (!ACCEPTED_FILE_TYPES.includes(file.type) && !isHeicFile(file)) {
-      setUploadError(
-        isAr
-          ? "صيغة غير مدعومة. استخدم JPG أو PNG أو HEIC أو PDF."
-          : "Unsupported format. Use JPG, PNG, HEIC or PDF.",
-      );
-      return;
-    }
+    const earnings = bookings.reduce((total, booking) => {
+      if (isConfirmedBookingStatus(booking.status)) {
+        return total + getBookingAmount(booking);
+      }
 
-    if (file.size > MAX_FILE_SIZE) {
-      setUploadError(
-        isAr ? "الملف أكبر من 10 ميغابايت." : "File exceeds 10 MB.",
-      );
-      return;
-    }
+      return total;
+    }, 0);
 
-    try {
-      setUploadError("");
-      const converted = await compressImage(file);
-      setIdFile(converted);
-      setIdPreview(
-        converted.type.startsWith("image/")
-          ? URL.createObjectURL(converted)
-          : null,
-      );
-    } catch (error) {
-      console.error("File compression error:", error);
-      setUploadError(isAr ? "فشل تجهيز الملف." : "Failed to process file.");
-    }
-  };
+    return {
+      totalListings: listings.length,
+      totalBookings: bookings.length,
+      confirmedBookings,
+      earnings,
+    };
+  }, [listings, bookings]);
 
-const handleUploadID = async () => {
-  if (!idFile) return;
+  /* ==========================================================================
+     RECENT BOOKINGS
+  ========================================================================== */
 
-  setUploading(true);
-  setUploadError("");
+  const recentBookings = useMemo(
+    () =>
+      [...bookings]
+        .sort(
+          (a, b) =>
+            new Date(getBookingDate(b)).getTime() -
+            new Date(getBookingDate(a)).getTime(),
+        )
+        .slice(0, 5),
+    [bookings],
+  );
 
-  try {
-    const formData = new FormData();
+  /* ==========================================================================
+     USER STATUS
+  ========================================================================== */
 
-    // IMPORTANT: backend expects "image"
-    formData.append("image", idFile);
+  const userStatus = toRole(user?.status);
 
-    const response = await apiService.postProtectedData(
-      "/api/v1/uploads/ids",
-      formData
-    );
+  const isPending = userStatus === "pending";
 
-    if (!response.success) {
-      throw new Error(
-        response.message || "Failed to upload ID verification"
-      );
-    }
+  const isSuspended = userStatus === "suspended";
 
-    console.log("ID uploaded:", response.data);
+  const isExpired = userStatus === "expired";
 
-    setUploadDone(true);
-    setIdFile(null);
-    setIdPreview(null);
+  /* ==========================================================================
+     GUARDS
+  ========================================================================== */
 
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  } catch (error) {
-    console.error("ID upload error:", error);
-
-    setUploadError(
-      isAr
-        ? `فشل الرفع: ${
-            error instanceof Error ? error.message : "خطأ غير معروف"
-          }`
-        : `Upload failed: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`
-    );
-  } finally {
-    setUploading(false);
-  }
-};
-  // ─────────────────────────────────────────────────────────────────────────
-  // Payment receipt file
-  // ─────────────────────────────────────────────────────────────────────────
-
-  const handleReceiptFileChange = async (file?: File) => {
-    if (!file) return;
-
-    if (!ACCEPTED_FILE_TYPES.includes(file.type) && !isHeicFile(file)) {
-      setReceiptError(
-        isAr
-          ? "صيغة غير مدعومة. استخدم JPG أو PNG أو HEIC أو PDF."
-          : "Unsupported format. Use JPG, PNG, HEIC or PDF.",
-      );
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      setReceiptError(
-        isAr ? "الملف أكبر من 10 ميغابايت." : "File exceeds 10 MB.",
-      );
-      return;
-    }
-
-    try {
-      setReceiptError("");
-      const converted = await compressImage(file);
-      setReceiptFile(converted);
-      setReceiptPreview(
-        converted.type.startsWith("image/")
-          ? URL.createObjectURL(converted)
-          : null,
-      );
-    } catch (error) {
-      console.error("Receipt compression error:", error);
-      setReceiptError(
-        isAr ? "فشل تجهيز إيصال الدفع." : "Failed to process payment receipt.",
-      );
-    }
-  };
-
-const handleUploadReceipt = async () => {
-  if (!receiptFile) return;
-
-  setReceiptUploading(true);
-  setReceiptError("");
-
-  try {
-    const formData = new FormData();
-
-    // IMPORTANT: backend expects "image"
-    formData.append("image", receiptFile);
-
-    const response = await apiService.postProtectedData(
-      "/api/v1/uploads/payments",
-      formData
-    );
-
-    if (!response.success) {
-      throw new Error(
-        response.message || "Failed to upload payment receipt"
-      );
-    }
-
-    console.log("Payment receipt uploaded:", response.data);
-
-    setReceiptUploaded(true);
-    setReceiptFile(null);
-    setReceiptPreview(null);
-
-    if (receiptInputRef.current) {
-      receiptInputRef.current.value = "";
-    }
-  } catch (error) {
-    console.error("Payment receipt upload error:", error);
-
-    setReceiptError(
-      isAr
-        ? `فشل الرفع: ${
-            error instanceof Error ? error.message : "خطأ غير معروف"
-          }`
-        : `Upload failed: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`
-    );
-  } finally {
-    setReceiptUploading(false);
-  }
-};
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Loading / guard states
-  // ─────────────────────────────────────────────────────────────────────────
-
-  if (authLoading || loading) return <LoadingScreen />;
-  if (!isAuthenticated || !user) return null;
-  if (user.role !== "host") return null;
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Helpers
-  // ─────────────────────────────────────────────────────────────────────────
-
-  const userInitials = initials(user.name);
-  const { bg: aviBg, color: aviColor } = avi(user.name);
-
-  const displayFont = isAr
-    ? { fontFamily: "'Cairo','Tajawal',sans-serif" }
-    : { fontFamily: "'Fraunces',serif", fontStyle: "italic" as const };
-
-  const formatCurrency = (n: number) =>
-    isAr
-      ? `${Math.round(n).toLocaleString()} دينار`
-      : `${Math.round(n).toLocaleString()} LYD`;
-
-  const NAV_LINKS = [
-    {
-      id: "listings",
-      label: isAr ? "قوائمي" : "My Listings",
-      href: "/host/listings",
-    },
-    {
-      id: "bookings",
-      label: isAr ? "الحجوزات" : "Bookings",
-      href: "/host/bookings",
-    },
-  ];
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Pending / expired
-  // ─────────────────────────────────────────────────────────────────────────
-
-  if (user.status === "pending") {
-    const isExpired = user.statusReason === "expired";
-    const alreadyUploaded = uploadDone || !!user.idVerificationUrl;
-
-    return (
-      <div
-        className="min-h-screen bg-[#f4f4f5]"
-        dir={isAr ? "rtl" : "ltr"}
-        style={isAr ? { fontFamily: "'Cairo','Tajawal',sans-serif" } : {}}
-      >
-        <Navbar
-          NAV_LINKS={NAV_LINKS}
-          user={user}
-          lang={lang}
-          toggleLanguage={toggleLanguage}
-          onTabChange={() => {}}
-        />
-
-        <main className="max-w-[540px] mx-auto px-6 py-14">
-          <div className="bg-white rounded-3xl overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.08)]">
-            {/* Header */}
-            <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2d2d5e] px-8 pt-10 pb-8 relative overflow-hidden">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_20%,rgba(232,197,71,0.15)_0%,transparent_60%)]" />
-              <div
-                className="absolute inset-0 opacity-[0.04]"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(45deg,#e8c547 0px,#e8c547 1px,transparent 1px,transparent 40px)",
-                }}
-              />
-
-              <div className="relative flex flex-col items-center text-center">
-                <div
-                  className="w-16 h-16 rounded-full flex items-center justify-center text-[22px] font-semibold mb-4 border-2 border-[#e8c547]/40"
-                  style={{ background: aviBg, color: aviColor }}
-                >
-                  {userInitials}
-                </div>
-
-                <span
-                  className={`text-[11px] font-bold px-3.5 py-1 rounded-full tracking-widest uppercase mb-3 ${
-                    isExpired
-                      ? "bg-red-500/20 text-red-300 border border-red-500/30"
-                      : "bg-[#e8c547]/15 text-[#e8c547] border border-[#e8c547]/30"
-                  }`}
-                >
-                  {isExpired
-                    ? isAr
-                      ? "انتهت الصلاحية"
-                      : "Expired"
-                    : isAr
-                      ? "قيد المراجعة"
-                      : "Pending Approval"}
-                </span>
-
-                <h2
-                  className="font-light text-[24px] text-white mb-2"
-                  style={displayFont}
-                >
-                  {isExpired
-                    ? isAr
-                      ? "انتهت صلاحية اشتراكك"
-                      : "Subscription Expired"
-                    : isAr
-                      ? "مرحباً بك في لوحة المضيف"
-                      : "Welcome, Host"}
-                </h2>
-
-                <p className="text-[13px] text-white/50 leading-relaxed max-w-[340px]">
-                  {alreadyUploaded
-                    ? isAr
-                      ? "تم استلام وثيقة الهوية. سيراجع الفريق حسابك ويُخطرك عند التفعيل."
-                      : "Your ID has been received. Our team will review and notify you once approved."
-                    : isAr
-                      ? "لإتمام تسجيلك كمضيف، يرجى رفع صورة من وثيقة هويتك الرسمية."
-                      : "To complete your host registration, please upload a copy of your official ID."}
-                </p>
-              </div>
-            </div>
-
-            {/* Body */}
-            <div className="px-8 py-8">
-              {alreadyUploaded ? (
-                <div className="bg-[#EAF3DE] rounded-2xl p-6 text-center border border-[#27500A]/10">
-                  <div className="text-4xl mb-3">✅</div>
-                  <div className="text-[15px] font-semibold text-[#27500A] mb-1">
-                    {isAr ? "تم رفع الهوية بنجاح" : "ID uploaded successfully"}
-                  </div>
-                  <div className="text-[12px] text-[#27500A]/60">
-                    {isAr
-                      ? "في انتظار موافقة الإدارة"
-                      : "Awaiting admin approval"}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div
-                    onClick={() => fileInputRef.current?.click()}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragOver(true);
-                    }}
-                    onDragLeave={() => setDragOver(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setDragOver(false);
-                      handleFileChange(e.dataTransfer.files[0]);
-                    }}
-                    className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                      dragOver
-                        ? "border-[#e8c547] bg-[#e8c547]/5 scale-[1.01]"
-                        : "border-gray-200 hover:border-[#e8c547] hover:bg-[#fdf8e7]"
-                    }`}
-                  >
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif"
-                      className="hidden"
-                      onChange={(e) => handleFileChange(e.target.files?.[0])}
-                    />
-
-                    {idPreview ? (
-                      <div>
-                        <img
-                          src={idPreview}
-                          alt="ID preview"
-                          className="max-h-36 max-w-full rounded-xl object-contain mb-3 mx-auto"
-                        />
-                        <div className="text-[12px] text-gray-500">
-                          {idFile?.name}
-                        </div>
-                      </div>
-                    ) : idFile ? (
-                      <div>
-                        <div className="text-[40px] mb-2">📄</div>
-                        <div className="text-[12px] text-gray-500">
-                          {idFile.name}
-                        </div>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="w-14 h-14 rounded-2xl bg-[#1a1a2e] flex items-center justify-center text-2xl mx-auto mb-4">
-                          🪪
-                        </div>
-                        <div className="text-[14px] font-semibold text-gray-700 mb-1">
-                          {isAr
-                            ? "اسحب الملف هنا أو انقر للاختيار"
-                            : "Drag & drop or click to choose"}
-                        </div>
-                        <div className="text-[11px] text-gray-400">
-                          {isAr
-                            ? "JPG · PNG · PDF — بحد أقصى 10 ميغابايت"
-                            : "JPG · PNG · PDF — max 10 MB"}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {uploadError && (
-                    <div className="mt-3 text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                      {uploadError}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleUploadID}
-                    disabled={!idFile || uploading}
-                    className="w-full mt-4 bg-[#1a1a2e] text-[#e8c547] border-none rounded-2xl py-3.5 px-6 text-[14px] font-semibold cursor-pointer transition-all hover:opacity-90 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0"
-                  >
-                    {uploading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="w-4 h-4 border-2 border-[#e8c547]/30 border-t-[#e8c547] rounded-full animate-spin" />
-                        {isAr ? "جارٍ الرفع..." : "Uploading..."}
-                      </span>
-                    ) : isAr ? (
-                      "رفع الهوية"
-                    ) : (
-                      "Submit ID for Verification"
-                    )}
-                  </button>
-
-                  <p className="text-[11px] text-gray-400 text-center mt-3 leading-relaxed">
-                    {isAr
-                      ? "تُستخدم هذه الوثيقة للتحقق من هويتك فقط ولن تُشارك مع أطراف أخرى."
-                      : "Used only for identity verification. Never shared with third parties."}
-                  </p>
-                </>
-              )}
-
-              {/* Payment receipt */}
-              <div className="mt-8 pt-8 border-t border-gray-100">
-                <div className="mb-4">
-                  <div className="text-[14px] font-semibold text-gray-700">
-                    {isAr ? "إيصال الدفع" : "Payment Receipt"}
-                  </div>
-                  <div className="text-[11px] text-gray-400 mt-1">
-                    {isAr
-                      ? "يرجى رفع صورة أو ملف إيصال الدفع الخاص بالاشتراك."
-                      : "Please upload your subscription payment receipt."}
-                  </div>
-                </div>
-
-                {receiptUploaded ? (
-                  <div className="bg-[#EAF3DE] rounded-2xl p-6 text-center border border-[#27500A]/10">
-                    <div className="text-4xl mb-3">✅</div>
-                    <div className="text-[15px] font-semibold text-[#27500A] mb-1">
-                      {isAr
-                        ? "تم رفع إيصال الدفع بنجاح"
-                        : "Payment receipt uploaded"}
-                    </div>
-                    <div className="text-[12px] text-[#27500A]/60">
-                      {isAr
-                        ? "تم استلام إيصال الدفع وسيتم مراجعته."
-                        : "Your payment receipt has been received and will be reviewed."}
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div
-                      onClick={() => receiptInputRef.current?.click()}
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setReceiptDragOver(true);
-                      }}
-                      onDragLeave={() => setReceiptDragOver(false)}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        setReceiptDragOver(false);
-                        handleReceiptFileChange(e.dataTransfer.files[0]);
-                      }}
-                      className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                        receiptDragOver
-                          ? "border-[#e8c547] bg-[#e8c547]/5 scale-[1.01]"
-                          : "border-gray-200 hover:border-[#e8c547] hover:bg-[#fdf8e7]"
-                      }`}
-                    >
-                      <input
-                        ref={receiptInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif"
-                        className="hidden"
-                        onChange={(e) =>
-                          handleReceiptFileChange(e.target.files?.[0])
-                        }
-                      />
-
-                      {receiptPreview ? (
-                        <div>
-                          <img
-                            src={receiptPreview}
-                            alt="Payment receipt preview"
-                            className="max-h-48 max-w-full rounded-xl object-contain mb-3 mx-auto"
-                          />
-                          <div className="text-[12px] text-gray-500">
-                            {receiptFile?.name}
-                          </div>
-                        </div>
-                      ) : receiptFile ? (
-                        <div>
-                          <div className="text-[40px] mb-2">🧾</div>
-                          <div className="text-[12px] text-gray-500">
-                            {receiptFile.name}
-                          </div>
-                        </div>
-                      ) : (
-                        <div>
-                          <div className="w-14 h-14 rounded-2xl bg-[#1a1a2e] flex items-center justify-center text-2xl mx-auto mb-4">
-                            🧾
-                          </div>
-                          <div className="text-[14px] font-semibold text-gray-700 mb-1">
-                            {isAr
-                              ? "اسحب إيصال الدفع هنا أو انقر للاختيار"
-                              : "Drag & drop or click to choose receipt"}
-                          </div>
-                          <div className="text-[11px] text-gray-400">
-                            {isAr
-                              ? "JPG · PNG · PDF — بحد أقصى 10 ميغابايت"
-                              : "JPG · PNG · PDF — max 10 MB"}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {receiptError && (
-                      <div className="mt-3 text-[12px] text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
-                        {receiptError}
-                      </div>
-                    )}
-
-                    <button
-                      onClick={handleUploadReceipt}
-                      disabled={!receiptFile || receiptUploading}
-                      className="w-full mt-4 bg-[#1a1a2e] text-[#e8c547] border-none rounded-2xl py-3.5 px-6 text-[14px] font-semibold cursor-pointer transition-all hover:opacity-90 hover:-translate-y-px disabled:opacity-40 disabled:cursor-not-allowed disabled:translate-y-0"
-                    >
-                      {receiptUploading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <span className="w-4 h-4 border-2 border-[#e8c547]/30 border-t-[#e8c547] rounded-full animate-spin" />
-                          {isAr
-                            ? "جارٍ رفع الإيصال..."
-                            : "Uploading receipt..."}
-                        </span>
-                      ) : isAr ? (
-                        "رفع إيصال الدفع"
-                      ) : (
-                        "Submit Payment Receipt"
-                      )}
-                    </button>
-
-                    <p className="text-[11px] text-gray-400 text-center mt-3 leading-relaxed">
-                      {isAr
-                        ? "سيتم استخدام الإيصال للتحقق من عملية الدفع."
-                        : "The receipt will be used to verify your payment."}
-                    </p>
-                  </>
-                )}
-              </div>
-
-              {/* Progress */}
-              <div className="mt-8 pt-6 border-t border-gray-100">
-                <div className="flex items-start">
-                  {[
-                    {
-                      step: 1,
-                      label: isAr ? "إنشاء الحساب" : "Create Account",
-                      done: true,
-                    },
-                    {
-                      step: 2,
-                      label: isAr ? "رفع الهوية" : "Upload ID",
-                      done: alreadyUploaded,
-                    },
-                    {
-                      step: 3,
-                      label: isAr ? "رفع أيصال الدفغ" : "Upload Payment",
-                      done: alreadyUploaded,
-                    },
-                    {
-                      step: 4,
-                      label: isAr ? "موافقة الإدارة" : "Admin Approval",
-                      done: false,
-                    },
-                    {
-                      step: 5,
-                      label: isAr ? "إضافة عقارات" : "Add Listings",
-                      done: false,
-                    },
-                  ].map((s, i, arr) => (
-                    <div
-                      key={s.step}
-                      className="flex-1 flex flex-col items-center relative"
-                    >
-                      {i < arr.length - 1 && (
-                        <div
-                          className={`absolute top-[14px] left-[calc(50%+14px)] right-[-calc(50%-14px)] h-0.5 ${
-                            s.done ? "bg-[#1D9E75]" : "bg-gray-200"
-                          }`}
-                        />
-                      )}
-                      <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold mb-2 relative z-10 transition-all ${
-                          s.done
-                            ? "bg-[#1D9E75] text-white"
-                            : "bg-gray-100 text-gray-400"
-                        }`}
-                      >
-                        {s.done ? "✓" : s.step}
-                      </div>
-                      <div
-                        className={`text-[10px] text-center leading-tight ${
-                          s.done
-                            ? "text-[#27500A] font-medium"
-                            : "text-gray-400"
-                        }`}
-                      >
-                        {s.label}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-    );
+  if (authLoading || loading) {
+    return <LoadingScreen />;
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // Main dashboard
-  // ─────────────────────────────────────────────────────────────────────────
+  if (!isAuthorizedHost) {
+    return null;
+  }
 
-  const avgPerBooking = stats.totalEarnings / (stats.confirmedBookings || 1);
-  const pendingCount = stats.totalBookings - stats.confirmedBookings;
-  const confirmationRate =
-    stats.totalBookings > 0
-      ? Math.round((stats.confirmedBookings / stats.totalBookings) * 100)
-      : 0;
+  /* ==========================================================================
+     RENDER
+  ========================================================================== */
 
   return (
     <div
-      className="min-h-screen bg-[#f4f4f5]"
-      dir={isAr ? "rtl" : "ltr"}
-      style={isAr ? { fontFamily: "'Cairo','Tajawal',sans-serif" } : {}}
+      className={`min-h-screen bg-white text-gray-900 ${fontClass}`}
+      dir={isArabic ? "rtl" : "ltr"}
     >
       <Navbar
         NAV_LINKS={NAV_LINKS}
-        user={user}
         lang={lang}
         toggleLanguage={toggleLanguage}
-        onTabChange={() => {}}
       />
 
-      {/* PAGE HEADER */}
-      <div className="bg-gradient-to-br from-[#1a1a2e] to-[#2d2d5e] relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_50%,rgba(232,197,71,0.12)_0%,transparent_60%)] pointer-events-none" />
+      {/* ================================================================
+          HERO
+      ================================================================= */}
+
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#2d2d5e] to-[#1a1a2e] px-6 py-14">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(232,197,71,0.12)_0%,transparent_60%)]" />
+
         <div
-          className="absolute inset-0 opacity-[0.04] pointer-events-none"
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
           style={{
             backgroundImage:
               "repeating-linear-gradient(45deg,#e8c547 0px,#e8c547 1px,transparent 1px,transparent 40px)",
           }}
         />
 
-        <div className="max-w-[1100px] mx-auto px-6 py-10 relative">
-          <div className="flex items-center justify-between gap-6 flex-wrap">
-            <div className="flex items-center gap-4">
-              <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center text-[18px] font-semibold shrink-0 border border-white/10"
-                style={{ background: aviBg, color: aviColor }}
-              >
-                {userInitials}
+        <div className="relative mx-auto max-w-7xl">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-yellow-400/30 bg-yellow-400/15 px-3.5 py-1.5 text-[11px] uppercase tracking-widest text-yellow-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
+
+                {isArabic ? "لوحة المضيف" : "Host Dashboard"}
               </div>
 
-              <div>
-                <div className="text-[10px] tracking-[0.12em] uppercase text-[#e8c547]/60 mb-1">
-                  {isAr ? "لوحة المضيف" : "Host Panel"}
-                </div>
+              <div className="mb-2 flex flex-wrap items-center gap-3">
+                <h1 className="text-[clamp(26px,3.5vw,40px)] font-light leading-[1.1] text-white">
+                  {isArabic ? "مرحباً " : "Welcome, "}
 
-                <h1
-                  className="font-light text-[clamp(22px,3vw,30px)] text-white leading-tight"
-                  style={displayFont}
-                >
-                  {isAr
-                    ? `مرحباً، ${user.name?.split(" ")[0]}`
-                    : `Welcome back, ${user.name?.split(" ")[0]}`}
+                  <span className="font-bold text-[#e8c547]">{user!.name}</span>
                 </h1>
 
-                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                  <span className="text-[11px] text-white/40">
-                    {isAr ? "تاريخ انتهاء الاشتراك:" : "Subscription expires:"}{" "}
-                    <span className="text-white/60">
-                      {user.hostExpiryDate
-                        ? new Date(user.hostExpiryDate).toLocaleDateString()
-                        : isAr
-                          ? "غير متاح"
-                          : "N/A"}
-                    </span>
-                  </span>
-
-                  <span className="inline-flex items-center gap-1.5 bg-[#1D9E75]/20 border border-[#1D9E75]/30 text-[#1D9E75] text-[10px] font-semibold px-2.5 py-1 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
-                    {isAr ? "نشط" : "Active"}
-                  </span>
-                </div>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClasses(
+                    user!.status || "",
+                  )}`}
+                >
+                  {getStatusLabel(user!.status || "", isArabic)}
+                </span>
               </div>
+
+              <p className="max-w-xl text-[15px] leading-relaxed text-white/50">
+                {isArabic
+                  ? "إدارة إعلاناتك وحجوزاتك من مكان واحد."
+                  : "Manage your listings and bookings from one place."}
+              </p>
             </div>
 
-            <Link
-              to="/host/listings"
-              className="inline-flex items-center gap-2 bg-[#e8c547] text-[#1a1a2e] px-5 py-2.5 rounded-xl text-[13px] font-bold no-underline hover:bg-yellow-300 hover:-translate-y-px transition-all shrink-0"
-            >
-              + {isAr ? "إضافة قائمة" : "New Listing"}
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/host/settings"
+                className="rounded-xl border border-white/20 bg-white/10 px-5 py-3 font-medium text-white transition hover:bg-white/15"
+              >
+                {isArabic ? "الإعدادات" : "Settings"}
+              </Link>
+
+              <Link
+                to="/host/listings"
+                className="rounded-xl bg-yellow-400 px-5 py-3 font-bold text-[#1a1a2e] transition hover:bg-yellow-300"
+              >
+                + {isArabic ? "إضافة إعلان" : "New Listing"}
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <main className="max-w-[1100px] mx-auto px-4 md:px-6 py-8">
-        {/* STAT CARDS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          {[
-            {
-              label: isAr ? "القوائم النشطة" : "Active Listings",
-              value: stats.totalListings,
-              sub: isAr ? "عقار مدرج" : "listed properties",
-              accent: "#378ADD",
-              icon: "🏠",
-            },
-            {
-              label: isAr ? "إجمالي الحجوزات" : "Total Bookings",
-              value: stats.totalBookings,
-              sub: `${stats.confirmedBookings} ${isAr ? "مؤكد" : "confirmed"}`,
-              accent: "#7F77DD",
-              icon: "📅",
-            },
-            {
-              label: isAr ? "الأرباح المؤكدة" : "Confirmed Earnings",
-              value: formatCurrency(stats.totalEarnings),
-              sub: isAr ? "من الحجوزات المؤكدة" : "from confirmed bookings",
-              accent: "#1D9E75",
-              icon: "💰",
-            },
-            {
-              label: isAr ? "تقييم المضيف" : "Host Rating",
-              value: stats.rating ? stats.rating.toFixed(1) : "—",
-              sub: isAr ? "متوسط التقييم" : "average score",
-              accent: "#e8c547",
-              icon: "⭐",
-            },
-          ].map(({ label, value, sub, accent, icon }) => (
-            <div
-              key={label}
-              className="bg-white rounded-2xl border border-black/7 p-5 relative overflow-hidden group hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(0,0,0,0.08)] transition-all duration-200"
-              style={{ borderTop: `3px solid ${accent}` }}
+      {/* ================================================================
+          MAIN
+      ================================================================= */}
+
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {/* ==============================================================
+            TABS
+        =============================================================== */}
+
+        <div className="mb-8 flex gap-2 overflow-x-auto border-b border-gray-100 pb-1">
+          {NAV_LINKS.map((item) => (
+            <Link
+              key={item.id}
+              to={item.href}
+              className={`whitespace-nowrap rounded-t-xl px-4 py-3 text-sm font-medium transition ${
+                item.id === "dashboard"
+                  ? "bg-[#1a1a2e] text-yellow-400"
+                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-900"
+              }`}
             >
-              <div className="flex items-start justify-between mb-3">
-                <div className="text-[11px] tracking-[0.08em] uppercase text-gray-400 font-semibold leading-tight">
-                  {label}
-                </div>
-                <span className="text-xl opacity-60">{icon}</span>
-              </div>
-
-              <div
-                className="font-light text-[32px] leading-none text-[#111118] mb-1"
-                style={displayFont}
-              >
-                {value}
-              </div>
-
-              <div className="text-[11px] text-gray-400">{sub}</div>
-            </div>
+              {isArabic ? item.labelAr : item.label}
+            </Link>
           ))}
         </div>
 
-        {/* MIDDLE */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_340px] gap-4 mb-4">
-          {/* Booking summary */}
-          <div className="bg-white rounded-2xl border border-black/7 p-6">
-            <div className="flex items-center justify-between mb-5">
-              <h2
-                className="font-light text-[20px] text-[#111118]"
-                style={displayFont}
-              >
-                {isAr ? "ملخص الحجوزات" : "Booking Summary"}
-              </h2>
-              <Link
-                to="/host/bookings"
-                className="text-[12px] text-[#185FA5] no-underline font-medium hover:underline"
-              >
-                {isAr ? "عرض الكل" : "View all"} →
-              </Link>
-            </div>
+        {/* ==============================================================
+            ERROR
+        =============================================================== */}
 
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                {
-                  label: isAr ? "مؤكدة" : "Confirmed",
-                  value: stats.confirmedBookings,
-                  sub: isAr ? "جاهز للضيوف" : "Ready for guests",
-                  bg: "#EAF3DE",
-                  color: "#27500A",
-                  border: "#1D9E75",
-                },
-                {
-                  label: isAr ? "معلقة" : "Pending",
-                  value: pendingCount,
-                  sub: isAr ? "تنتظر الإجراء" : "Awaiting action",
-                  bg: "#FAEEDA",
-                  color: "#633806",
-                  border: "#BA7517",
-                },
-                {
-                  label: isAr ? "متوسط الحجز" : "Avg / Booking",
-                  value: formatCurrency(avgPerBooking),
-                  sub: isAr ? "من المؤكدة" : "From confirmed",
-                  bg: "#E6F1FB",
-                  color: "#0C447C",
-                  border: "#378ADD",
-                },
-              ].map(({ label, value, sub, bg, color, border }) => (
-                <div
-                  key={label}
-                  className="rounded-2xl p-4"
-                  style={{ background: bg, borderTop: `3px solid ${border}` }}
-                >
-                  <div
-                    className="font-light text-[28px] leading-none mb-1"
-                    style={{ ...displayFont, color }}
-                  >
-                    {value}
-                  </div>
-                  <div
-                    className="text-[11px] font-semibold uppercase tracking-wide mb-0.5"
-                    style={{ color, opacity: 0.85 }}
-                  >
-                    {label}
-                  </div>
-                  <div className="text-[11px]" style={{ color, opacity: 0.55 }}>
-                    {sub}
-                  </div>
+        {error && (
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* ==============================================================
+            PENDING
+        =============================================================== */}
+
+        {isPending && (
+          <div className="mb-8 overflow-hidden rounded-2xl border border-yellow-400/30 bg-[#1a1a2e] p-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="mb-2 flex items-center gap-2">
+                  <span className="text-xl">⏳</span>
+
+                  <h2 className="font-bold text-white">
+                    {isArabic
+                      ? "حساب المضيف قيد المراجعة"
+                      : "Your host account is under review"}
+                  </h2>
                 </div>
-              ))}
-            </div>
 
-            {/* Confirmation */}
-            <div className="mt-5 pt-5 border-t border-gray-100">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] text-gray-400 uppercase tracking-widest font-semibold">
-                  {isAr ? "نسبة التأكيد" : "Confirmation rate"}
-                </span>
-                <span className="text-[13px] font-semibold text-[#1D9E75]">
-                  {stats.totalBookings > 0 ? `${confirmationRate}%` : "—"}
-                </span>
+                <p className="text-sm leading-6 text-white/60">
+                  {isArabic
+                    ? "يمكنك استخدام لوحة التحكم وإضافة وإدارة الإعلانات أثناء مراجعة حسابك."
+                    : "You can use your dashboard and add or manage listings while your account is being reviewed."}
+                </p>
               </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#1D9E75] rounded-full transition-all duration-700"
-                  style={{
-                    width:
-                      stats.totalBookings > 0 ? `${confirmationRate}%` : "0%",
-                  }}
-                />
-              </div>
+
+              <Link
+                to="/host/settings"
+                className="shrink-0 rounded-xl bg-yellow-400 px-4 py-2.5 font-semibold text-[#1a1a2e] transition hover:bg-yellow-300"
+              >
+                {isArabic ? "إكمال التحقق" : "Complete Verification"}
+              </Link>
             </div>
           </div>
+        )}
 
-          {/* Quick actions */}
-          <div className="flex flex-col gap-3">
-            {[
-              {
-                href: "/host/listings",
-                label: isAr ? "إدارة القوائم" : "Manage Listings",
-                desc: isAr
-                  ? "أضف أو عدّل أو أوقف عقاراتك"
-                  : "Add, edit or pause your properties",
-                accent: "#7F77DD",
-                icon: "🏠",
-              },
-              {
-                href: "/host/bookings",
-                label: isAr ? "الحجوزات" : "View Bookings",
-                desc: isAr
-                  ? "تأكيد أو رفض طلبات الضيوف"
-                  : "Confirm or decline guest requests",
-                accent: "#1D9E75",
-                icon: "📋",
-              },
-              {
-                href: "/host-resources",
-                label: isAr ? "موارد المضيف" : "Host Resources",
-                desc: isAr
-                  ? "أدلة ونصائح لتحسين أدائك"
-                  : "Guides and tips to improve your hosting",
-                accent: "#e8c547",
-                icon: "📚",
-              },
-            ].map(({ href, label, desc, accent, icon }) => (
-              <Link
-                key={href}
-                to={href}
-                className="bg-white rounded-2xl border border-black/7 p-5 no-underline flex items-center gap-4 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.07)] transition-all duration-200 group"
-                style={{ borderLeft: `3px solid ${accent}` }}
-              >
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
-                  style={{ background: `${accent}18` }}
-                >
-                  {icon}
-                </div>
+        {/* ==============================================================
+            SUSPENDED
+        =============================================================== */}
 
-                <div className="flex-1 min-w-0">
-                  <div className="text-[14px] font-semibold text-[#111118] mb-0.5">
-                    {label}
-                  </div>
-                  <div className="text-[12px] text-gray-400 leading-snug">
-                    {desc}
-                  </div>
-                </div>
+        {isSuspended && (
+          <div className="mb-8 rounded-2xl border border-red-200 bg-red-50 p-5">
+            <h2 className="mb-2 font-bold text-red-900">
+              {isArabic
+                ? "حساب المضيف موقوف"
+                : "Your host account is suspended"}
+            </h2>
 
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="shrink-0 opacity-30 group-hover:opacity-60 transition-opacity"
-                >
-                  <path
-                    d={isAr ? "M10 3L5 8l5 5" : "M6 3l5 5-5 5"}
-                    stroke="#111"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </Link>
-            ))}
+            {user!.statusReason && (
+              <p className="text-sm text-red-800">{user!.statusReason}</p>
+            )}
+          </div>
+        )}
+
+        {/* ==============================================================
+            EXPIRED
+        =============================================================== */}
+
+        {isExpired && (
+          <div className="mb-8 rounded-2xl border border-yellow-400/40 bg-yellow-50 p-5">
+            <h2 className="mb-2 font-bold text-[#7a5c00]">
+              {isArabic
+                ? "انتهت صلاحية اشتراك المضيف"
+                : "Your host subscription has expired"}
+            </h2>
+
+            <p className="text-sm text-[#8a6a00]">
+              {isArabic
+                ? "راجع الإعدادات لمعرفة الخطوات المطلوبة."
+                : "Please check Settings for the next steps."}
+            </p>
+          </div>
+        )}
+
+        {/* ==============================================================
+            STATS
+        =============================================================== */}
+
+        <div className="mb-8 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+          {/* LISTINGS */}
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
+              <span className="text-sm text-gray-500">
+                {isArabic ? "إعلاناتي" : "My Listings"}
+              </span>
+
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a1a2e]">
+                🏠
+              </span>
+            </div>
+
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.totalListings}
+            </div>
+
+            <Link
+              to="/host/listings"
+              className="mt-3 inline-block text-sm font-semibold text-[#1a1a2e] hover:underline"
+            >
+              {isArabic ? "إدارة الإعلانات →" : "Manage listings →"}
+            </Link>
+          </div>
+
+          {/* TOTAL BOOKINGS */}
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
+              <span className="text-sm text-gray-500">
+                {isArabic ? "الحجوزات" : "Bookings"}
+              </span>
+
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a1a2e]">
+                📅
+              </span>
+            </div>
+
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.totalBookings}
+            </div>
+
+            <p className="mt-3 text-sm text-gray-500">
+              {stats.confirmedBookings} {isArabic ? "مؤكدة" : "confirmed"}
+            </p>
+          </div>
+
+          {/* CONFIRMED */}
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
+              <span className="text-sm text-gray-500">
+                {isArabic ? "الحجوزات المؤكدة" : "Confirmed"}
+              </span>
+
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a1a2e] text-[#e8c547]">
+                ✓
+              </span>
+            </div>
+
+            <div className="text-3xl font-bold text-gray-900">
+              {stats.confirmedBookings}
+            </div>
+
+            <p className="mt-3 text-sm text-gray-500">
+              {isArabic ? "الحجوزات المؤكدة" : "Confirmed bookings"}
+            </p>
+          </div>
+
+          {/* EARNINGS */}
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="mb-5 flex items-center justify-between">
+              <span className="text-sm text-gray-500">
+                {isArabic ? "الأرباح" : "Earnings"}
+              </span>
+
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a1a2e]">
+                💰
+              </span>
+            </div>
+
+            <div className="text-2xl font-bold text-gray-900">
+              {formatCurrency(stats.earnings, isArabic)}
+            </div>
+
+            <p className="mt-3 text-sm text-gray-500">
+              {isArabic ? "من الحجوزات المؤكدة" : "From confirmed bookings"}
+            </p>
           </div>
         </div>
 
-        {/* PROFILE */}
-        <div className="bg-white rounded-2xl border border-black/7 p-5 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-[14px] font-semibold shrink-0"
-              style={{ background: aviBg, color: aviColor }}
-            >
-              {userInitials}
-            </div>
-            <div>
-              <div className="text-[14px] font-semibold text-[#111118]">
-                {user.name}
+        {/* ==============================================================
+            BOOKINGS + QUICK ACTIONS
+        =============================================================== */}
+
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          {/* ============================================================
+              RECENT BOOKINGS
+          ============================================================= */}
+
+          <div className="rounded-2xl border border-gray-100 bg-white shadow-sm lg:col-span-2">
+            <div className="flex items-center justify-between border-b border-gray-100 p-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">
+                  {isArabic ? "أحدث الحجوزات" : "Recent Bookings"}
+                </h2>
+
+                <p className="mt-1 text-sm text-gray-500">
+                  {isArabic
+                    ? "تفاصيل أحدث الحجوزات على إعلاناتك"
+                    : "Details of the latest bookings for your listings"}
+                </p>
               </div>
-              <div className="text-[11px] text-gray-400">{user.email}</div>
+
+              <Link
+                to="/host/bookings"
+                className="text-sm font-semibold text-[#1a1a2e] hover:underline"
+              >
+                {isArabic ? "عرض الكل" : "View all"}
+              </Link>
             </div>
+
+            {/* NO BOOKINGS */}
+
+            {recentBookings.length === 0 ? (
+              <div className="p-10 text-center">
+                <div className="mb-4 text-4xl">📅</div>
+
+                <h3 className="font-semibold text-gray-900">
+                  {isArabic ? "لا توجد حجوزات بعد" : "No bookings yet"}
+                </h3>
+
+                <p className="mt-2 text-sm text-gray-500">
+                  {isArabic
+                    ? "عندما يحجز أحد الضيوف إعلانك ستظهر الحجوزات هنا."
+                    : "Bookings will appear here when guests book your listings."}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {recentBookings.map((booking) => {
+                  const status = toRole(booking.status);
+
+                  return (
+                    <div
+                      key={booking.id}
+                      className="p-5 transition hover:bg-gray-50"
+                    >
+                      {/* ==================================================
+                            TOP
+                        =================================================== */}
+
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                        {/* LISTING */}
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] text-lg">
+                              🏠
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-bold text-gray-900">
+                                {booking.listing?.title ||
+                                  (isArabic ? "إعلان" : "Listing")}
+                              </p>
+
+                              <p className="mt-0.5 truncate text-xs text-gray-500">
+                                {booking.listing?.location ||
+                                  (isArabic
+                                    ? "الموقع غير محدد"
+                                    : "Location not specified")}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* BOOKING ID */}
+
+                          <p className="mt-3 text-xs text-gray-400">
+                            {isArabic ? "رقم الحجز" : "Booking ID"}:{" "}
+                            <span className="font-mono">
+                              #{booking.id.slice(0, 8)}
+                            </span>
+                          </p>
+                        </div>
+
+                        {/* PRICE + STATUS */}
+
+                        <div className="flex shrink-0 flex-col items-start sm:items-end">
+                          <p className="text-lg font-bold text-gray-900">
+                            {formatCurrency(
+                              getBookingAmount(booking),
+                              isArabic,
+                            )}
+                          </p>
+
+                          <span
+                            className={`mt-1 rounded-full px-2.5 py-1 text-xs font-semibold ${getBookingStatusClasses(
+                              booking.status,
+                            )}`}
+                          >
+                            {getBookingStatusLabel(booking.status, isArabic)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* ==================================================
+                            BOOKING DETAILS
+                        =================================================== */}
+
+                      <div className="mt-5 grid grid-cols-1 gap-3 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
+                        {/* DATES */}
+
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg">📅</span>
+
+                          <div>
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                              {isArabic ? "تاريخ الإقامة" : "Stay dates"}
+                            </p>
+
+                            <p className="mt-1 text-sm font-semibold text-gray-900">
+                              {formatBookingDateRange(booking, isArabic)}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* GUESTS */}
+
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg">👥</span>
+
+                          <div>
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                              {isArabic ? "الضيوف" : "Guests"}
+                            </p>
+
+                            <p className="mt-1 text-sm font-semibold text-gray-900">
+                              {booking.guests ?? 0}{" "}
+                              {isArabic
+                                ? "ضيوف"
+                                : booking.guests === 1
+                                  ? "guest"
+                                  : "guests"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* GUEST */}
+
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg">👤</span>
+
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                              {isArabic ? "الضيف" : "Guest"}
+                            </p>
+
+                            <p className="mt-1 truncate text-sm font-semibold text-gray-900">
+                              {booking.user?.name ||
+                                (isArabic ? "غير محدد" : "Not specified")}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* PHONE */}
+
+                        <div className="flex items-start gap-3">
+                          <span className="text-lg">📞</span>
+
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                              {isArabic ? "الهاتف" : "Phone"}
+                            </p>
+
+                            <p className="mt-1 truncate text-sm font-semibold text-gray-900">
+                              {booking.user?.phone_number ||
+                                (isArabic ? "غير محدد" : "Not specified")}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* ==================================================
+                            EMAIL
+                        =================================================== */}
+
+                      {booking.user?.email && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                          <span>✉️</span>
+
+                          <span className="truncate">{booking.user.email}</span>
+                        </div>
+                      )}
+
+                      {/* ==================================================
+                            CHECK IN / CHECK OUT
+                        =================================================== */}
+
+                      {(booking.checked_in_at ||
+                        booking.checked_out_at ||
+                        booking.no_show) && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {booking.checked_in_at && (
+                            <span className="rounded-lg bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700">
+                              ✓ {isArabic ? "تم تسجيل الوصول" : "Checked in"}
+                            </span>
+                          )}
+
+                          {booking.checked_out_at && (
+                            <span className="rounded-lg bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700">
+                              ✓ {isArabic ? "تم تسجيل المغادرة" : "Checked out"}
+                            </span>
+                          )}
+
+                          {booking.no_show && (
+                            <span className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700">
+                              ⚠️ {isArabic ? "لم يحضر" : "No show"}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* ==================================================
+                            CREATED DATE
+                        =================================================== */}
+
+                      <div className="mt-4 text-[11px] text-gray-400">
+                        {isArabic ? "تم إنشاء الحجز" : "Booking created"}{" "}
+                        {formatBookingDate(getBookingDate(booking), isArabic)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <Link
-              to="/host/listings"
-              className="text-[12px] text-[#185FA5] no-underline bg-[#E6F1FB] px-3.5 py-1.5 rounded-lg font-medium hover:opacity-85 transition-opacity"
-            >
-              {isAr ? "القوائم" : "Listings"}
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="text-[12px] text-gray-500 bg-gray-100 border-none px-3.5 py-1.5 rounded-lg cursor-pointer font-[inherit] hover:bg-gray-200 transition-colors"
-            >
-              {isAr ? "تسجيل الخروج" : "Sign out"}
-            </button>
+          {/* ============================================================
+              QUICK ACTIONS
+          ============================================================= */}
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <h2 className="mb-5 text-lg font-bold text-gray-900">
+              {isArabic ? "إجراءات سريعة" : "Quick Actions"}
+            </h2>
+
+            <div className="space-y-3">
+              {QUICK_ACTIONS.map((action) => (
+                <Link
+                  key={action.href}
+                  to={action.href}
+                  className="flex items-center gap-3 rounded-xl bg-gray-50 p-4 transition hover:bg-gray-100"
+                >
+                  <span
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl bg-[#1a1a2e] text-lg ${
+                      "iconClass" in action ? action.iconClass : ""
+                    }`}
+                  >
+                    {action.icon}
+                  </span>
+
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {isArabic ? action.label.ar : action.label.en}
+                    </p>
+
+                    <p className="mt-1 text-xs text-gray-500">
+                      {isArabic ? action.desc.ar : action.desc.en}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ================================================================
+            PROFILE
+        ================================================================= */}
+
+        <div className="mt-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#1a1a2e] text-xl font-bold text-[#e8c547]">
+              {getInitials(user!.name)}
+            </div>
+
+            <div className="flex-1">
+              <h2 className="text-lg font-bold text-gray-900">{user!.name}</h2>
+
+              <p className="text-sm text-gray-500">{user!.email}</p>
+
+              {user!.phone_number && (
+                <p className="mt-1 text-sm text-gray-500">
+                  {user!.phone_number}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Link
+                to="/host/settings"
+                className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-900 hover:bg-gray-50"
+              >
+                {isArabic ? "تعديل الملف الشخصي" : "Edit Profile"}
+              </Link>
+            </div>
           </div>
         </div>
       </main>
     </div>
   );
-}
+};
+
+export default HostDashboard;

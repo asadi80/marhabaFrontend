@@ -87,13 +87,15 @@ export interface AppUser {
   id: string;
   name: string;
   email: string;
-  role: "user" | "host" | "admin" | "super_admin";
-  status?: string;
   phone_number?: string;
+  role?: "user" | "host" | "admin" | string;
+  status?: string;
+  status_reason?: string | null;
+  host_expiry_date?: string | null;
   email_verified?: boolean;
+  created_at?: string;
   createdAt?: string;
-  userType?: string;
-  [key: string]: unknown;
+  updated_at?: string;
 }
 
 export interface Booking {
