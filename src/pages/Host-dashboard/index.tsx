@@ -919,9 +919,27 @@ const HostDashboard: React.FC = () => {
     return <LoadingScreen />;
   }
 
-  if (!isAuthorizedHost) {
-    return null;
-  }
+if (!isAuthorizedHost) {
+  return (
+    <div style={{ padding: 40, fontFamily: "Arial" }}>
+      <h1>Host Dashboard Debug</h1>
+      <pre>
+        {JSON.stringify(
+          {
+            authLoading,
+            isAuthenticated,
+            user,
+            role: user?.role,
+            normalizedRole: toRole(user?.role),
+            isAuthorizedHost,
+          },
+          null,
+          2
+        )}
+      </pre>
+    </div>
+  );
+}
 
   /* ==========================================================================
      RENDER
