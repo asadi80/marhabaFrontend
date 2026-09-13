@@ -11,10 +11,30 @@ class ApiService {
   private accessToken: string | null = null;
 
   constructor() {
-    // Restore token after page refresh
-    this.accessToken = localStorage.getItem("authToken");
-  }
+  this.accessToken =
+    localStorage.getItem("authToken");
 
+  // Backward-compatible fallback
+  if (!this.accessToken) {
+    const storedTokens =
+      localStorage.getItem("tokens");
+
+    if (storedTokens) {
+      try {
+        const parsedTokens =
+          JSON.parse(storedTokens);
+
+        this.accessToken =
+          parsedTokens?.accessToken || null;
+      } catch (error) {
+        console.error(
+          "❌ Failed to parse stored tokens:",
+          error
+        );
+      }
+    }
+  }
+}
   setAccessToken(token: string | null) {
     this.accessToken = token;
 

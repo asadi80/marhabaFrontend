@@ -1,5 +1,5 @@
-
 // src/context/AuthContext.tsx
+import { apiService } from "../services/api";
 
 import React, {
   createContext,
@@ -148,9 +148,7 @@ interface AuthContextType {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const AuthContext = createContext<AuthContextType | undefined>(
-  undefined
-);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_URL = "https://api.mar-haba.ly";
 
@@ -174,45 +172,33 @@ export const AuthProvider: React.FC<{
   // ───────────────────────────────────────────────────────────────────────────
 
   const fetchCurrentUser = async (
-    accessToken: string
+    accessToken: string,
   ): Promise<User | null> => {
     try {
       console.log("🔄 Fetching latest user from server...");
 
-      const response = await fetch(
-        `${API_URL}/api/v1/auth/me`,
-        {
-          method: "GET",
+      const response = await fetch(`${API_URL}/api/v1/auth/me`, {
+        method: "GET",
 
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
 
-          credentials: "include",
-        }
-      );
+        credentials: "include",
+      });
 
-      console.log(
-        "📡 /auth/me status:",
-        response.status
-      );
+      console.log("📡 /auth/me status:", response.status);
 
       if (!response.ok) {
-        console.error(
-          "❌ /auth/me failed:",
-          response.status
-        );
+        console.error("❌ /auth/me failed:", response.status);
 
         return null;
       }
 
       const data = await response.json();
 
-      console.log(
-        "👤 Latest user from server:",
-        data
-      );
+      console.log("👤 Latest user from server:", data);
 
       /*
        * Your backend might return:
@@ -230,26 +216,17 @@ export const AuthProvider: React.FC<{
        * }
        */
 
-      const freshUser =
-        data?.data?.user ??
-        data?.data ??
-        data?.user ??
-        null;
+      const freshUser = data?.data?.user ?? data?.data ?? data?.user ?? null;
 
       if (!freshUser) {
-        console.error(
-          "❌ /auth/me did not return a user"
-        );
+        console.error("❌ /auth/me did not return a user");
 
         return null;
       }
 
       return freshUser as User;
     } catch (error) {
-      console.error(
-        "❌ Failed to fetch current user:",
-        error
-      );
+      console.error("❌ Failed to fetch current user:", error);
 
       return null;
     }
@@ -261,29 +238,19 @@ export const AuthProvider: React.FC<{
 
   const refreshUser = async (): Promise<User | null> => {
     if (!tokens?.accessToken) {
-      console.warn(
-        "⚠️ Cannot refresh user: no access token"
-      );
+      console.warn("⚠️ Cannot refresh user: no access token");
 
       return null;
     }
 
-    const freshUser = await fetchCurrentUser(
-      tokens.accessToken
-    );
+    const freshUser = await fetchCurrentUser(tokens.accessToken);
 
     if (freshUser) {
-      console.log(
-        "✅ Updating AuthContext with fresh user:",
-        freshUser.status
-      );
+      console.log("✅ Updating AuthContext with fresh user:", freshUser.status);
 
       setUser(freshUser);
 
-      localStorage.setItem(
-        "user",
-        JSON.stringify(freshUser)
-      );
+      localStorage.setItem("user", JSON.stringify(freshUser));
 
       return freshUser;
     }
@@ -298,27 +265,21 @@ export const AuthProvider: React.FC<{
   useEffect(() => {
     const loadAuthState = async () => {
       try {
-        const storedUser =
-          localStorage.getItem("user");
+        const storedUser = localStorage.getItem("user");
 
-        const storedTokens =
-          localStorage.getItem("tokens");
+        const storedTokens = localStorage.getItem("tokens");
 
         if (!storedUser || !storedTokens) {
-          console.log(
-            "ℹ️ No stored authentication"
-          );
+          console.log("ℹ️ No stored authentication");
 
           setIsLoading(false);
 
           return;
         }
 
-        const parsedUser: User =
-          JSON.parse(storedUser);
+        const parsedUser: User = JSON.parse(storedUser);
 
-        const parsedTokens: Tokens =
-          JSON.parse(storedTokens);
+        const parsedTokens: Tokens = JSON.parse(storedTokens);
 
         /*
          * First load the cached user so the application
@@ -327,44 +288,30 @@ export const AuthProvider: React.FC<{
 
         setUser(parsedUser);
         setTokens(parsedTokens);
+        apiService.setAccessToken(parsedTokens.accessToken);
 
-        console.log(
-          "📦 Cached user status:",
-          parsedUser.status
-        );
+        console.log("📦 Cached user status:", parsedUser.status);
 
         // ───────────────────────────────────────────
         // ⭐ IMPORTANT
         // Get the latest user from database
         // ───────────────────────────────────────────
 
-        const freshUser =
-          await fetchCurrentUser(
-            parsedTokens.accessToken
-          );
+        const freshUser = await fetchCurrentUser(parsedTokens.accessToken);
 
         if (freshUser) {
-          console.log(
-            "✅ Fresh database status:",
-            freshUser.status
-          );
+          console.log("✅ Fresh database status:", freshUser.status);
 
           setUser(freshUser);
 
-          localStorage.setItem(
-            "user",
-            JSON.stringify(freshUser)
-          );
+          localStorage.setItem("user", JSON.stringify(freshUser));
         } else {
           console.warn(
-            "⚠️ Could not refresh user from server. Using cached user."
+            "⚠️ Could not refresh user from server. Using cached user.",
           );
         }
       } catch (error) {
-        console.error(
-          "❌ Failed to load auth state:",
-          error
-        );
+        console.error("❌ Failed to load auth state:", error);
       } finally {
         setIsLoading(false);
       }
@@ -379,15 +326,9 @@ export const AuthProvider: React.FC<{
 
   useEffect(() => {
     if (user && tokens) {
-      localStorage.setItem(
-        "user",
-        JSON.stringify(user)
-      );
+      localStorage.setItem("user", JSON.stringify(user));
 
-      localStorage.setItem(
-        "tokens",
-        JSON.stringify(tokens)
-      );
+      localStorage.setItem("tokens", JSON.stringify(tokens));
     }
   }, [user, tokens]);
 
@@ -395,28 +336,23 @@ export const AuthProvider: React.FC<{
   // Login
   // ───────────────────────────────────────────────────────────────────────────
 
-  const login = (
-    userData: User,
-    tokensData: Tokens
-  ) => {
-    console.log(
-      "🔐 Login user:",
-      userData
-    );
+  const login = (userData: User, tokensData: Tokens) => {
+    console.log("🔐 Login user:", userData);
+    console.log("🔑 Access token received:", !!tokensData?.accessToken);
 
     setUser(userData);
-
     setTokens(tokensData);
 
-    localStorage.setItem(
-      "user",
-      JSON.stringify(userData)
-    );
+    // Store complete auth state
+    localStorage.setItem("user", JSON.stringify(userData));
 
-    localStorage.setItem(
-      "tokens",
-      JSON.stringify(tokensData)
-    );
+    localStorage.setItem("tokens", JSON.stringify(tokensData));
+
+    // IMPORTANT:
+    // apiService uses authToken for protected API requests
+    apiService.setAccessToken(tokensData.accessToken);
+
+    console.log("✅ Auth token saved");
   };
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -425,16 +361,16 @@ export const AuthProvider: React.FC<{
 
   const logout = () => {
     setUser(null);
-
     setTokens(null);
 
     localStorage.removeItem("user");
-
     localStorage.removeItem("tokens");
+    localStorage.removeItem("authToken");
+
+    apiService.setAccessToken(null);
 
     navigate("/login");
   };
-
   // ───────────────────────────────────────────────────────────────────────────
   // Update user
   // ───────────────────────────────────────────────────────────────────────────
@@ -442,10 +378,7 @@ export const AuthProvider: React.FC<{
   const updateUser = (userData: User) => {
     setUser(userData);
 
-    localStorage.setItem(
-      "user",
-      JSON.stringify(userData)
-    );
+    localStorage.setItem("user", JSON.stringify(userData));
   };
 
   // ───────────────────────────────────────────────────────────────────────────
@@ -468,50 +401,39 @@ export const AuthProvider: React.FC<{
     }
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/v1/auth/refresh`,
-        {
-          method: "POST",
+      const response = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+        method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-          },
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-          body: JSON.stringify({
-            refresh_token:
-              tokens.refreshToken,
-          }),
-        }
-      );
+        body: JSON.stringify({
+          refresh_token: tokens.refreshToken,
+        }),
+      });
 
       if (!response.ok) {
-        throw new Error(
-          "Refresh failed"
-        );
+        throw new Error("Refresh failed");
       }
 
       const data = await response.json();
 
-      const newTokens =
-        data.data?.tokens;
+      const newTokens = data.data?.tokens;
 
       if (newTokens) {
         setTokens(newTokens);
 
-        localStorage.setItem(
-          "tokens",
-          JSON.stringify(newTokens)
-        );
+        localStorage.setItem("tokens", JSON.stringify(newTokens));
+        // IMPORTANT
+        apiService.setAccessToken(newTokens.accessToken);
 
         return true;
       }
 
       return false;
     } catch (error) {
-      console.error(
-        "❌ Token refresh failed:",
-        error
-      );
+      console.error("❌ Token refresh failed:", error);
 
       logout();
 
@@ -523,9 +445,7 @@ export const AuthProvider: React.FC<{
   // Update verification status
   // ───────────────────────────────────────────────────────────────────────────
 
-  const updateVerificationStatus = (
-    status: VerificationStatus
-  ) => {
+  const updateVerificationStatus = (status: VerificationStatus) => {
     setUser((currentUser) => {
       if (!currentUser) {
         return currentUser;
@@ -537,10 +457,7 @@ export const AuthProvider: React.FC<{
         verificationStatus: status,
       };
 
-      localStorage.setItem(
-        "user",
-        JSON.stringify(updatedUser)
-      );
+      localStorage.setItem("user", JSON.stringify(updatedUser));
 
       return updatedUser;
     });
@@ -557,8 +474,7 @@ export const AuthProvider: React.FC<{
 
     isLoading,
 
-    isAuthenticated:
-      !!user && !!tokens,
+    isAuthenticated: !!user && !!tokens,
 
     login,
 
@@ -576,11 +492,7 @@ export const AuthProvider: React.FC<{
     updateVerificationStatus,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -588,15 +500,11 @@ export const AuthProvider: React.FC<{
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const useAuth = (): AuthContextType => {
-  const context =
-    useContext(AuthContext);
+  const context = useContext(AuthContext);
 
   if (context === undefined) {
-    throw new Error(
-      "useAuth must be used within an AuthProvider"
-    );
+    throw new Error("useAuth must be used within an AuthProvider");
   }
 
   return context;
 };
-
