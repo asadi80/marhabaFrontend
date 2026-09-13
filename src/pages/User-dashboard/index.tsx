@@ -257,30 +257,18 @@ export default function UserDashboard() {
   // to /login immediately instead of waiting on the first failed API call.
   // Only accounts with role "user" may stay on this page; anything else is
   // redirected to its own dashboard.
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!isAuthenticated || !user || !hasValidStoredToken()) {
-      navigate("/login", { replace: true });
-      return;
-    }
-
-    const role = toRole((user as any).role);
-
-    if (role !== USER_ROLE) {
-      navigate(role === "host" ? "/host-dashboard" : "/login", { replace: true });
-      return;
-    }
-
-    // Re-check periodically in case the token expires while this page is open.
-    const intervalId = window.setInterval(() => {
-      if (!hasValidStoredToken()) {
-        navigate("/login", { replace: true });
-      }
-    }, 60_000);
-
-    return () => window.clearInterval(intervalId);
-  }, [authLoading, isAuthenticated, user, navigate]);
+useEffect(() => {
+  if (authLoading) return;
+  if (!isAuthenticated || !user) {
+    navigate("/login", { replace: true });
+    return;
+  }
+  const role = toRole((user as any).role);
+  if (role !== USER_ROLE) {
+    navigate(role === "host" ? "/host-dashboard" : "/login", { replace: true });
+    return;
+  }
+}, [authLoading, isAuthenticated, user, navigate]);
 
   // ----- Initial data load -----
   useEffect(() => {
