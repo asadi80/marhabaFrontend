@@ -545,6 +545,49 @@ const HostListings: React.FC = () => {
 
 
   // ============================================================
+// FETCH MY LISTINGS ONLY
+// ============================================================
+
+const fetchListings = useCallback(async () => {
+  if (!user?.id) {
+    console.warn("⚠️ No logged-in host ID");
+    setListings([]);
+    setLoading(false);
+    return;
+  }
+
+  try {
+    console.log("🏠 FETCHING HOST LISTINGS");
+    console.log("👤 Host ID:", user.id);
+
+    const response = await apiService.getProtectedData<Listing[]>(
+      `/api/v1/listings/host/${user.id}`
+    );
+
+    console.log("📦 Host listings response:", response);
+    console.log("📋 Host listings:", response.data);
+
+    if (response.success && Array.isArray(response.data)) {
+      setListings(response.data);
+
+      console.log(
+        "✅ Host listings loaded:",
+        response.data.length
+      );
+    } else {
+      console.warn("⚠️ Host listings response is invalid:", response);
+      setListings([]);
+    }
+  } catch (error) {
+    console.error("❌ Failed to fetch host listings:", error);
+    setListings([]);
+  } finally {
+    setLoading(false);
+  }
+}, [user?.id]);
+
+
+  // ============================================================
   // AUTH CHECK
   // ============================================================
 
@@ -560,6 +603,7 @@ const HostListings: React.FC = () => {
         navigate("/user-dashboard", { replace: true });
         return;
       }
+      fetchListings();
   
       // Re-check periodically in case the token expires while this page is open.
       const intervalId = window.setInterval(() => {
