@@ -185,12 +185,33 @@ const createUserLocationMarkerElement = () => {
 
 // Builds a Google-Maps-style teardrop pin marker for a single listing
 // (price is shown in the popup instead of on the pin itself).
-const createListingMarkerElement = (listing: Listing, isActive: boolean, onClick: () => void) => {
+const createListingMarkerElement = (
+  listing: Listing,
+  isActive: boolean,
+  onClick: () => void
+) => {
   const el = document.createElement("div");
-  el.className = isActive ? MARKER_ACTIVE_CLASS : MARKER_DEFAULT_CLASS;
-  el.innerHTML = isActive ? buildPinSVG(GOLD, NAVY) : buildPinSVG(NAVY, GOLD);
+
+  el.classList.add("listing-marker", "cursor-pointer");
+
+  if (isActive) {
+    el.classList.add("scale-110");
+  }
+
+  el.classList.add(
+    "transition-transform",
+    "duration-150",
+    "hover:scale-110"
+  );
+
+  el.innerHTML = isActive
+    ? buildPinSVG(GOLD, NAVY)
+    : buildPinSVG(NAVY, GOLD);
+
   el.dataset.listingId = listing.id;
+
   el.addEventListener("click", onClick);
+
   return el;
 };
 
@@ -521,18 +542,26 @@ useEffect(() => {
 
       listingMarkersRef.current[listing.id] = marker;
     });
-  }, [filtered, mapReady]);
+  }, [filtered, mapReady, activeMarkerId]);
 
   // Toggle the active/default look of markers when selection changes,
   // without tearing down and recreating them.
-  useEffect(() => {
-    Object.entries(listingMarkersRef.current).forEach(([id, marker]) => {
-      const el = marker.getElement();
-      const isActive = id === activeMarkerId;
-      el.className = isActive ? MARKER_ACTIVE_CLASS : MARKER_DEFAULT_CLASS;
-      el.innerHTML = isActive ? buildPinSVG(GOLD, NAVY) : buildPinSVG(NAVY, GOLD);
-    });
-  }, [activeMarkerId]);
+useEffect(() => {
+  Object.entries(listingMarkersRef.current).forEach(([id, marker]) => {
+    const el = marker.getElement();
+    const isActive = id === activeMarkerId;
+
+    // IMPORTANT:
+    // Never replace el.className because Mapbox needs
+    // the "mapboxgl-marker" class to remain on the element.
+
+    el.classList.toggle("scale-110", isActive);
+
+    el.innerHTML = isActive
+      ? buildPinSVG(GOLD, NAVY)
+      : buildPinSVG(NAVY, GOLD);
+  });
+}, [activeMarkerId]);
 
   if (authLoading || loading) return <LoadingScreen />;
   if (!isAuthorizedUser) return null;
