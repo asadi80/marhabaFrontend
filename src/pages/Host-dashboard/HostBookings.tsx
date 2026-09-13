@@ -366,33 +366,8 @@ const HostBookings: React.FC = () => {
     }
   }, []);
 
-  // ============================================================
-  // FETCH HOST LISTINGS
-  // ============================================================
-
-  const fetchHostListings = useCallback(async () => {
-    try {
-      const response = await apiService.getProtectedData<{ listings: HostListing[] }>("/api/v1/listings/host/");
-
-      if (response.success && response.data) {
-        const listings = Array.isArray(response.data.listings) ? response.data.listings : [];
-        setHostListings(listings);
-
-        // Seed blockedDates map from listings if not already populated.
-        setBlockedDates((prev) => {
-          const updated = { ...prev };
-          listings.forEach((listing) => {
-            if (!updated[listing.id]) {
-              updated[listing.id] = Array.isArray(listing.blocked_dates) ? listing.blocked_dates : [];
-            }
-          });
-          return updated;
-        });
-      }
-    } catch {
-      // Non-critical — listings list is used for blocked-date management only.
-    }
-  }, []);
+  
+  
 
   // ============================================================
   // FETCH BLOCKED USERS
@@ -420,9 +395,9 @@ const HostBookings: React.FC = () => {
     if (!isAuthorizedHost) return;
 
     fetchBookings();
-    fetchHostListings();
+
     fetchBlockedUsers();
-  }, [isAuthorizedHost, fetchBookings, fetchHostListings, fetchBlockedUsers]);
+  }, [isAuthorizedHost, fetchBookings, fetchBlockedUsers]);
 
   // ============================================================
   // BOOKING STATUS ACTION HANDLER
@@ -593,7 +568,6 @@ const HostBookings: React.FC = () => {
 
       alert(t.blockedDateAdded);
 
-      await fetchHostListings();
       await fetchBookings();
 
       setNewStartDate("");
@@ -628,7 +602,6 @@ const HostBookings: React.FC = () => {
         [listingId]: (prev[listingId] || []).filter((bd) => bd.id !== blockedDateId),
       }));
 
-      await fetchHostListings();
     } catch (err: any) {
       alert(err?.message || "Failed to delete blocked date");
     } finally {
