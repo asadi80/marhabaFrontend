@@ -24,10 +24,12 @@ import PricingTipsPage from "./pages/pricing-tips";
 import TermsPage from "./pages/terms";
 import PrivacyPage from "./pages/privacy";
 import SafetyInfoPage from "./pages/safety-info";
+import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 
 export default function App() {
   return (
     <LanguageProvider>
+      <PWAUpdatePrompt />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/how-to-book" element={<HowToBookPage />} />
