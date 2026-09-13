@@ -70,6 +70,27 @@
   }
 }
 
+.listing-marker {
+  width: 28px;
+  height: 40px;
+  cursor: pointer;
+  transition: transform 150ms ease;
+  transform-origin: bottom center;
+}
+
+.listing-marker:hover {
+  transform: scale(1.1);
+}
+
+.listing-marker.scale-110 {
+  transform: scale(1.1);
+}
+
+.mapboxgl-marker {
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
 #next-steps {
   display: flex;
   border-top: 1px solid var(--border);

@@ -192,17 +192,11 @@ const createListingMarkerElement = (
 ) => {
   const el = document.createElement("div");
 
-  el.classList.add("listing-marker", "cursor-pointer");
+  el.classList.add("listing-marker");
 
   if (isActive) {
     el.classList.add("scale-110");
   }
-
-  el.classList.add(
-    "transition-transform",
-    "duration-150",
-    "hover:scale-110"
-  );
 
   el.innerHTML = isActive
     ? buildPinSVG(GOLD, NAVY)
@@ -550,10 +544,6 @@ useEffect(() => {
   Object.entries(listingMarkersRef.current).forEach(([id, marker]) => {
     const el = marker.getElement();
     const isActive = id === activeMarkerId;
-
-    // IMPORTANT:
-    // Never replace el.className because Mapbox needs
-    // the "mapboxgl-marker" class to remain on the element.
 
     el.classList.toggle("scale-110", isActive);
 
