@@ -543,37 +543,6 @@ const HostListings: React.FC = () => {
     );
   };
 
-  // ============================================================
-  // FETCH LISTINGS
-  // ============================================================
-
-const fetchListings = useCallback(async () => {
-  try {
-    const response = await apiService.getProtectedData<Listing[]>(
-      "/api/v1/listings"
-    );
-
-    console.log("📦 Listings response:", response);
-    console.log("📋 Listings array:", response.data);
-
-    if (response.success && Array.isArray(response.data)) {
-      setListings(response.data);
-      console.log("✅ Listings set:", response.data.length);
-    } else {
-      console.warn("⚠️ No listings array found:", response);
-      setListings([]);
-    }
-  } catch (err) {
-    console.error("❌ Failed to fetch listings:", err);
-    setListings([]);
-  } finally {
-    setLoading(false);
-  }
-}, []);
-
-  useEffect(() => {
-    fetchListings();
-  }, [fetchListings]);
 
   // ============================================================
   // AUTH CHECK
