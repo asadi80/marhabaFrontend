@@ -220,7 +220,7 @@ const ACCEPTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"]
 
 // Change this if your backend uses another listing upload route.
 const LISTING_IMAGE_UPLOAD_ENDPOINT =
-  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT || "/uploads/listings";
+  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT || "/api/v1/uploads/listings";
 
 // ============================================================
 // MAPBOX
@@ -801,6 +801,8 @@ const HostListings: React.FC = () => {
     });
 
     const responseText = await response.text();
+    console.log("res", response);
+    
 
     let data: any = {};
     try {
@@ -812,14 +814,22 @@ const HostListings: React.FC = () => {
     if (!response.ok) {
       throw new Error(data?.message || data?.error || `Upload failed (${response.status})`);
     }
+    console.log("image", data);
+    
 
-    const imageUrl =
-      data?.data?.url ||
-      data?.data?.imageUrl ||
-      data?.data?.fileUrl ||
-      data?.url ||
-      data?.imageUrl ||
-      data?.fileUrl;
+     const imageUrl =
+    data?.data?.url ||
+    data?.data?.imageUrl ||
+    data?.data?.fileUrl ||
+    data?.data?.file?.url ||
+    data?.data?.file?.imageUrl ||
+    data?.url ||
+    data?.imageUrl ||
+    data?.fileUrl ||
+    data?.file?.url ||
+    data?.file?.imageUrl;
+
+  console.log("🖼️ Extracted image URL:", imageUrl);
 
     if (!imageUrl || typeof imageUrl !== "string") {
       throw new Error(
