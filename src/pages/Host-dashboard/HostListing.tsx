@@ -219,8 +219,10 @@ const ACCEPTED_IMAGE_TYPES = [
 const ACCEPTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
 
 // Change this if your backend uses another listing upload route.
-const LISTING_IMAGE_UPLOAD_ENDPOINT =
-  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT || "/api/v1/uploads/listings";
+const LISTING_IMAGE_UPLOAD_ENDPOINT ="https://api.mar-haba.ly/api/v1/uploads/listings";
+  // const LISTING_IMAGE_UPLOAD_ENDPOINT =
+  // import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT || "/api/v1/uploads/listings";
+
 
 // ============================================================
 // MAPBOX
@@ -789,6 +791,8 @@ const HostListings: React.FC = () => {
     uploadFormData.append("image", file);
 
     const url = getApiUrl(LISTING_IMAGE_UPLOAD_ENDPOINT);
+    console.log("url",url);
+    
 
     const headers: HeadersInit = { Accept: "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
