@@ -8,8 +8,11 @@ import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
 
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+// Type-only import: no runtime cost. The actual mapbox-gl module (and its
+// CSS) is loaded dynamically inside the "CREATE MAP" effect below, so the
+// ~1.8 MB library is only fetched once a host actually reaches the map
+// section — not just for loading this page or editing form fields.
+import type mapboxgl from "mapbox-gl";
 
 // ============================================================
 // TOKEN GUARD (extra client-side check)
@@ -219,9 +222,8 @@ const ACCEPTED_IMAGE_TYPES = [
 const ACCEPTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
 
 // Change this if your backend uses another listing upload route.
-  const LISTING_IMAGE_UPLOAD_ENDPOINT =
-  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT ;
-
+const LISTING_IMAGE_UPLOAD_ENDPOINT =
+  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT || "https://api.mar-haba.ly/api/v1/uploads/listings";
 
 // ============================================================
 // MAPBOX
@@ -229,9 +231,9 @@ const ACCEPTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"]
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
-if (MAPBOX_TOKEN) {
-  mapboxgl.accessToken = MAPBOX_TOKEN;
-}
+// accessToken is set once the library is actually loaded (see the
+// "CREATE MAP" effect) — there's no runtime mapboxgl object at module
+// scope anymore.
 
 // ============================================================
 // COMPONENT
@@ -310,6 +312,9 @@ const HostListings: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
+  // Holds the dynamically-imported mapbox-gl module once loaded, so the
+  // separate "MAP MARKER" effect can reuse it without importing again.
+  const mapboxglLibRef = useRef<typeof mapboxgl | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
   // ============================================================
@@ -683,24 +688,42 @@ const HostListings: React.FC = () => {
     if (!showMap || !mapContainerRef.current || mapInstanceRef.current) return;
     if (!MAPBOX_TOKEN) return;
 
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: [mapCenter!.lng, mapCenter!.lat],
-      zoom: markerPosition ? 14 : 2,
-    });
+    let cancelled = false;
 
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), "top-right");
+    // Dynamically import mapbox-gl (and its CSS) only once the map is
+    // actually about to render, instead of bundling it into this page's
+    // initial load.
+    (async () => {
+      const [{ default: mapboxglLib }] = await Promise.all([
+        import("mapbox-gl"),
+        import("mapbox-gl/dist/mapbox-gl.css"),
+      ]);
 
-    map.on("click", (event) => {
-      handleMapClick(event.lngLat.lat, event.lngLat.lng);
-    });
+      if (cancelled || !mapContainerRef.current || mapInstanceRef.current) return;
 
-    mapInstanceRef.current = map;
-    setMapReady(true);
+      mapboxglLib.accessToken = MAPBOX_TOKEN;
+      mapboxglLibRef.current = mapboxglLib;
+
+      const map = new mapboxglLib.Map({
+        container: mapContainerRef.current,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [mapCenter!.lng, mapCenter!.lat],
+        zoom: markerPosition ? 14 : 2,
+      });
+
+      map.addControl(new mapboxglLib.NavigationControl({ showCompass: false }), "top-right");
+
+      map.on("click", (event) => {
+        handleMapClick(event.lngLat.lat, event.lngLat.lng);
+      });
+
+      mapInstanceRef.current = map;
+      setMapReady(true);
+    })();
 
     return () => {
-      map.remove();
+      cancelled = true;
+      mapInstanceRef.current?.remove();
       mapInstanceRef.current = null;
       markerRef.current = null;
       setMapReady(false);
@@ -713,7 +736,8 @@ const HostListings: React.FC = () => {
 
   useEffect(() => {
     const map = mapInstanceRef.current;
-    if (!map) return;
+    const mapboxglLib = mapboxglLibRef.current;
+    if (!map || !mapboxglLib) return;
 
     if (!markerPosition) {
       markerRef.current?.remove();
@@ -722,7 +746,7 @@ const HostListings: React.FC = () => {
     }
 
     if (!markerRef.current) {
-      const marker = new mapboxgl.Marker({ color: "#e8c547", draggable: true })
+      const marker = new mapboxglLib.Marker({ color: "#e8c547", draggable: true })
         .setLngLat([markerPosition.lng, markerPosition.lat])
         .addTo(map);
 
@@ -790,8 +814,6 @@ const HostListings: React.FC = () => {
     uploadFormData.append("image", file);
 
     const url = getApiUrl(LISTING_IMAGE_UPLOAD_ENDPOINT);
-    console.log("url",url);
-    
 
     const headers: HeadersInit = { Accept: "application/json" };
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -804,8 +826,6 @@ const HostListings: React.FC = () => {
     });
 
     const responseText = await response.text();
-    console.log("res", response);
-    
 
     let data: any = {};
     try {
@@ -817,22 +837,18 @@ const HostListings: React.FC = () => {
     if (!response.ok) {
       throw new Error(data?.message || data?.error || `Upload failed (${response.status})`);
     }
-    console.log("image", data);
-    
 
-     const imageUrl =
-    data?.data?.url ||
-    data?.data?.imageUrl ||
-    data?.data?.fileUrl ||
-    data?.data?.file?.url ||
-    data?.data?.file?.imageUrl ||
-    data?.url ||
-    data?.imageUrl ||
-    data?.fileUrl ||
-    data?.file?.url ||
-    data?.file?.imageUrl;
-
-  console.log("🖼️ Extracted image URL:", imageUrl);
+    const imageUrl =
+      data?.data?.url ||
+      data?.data?.imageUrl ||
+      data?.data?.fileUrl ||
+      data?.data?.file?.url ||
+      data?.data?.file?.imageUrl ||
+      data?.url ||
+      data?.imageUrl ||
+      data?.fileUrl ||
+      data?.file?.url ||
+      data?.file?.imageUrl;
 
     if (!imageUrl || typeof imageUrl !== "string") {
       throw new Error(
