@@ -35,12 +35,12 @@ export async function compressImage(file: File): Promise<File> {
         {
           type: "image/jpeg",
           lastModified: Date.now(),
-        },
+        }
       );
     } catch (error) {
       console.error("HEIC conversion failed:", error);
 
-      // If conversion fails, keep the original file
+      // Keep original if conversion fails
       return file;
     }
   }
@@ -49,14 +49,14 @@ export async function compressImage(file: File): Promise<File> {
   return new Promise<File>((resolve) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
-    const img = new Image();
-    const url = URL.createObjectURL(file);
 
     if (!ctx) {
-      URL.revokeObjectURL(url);
       resolve(file);
       return;
     }
+
+    const img = new Image();
+    const url = URL.createObjectURL(file);
 
     img.onload = () => {
       const MAX = 2400;
@@ -83,15 +83,17 @@ export async function compressImage(file: File): Promise<File> {
             return;
           }
 
+          const newName = file.name.replace(/\.[^.]+$/, ".jpg");
+
           resolve(
-            new File([blob], file.name, {
+            new File([blob], newName, {
               type: "image/jpeg",
               lastModified: Date.now(),
-            }),
+            })
           );
         },
         "image/jpeg",
-        0.92,
+        0.92
       );
     };
 
