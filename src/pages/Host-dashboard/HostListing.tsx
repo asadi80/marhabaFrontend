@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-
 import { useNavigate, Link } from "react-router-dom";
-
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../hooks/useLanguage";
 import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
+import { compressImage } from "../../lib/compressImage";
 
 // Type-only import: no runtime cost. The actual mapbox-gl module (and its
 // CSS) is loaded dynamically inside the "CREATE MAP" effect below, so the
@@ -41,7 +40,9 @@ const readStoredAccessToken = (): string | null => {
 const isJwtExpired = (token: string): boolean => {
   try {
     const payloadB64 = token.split(".")[1];
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")));
+    const payload = JSON.parse(
+      atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")),
+    );
     if (!payload?.exp) return false; // no exp claim — nothing to check locally
     return Date.now() >= payload.exp * 1000;
   } catch {
@@ -219,11 +220,19 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/heif",
 ];
 
-const ACCEPTED_IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
+const ACCEPTED_IMAGE_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+  "heif",
+];
 
 // Change this if your backend uses another listing upload route.
 const LISTING_IMAGE_UPLOAD_ENDPOINT =
-  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT || "https://api.mar-haba.ly/api/v1/uploads/listings";
+  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT ||
+  "https://api.mar-haba.ly/api/v1/uploads/listings";
 
 // ============================================================
 // MAPBOX
@@ -245,7 +254,8 @@ const HostListings: React.FC = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const isAr = lang === "ar";
 
-  const isAuthorizedHost = isAuthenticated && !!user && toRole(user.role) === HOST_ROLE;
+  const isAuthorizedHost =
+    isAuthenticated && !!user && toRole(user.role) === HOST_ROLE;
 
   // ============================================================
   // LISTING STATE
@@ -261,7 +271,9 @@ const HostListings: React.FC = () => {
   // LOCATION STATE
   // ============================================================
 
-  const [markerPosition, setMarkerPosition] = useState<Coordinates | null>(null);
+  const [markerPosition, setMarkerPosition] = useState<Coordinates | null>(
+    null,
+  );
   const [mapCenter, setMapCenter] = useState<Coordinates | null>(null);
   const [selectedLocation, setSelectedLocation] = useState<{
     lat: number;
@@ -290,7 +302,9 @@ const HostListings: React.FC = () => {
 
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadingFileName, setUploadingFileName] = useState<string | null>(null);
+  const [uploadingFileName, setUploadingFileName] = useState<string | null>(
+    null,
+  );
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   // ============================================================
@@ -303,7 +317,9 @@ const HostListings: React.FC = () => {
   >([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
-  const addressSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addressSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // ============================================================
   // MAP REFS
@@ -371,7 +387,9 @@ const HostListings: React.FC = () => {
     ruleQuietHours: isAr ? "ساعات الهدوء" : "Quiet Hours",
     ruleSelfCheckIn: isAr ? "تسجيل وصول ذاتي" : "Self Check-in",
     ruleNoShoes: isAr ? "ممنوع الأحذية" : "No Shoes",
-    rulePlaceholder: isAr ? "قاعدة (مثل: لا طعام في الغرف)" : "Rule (e.g., No food in rooms)",
+    rulePlaceholder: isAr
+      ? "قاعدة (مثل: لا طعام في الغرف)"
+      : "Rule (e.g., No food in rooms)",
     addCustomRule: isAr ? "+ إضافة قاعدة مخصصة" : "+ Add Custom Rule",
     cancel: isAr ? "إلغاء" : "Cancel",
     createListing: isAr ? "إنشاء الإعلان" : "Create Listing",
@@ -386,9 +404,15 @@ const HostListings: React.FC = () => {
     pleaseUploadImage: isAr
       ? "الرجاء رفع صورة واحدة على الأقل"
       : "Please upload at least one image",
-    listingCreatedSuccess: isAr ? "تم إنشاء الإعلان بنجاح" : "Listing created successfully",
-    listingUpdatedSuccess: isAr ? "تم تحديث الإعلان بنجاح" : "Listing updated successfully",
-    listingDeletedSuccess: isAr ? "تم حذف الإعلان بنجاح" : "Listing deleted successfully",
+    listingCreatedSuccess: isAr
+      ? "تم إنشاء الإعلان بنجاح"
+      : "Listing created successfully",
+    listingUpdatedSuccess: isAr
+      ? "تم تحديث الإعلان بنجاح"
+      : "Listing updated successfully",
+    listingDeletedSuccess: isAr
+      ? "تم حذف الإعلان بنجاح"
+      : "Listing deleted successfully",
     confirmDeleteListing: isAr
       ? "هل أنت متأكد من حذف هذا الإعلان؟"
       : "Are you sure you want to delete this listing?",
@@ -400,7 +424,9 @@ const HostListings: React.FC = () => {
   // ============================================================
 
   const formatCurrency = (n: number) =>
-    isAr ? `${Math.round(n).toLocaleString()} دينار` : `${Math.round(n).toLocaleString()} LYD`;
+    isAr
+      ? `${Math.round(n).toLocaleString()} دينار`
+      : `${Math.round(n).toLocaleString()} LYD`;
 
   const getApiUrl = useCallback((endpoint: string) => {
     const baseUrl = import.meta.env.VITE_API_URL || "";
@@ -432,10 +458,12 @@ const HostListings: React.FC = () => {
 
     try {
       const response = await apiService.getProtectedData<Listing[]>(
-        `/api/v1/listings/host/${user.id}`
+        `/api/v1/listings/host/${user.id}`,
       );
 
-      setListings(response.success && Array.isArray(response.data) ? response.data : []);
+      setListings(
+        response.success && Array.isArray(response.data) ? response.data : [],
+      );
     } catch {
       setListings([]);
     } finally {
@@ -487,7 +515,7 @@ const HostListings: React.FC = () => {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        { headers: { Accept: "application/json" } }
+        { headers: { Accept: "application/json" } },
       );
 
       if (!res.ok) throw new Error("Reverse geocoding failed");
@@ -509,7 +537,11 @@ const HostListings: React.FC = () => {
     const address = await reverseGeocode(lat, lng);
 
     setSelectedLocation({ lat, lng, address });
-    setFormData((prev) => ({ ...prev, location: address, coordinates: { lat, lng } }));
+    setFormData((prev) => ({
+      ...prev,
+      location: address,
+      coordinates: { lat, lng },
+    }));
   };
 
   // ============================================================
@@ -562,9 +594,11 @@ const HostListings: React.FC = () => {
         if (success) break;
 
         try {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, opts);
-          });
+          const position = await new Promise<GeolocationPosition>(
+            (resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, opts);
+            },
+          );
 
           const lat = position.coords.latitude;
           const lng = position.coords.longitude;
@@ -602,7 +636,7 @@ const HostListings: React.FC = () => {
       setLocationError(
         isAr
           ? "تعذر تحديد موقعك تلقائياً. حرك الخريطة أو ابحث عن عنوان يدوياً."
-          : "Could not detect your location automatically. Move the map or search for an address manually."
+          : "Could not detect your location automatically. Move the map or search for an address manually.",
       );
     }
   }, [isAr]);
@@ -646,7 +680,10 @@ const HostListings: React.FC = () => {
             lat: Number(feature.center?.[1]),
             lng: Number(feature.center?.[0]),
           }))
-          .filter((item: any) => Number.isFinite(item.lat) && Number.isFinite(item.lng));
+          .filter(
+            (item: any) =>
+              Number.isFinite(item.lat) && Number.isFinite(item.lng),
+          );
 
         setAddressSuggestions(results);
         setShowSuggestions(results.length > 0);
@@ -662,9 +699,17 @@ const HostListings: React.FC = () => {
   // SELECT ADDRESS
   // ============================================================
 
-  const handleSuggestionSelect = (suggestion: { place_name: string; lat: number; lng: number }) => {
+  const handleSuggestionSelect = (suggestion: {
+    place_name: string;
+    lat: number;
+    lng: number;
+  }) => {
     setMarkerPosition({ lat: suggestion.lat, lng: suggestion.lng });
-    setSelectedLocation({ lat: suggestion.lat, lng: suggestion.lng, address: suggestion.place_name });
+    setSelectedLocation({
+      lat: suggestion.lat,
+      lng: suggestion.lng,
+      address: suggestion.place_name,
+    });
     setFormData((prev) => ({
       ...prev,
       location: suggestion.place_name,
@@ -672,7 +717,10 @@ const HostListings: React.FC = () => {
     }));
     setMapCenter({ lat: suggestion.lat, lng: suggestion.lng });
 
-    mapInstanceRef.current?.flyTo({ center: [suggestion.lng, suggestion.lat], zoom: 14 });
+    mapInstanceRef.current?.flyTo({
+      center: [suggestion.lng, suggestion.lat],
+      zoom: 14,
+    });
 
     setAddressQuery(suggestion.place_name);
     setShowSuggestions(false);
@@ -699,7 +747,8 @@ const HostListings: React.FC = () => {
         import("mapbox-gl/dist/mapbox-gl.css"),
       ]);
 
-      if (cancelled || !mapContainerRef.current || mapInstanceRef.current) return;
+      if (cancelled || !mapContainerRef.current || mapInstanceRef.current)
+        return;
 
       mapboxglLib.accessToken = MAPBOX_TOKEN;
       mapboxglLibRef.current = mapboxglLib;
@@ -711,7 +760,10 @@ const HostListings: React.FC = () => {
         zoom: markerPosition ? 14 : 2,
       });
 
-      map.addControl(new mapboxglLib.NavigationControl({ showCompass: false }), "top-right");
+      map.addControl(
+        new mapboxglLib.NavigationControl({ showCompass: false }),
+        "top-right",
+      );
 
       map.on("click", (event) => {
         handleMapClick(event.lngLat.lat, event.lngLat.lng);
@@ -746,7 +798,10 @@ const HostListings: React.FC = () => {
     }
 
     if (!markerRef.current) {
-      const marker = new mapboxglLib.Marker({ color: "#e8c547", draggable: true })
+      const marker = new mapboxglLib.Marker({
+        color: "#e8c547",
+        draggable: true,
+      })
         .setLngLat([markerPosition.lng, markerPosition.lat])
         .addTo(map);
 
@@ -767,7 +822,9 @@ const HostListings: React.FC = () => {
   // ============================================================
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -777,7 +834,11 @@ const HostListings: React.FC = () => {
   // ARRAY INPUT
   // ============================================================
 
-  const handleArrayChange = (index: number, field: "amenities" | "rules", value: string) => {
+  const handleArrayChange = (
+    index: number,
+    field: "amenities" | "rules",
+    value: string,
+  ) => {
     setFormData((prev) => {
       const array = [...prev[field]];
       array[index] = value;
@@ -790,7 +851,10 @@ const HostListings: React.FC = () => {
   };
 
   const removeArrayField = (field: "amenities" | "rules", index: number) => {
-    setFormData((prev) => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, i) => i !== index),
+    }));
   };
 
   // ============================================================
@@ -835,7 +899,9 @@ const HostListings: React.FC = () => {
     }
 
     if (!response.ok) {
-      throw new Error(data?.message || data?.error || `Upload failed (${response.status})`);
+      throw new Error(
+        data?.message || data?.error || `Upload failed (${response.status})`,
+      );
     }
 
     const imageUrl =
@@ -854,14 +920,16 @@ const HostListings: React.FC = () => {
       throw new Error(
         isAr
           ? "تم رفع الصورة ولكن لم يتم إرجاع رابط الصورة من الخادم"
-          : "Image uploaded but the server did not return an image URL"
+          : "Image uploaded but the server did not return an image URL",
       );
     }
 
     return imageUrl;
   };
 
-  const handleImageFilesSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFilesSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = Array.from(event.target.files || []);
     event.target.value = ""; // allow re-selecting the same file
 
@@ -879,7 +947,7 @@ const HostListings: React.FC = () => {
       alert(
         isAr
           ? `يمكنك إضافة ${remainingSlots} صورة فقط`
-          : `You can add only ${remainingSlots} more image(s)`
+          : `You can add only ${remainingSlots} more image(s)`,
       );
     }
 
@@ -893,12 +961,31 @@ const HostListings: React.FC = () => {
 
       for (let index = 0; index < filesToUpload.length; index++) {
         const file = filesToUpload[index];
+
         setUploadingFileName(file.name);
 
-        const url = await uploadSingleImage(file);
-        if (url) uploadedUrls.push(url);
+        // HEIC / HEIF / WEBP / PNG / JPEG
+        // → resized + compressed JPEG
+        const compressedFile = await compressImage(file);
 
-        setUploadProgress(Math.round(((index + 1) / filesToUpload.length) * 100));
+        console.log("Uploading:", {
+          original: file.name,
+          originalType: file.type,
+          compressed: compressedFile.name,
+          compressedType: compressedFile.type,
+          originalSize: file.size,
+          compressedSize: compressedFile.size,
+        });
+
+        const url = await uploadSingleImage(compressedFile);
+
+        if (url) {
+          uploadedUrls.push(url);
+        }
+
+        setUploadProgress(
+          Math.round(((index + 1) / filesToUpload.length) * 100),
+        );
       }
 
       if (uploadedUrls.length > 0) {
@@ -928,7 +1015,10 @@ const HostListings: React.FC = () => {
   };
 
   const handleImageRemove = (index: number) => {
-    setFormData((prev) => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }));
+    setFormData((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+    }));
   };
 
   // ============================================================
@@ -972,7 +1062,10 @@ const HostListings: React.FC = () => {
         : null;
 
     const coords =
-      lat !== null && lng !== null && Number.isFinite(lat) && Number.isFinite(lng)
+      lat !== null &&
+      lng !== null &&
+      Number.isFinite(lat) &&
+      Number.isFinite(lng)
         ? { lat, lng }
         : null;
 
@@ -985,7 +1078,9 @@ const HostListings: React.FC = () => {
       price: String(listing.price ?? ""),
       location: listing.location || "",
       coordinates: coords,
-      images: Array.isArray(listing.images) ? listing.images.filter(Boolean) : [],
+      images: Array.isArray(listing.images)
+        ? listing.images.filter(Boolean)
+        : [],
       amenities: listing.amenities?.length ? listing.amenities : [""],
       rules: listing.rules || [],
       category: listing.category || "city",
@@ -1016,15 +1111,17 @@ const HostListings: React.FC = () => {
     setTogglingId(listing.id);
 
     try {
-      const response = await apiService.patchProtectedData<{ is_active: boolean }>(
-        `/api/v1/listings/${listing.id}/toggle-active`
-      );
+      const response = await apiService.patchProtectedData<{
+        is_active: boolean;
+      }>(`/api/v1/listings/${listing.id}/toggle-active`);
 
       if (response.success && response.data) {
         setListings((prev) =>
           prev.map((item) =>
-            item.id === listing.id ? { ...item, is_active: response.data!.is_active } : item
-          )
+            item.id === listing.id
+              ? { ...item, is_active: response.data!.is_active }
+              : item,
+          ),
         );
       }
     } catch {
@@ -1057,12 +1154,18 @@ const HostListings: React.FC = () => {
     }
 
     if (!formData.title.trim()) {
-      alert(isAr ? "الرجاء إدخال عنوان الإعلان" : "Please enter a listing title");
+      alert(
+        isAr ? "الرجاء إدخال عنوان الإعلان" : "Please enter a listing title",
+      );
       return false;
     }
 
     if (!formData.description.trim()) {
-      alert(isAr ? "الرجاء إدخال وصف الإعلان" : "Please enter a listing description");
+      alert(
+        isAr
+          ? "الرجاء إدخال وصف الإعلان"
+          : "Please enter a listing description",
+      );
       return false;
     }
 
@@ -1088,15 +1191,17 @@ const HostListings: React.FC = () => {
       const payload = {
         ...formData,
         images: formData.images.filter(Boolean),
-        amenities: formData.amenities.map((item) => item.trim()).filter(Boolean),
+        amenities: formData.amenities
+          .map((item) => item.trim())
+          .filter(Boolean),
         rules: formData.rules.map((item) => item.trim()).filter(Boolean),
         price: Number(formData.price),
       };
 
-      const response = await apiService.postProtectedData<{ success: boolean; listing?: Listing }>(
-        "/api/v1/listings",
-        payload
-      );
+      const response = await apiService.postProtectedData<{
+        success: boolean;
+        listing?: Listing;
+      }>("/api/v1/listings", payload);
 
       if (response.success) {
         setShowForm(false);
@@ -1129,16 +1234,23 @@ const HostListings: React.FC = () => {
         location: formData.location.trim(),
         // Backend converts this into latitude/longitude.
         coordinates: formData.coordinates
-          ? { lat: Number(formData.coordinates.lat), lng: Number(formData.coordinates.lng) }
+          ? {
+              lat: Number(formData.coordinates.lat),
+              lng: Number(formData.coordinates.lng),
+            }
           : null,
         images: formData.images.filter(Boolean),
-        amenities: formData.amenities.map((item) => item.trim()).filter(Boolean),
+        amenities: formData.amenities
+          .map((item) => item.trim())
+          .filter(Boolean),
         rules: formData.rules.map((item) => item.trim()).filter(Boolean),
         category: formData.category || "city",
         cancellation_policy: {
           type: formData.cancellation_policy.type || "flexible",
           description: formData.cancellation_policy.description?.trim() || "",
-          rules: formData.cancellation_policy.rules.map((item) => item.trim()).filter(Boolean),
+          rules: formData.cancellation_policy.rules
+            .map((item) => item.trim())
+            .filter(Boolean),
         },
       };
 
@@ -1172,9 +1284,9 @@ const HostListings: React.FC = () => {
     if (!confirm(t.confirmDeleteListing)) return;
 
     try {
-      const response = await apiService.deleteProtectedData<{ success: boolean }>(
-        `/api/v1/listings/${id}?deleteListing=true`
-      );
+      const response = await apiService.deleteProtectedData<{
+        success: boolean;
+      }>(`/api/v1/listings/${id}?deleteListing=true`);
 
       if (response.success) {
         await fetchListings();
@@ -1201,8 +1313,12 @@ const HostListings: React.FC = () => {
   // FONTS
   // ============================================================
 
-  const bodyFontClass = isAr ? "font-['Cairo','Tajawal',sans-serif]" : "font-['DM_Mono',monospace]";
-  const displayFontClass = isAr ? "font-['Cairo','Tajawal',sans-serif]" : "font-['Fraunces',serif]";
+  const bodyFontClass = isAr
+    ? "font-['Cairo','Tajawal',sans-serif]"
+    : "font-['DM_Mono',monospace]";
+  const displayFontClass = isAr
+    ? "font-['Cairo','Tajawal',sans-serif]"
+    : "font-['Fraunces',serif]";
 
   const fieldInput = `
     w-full
@@ -1223,7 +1339,10 @@ const HostListings: React.FC = () => {
     ${bodyFontClass}
   `;
 
-  const handleCancellationPolicyChange = (field: "type" | "description", value: string) => {
+  const handleCancellationPolicyChange = (
+    field: "type" | "description",
+    value: string,
+  ) => {
     setFormData((prev) => ({
       ...prev,
       cancellation_policy: { ...prev.cancellation_policy, [field]: value },
@@ -1234,7 +1353,10 @@ const HostListings: React.FC = () => {
     setFormData((prev) => {
       const rules = [...prev.cancellation_policy.rules];
       rules[index] = value;
-      return { ...prev, cancellation_policy: { ...prev.cancellation_policy, rules } };
+      return {
+        ...prev,
+        cancellation_policy: { ...prev.cancellation_policy, rules },
+      };
     });
   };
 
@@ -1285,26 +1407,39 @@ const HostListings: React.FC = () => {
   // ============================================================
 
   return (
-    <div className={`min-h-screen bg-[#f7f6f2] ${bodyFontClass}`} dir={isAr ? "rtl" : "ltr"}>
+    <div
+      className={`min-h-screen bg-[#f7f6f2] ${bodyFontClass}`}
+      dir={isAr ? "rtl" : "ltr"}
+    >
       {/* NAVBAR */}
 
-      <Navbar NAV_LINKS={NAV_LINKS} lang={lang} toggleLanguage={toggleLanguage} />
+      <Navbar
+        NAV_LINKS={NAV_LINKS}
+        lang={lang}
+        toggleLanguage={toggleLanguage}
+      />
 
       {/* PAGE HEADER */}
 
       <div className="bg-[#1a1a2e] border-b border-[#e8c547]/12 px-6 py-10 pb-8">
         <div className="max-w-[1100px] mx-auto flex justify-between items-end gap-4">
           <div>
-            <div className={`text-[10px] tracking-[0.12em] uppercase text-[#e8c547]/60 mb-2 ${bodyFontClass}`}>
+            <div
+              className={`text-[10px] tracking-[0.12em] uppercase text-[#e8c547]/60 mb-2 ${bodyFontClass}`}
+            >
               {t.hostPanel}
             </div>
 
-            <h1 className={`${displayFontClass} italic font-light text-[clamp(28px,4vw,38px)] text-white`}>
-              {t.myListingsTitle1} <span className="font-medium text-[#e8c547]">{t.listings1}</span>
+            <h1
+              className={`${displayFontClass} italic font-light text-[clamp(28px,4vw,38px)] text-white`}
+            >
+              {t.myListingsTitle1}{" "}
+              <span className="font-medium text-[#e8c547]">{t.listings1}</span>
             </h1>
 
             <p className={`text-xs text-white/35 mt-1.5 ${bodyFontClass}`}>
-              {listings.length} {listings.length !== 1 ? t.listingsActive : t.listingActive}
+              {listings.length}{" "}
+              {listings.length !== 1 ? t.listingsActive : t.listingActive}
             </p>
           </div>
 
@@ -1330,20 +1465,30 @@ const HostListings: React.FC = () => {
         {showForm && (
           <div className="bg-white rounded-2xl border border-black/7 p-8 mb-8">
             <div className="mb-7">
-              <div className={`text-[10px] tracking-[0.12em] uppercase text-[#999] mb-1.5 ${bodyFontClass}`}>
+              <div
+                className={`text-[10px] tracking-[0.12em] uppercase text-[#999] mb-1.5 ${bodyFontClass}`}
+              >
                 {isEditing ? t.editListing : t.newListing}
               </div>
 
-              <h2 className={`${displayFontClass} italic font-light text-[26px] text-[#111118]`}>
-                {isEditing ? t.edit : t.createA} <span className="font-medium">{t.listing}</span>
+              <h2
+                className={`${displayFontClass} italic font-light text-[26px] text-[#111118]`}
+              >
+                {isEditing ? t.edit : t.createA}{" "}
+                <span className="font-medium">{t.listing}</span>
               </h2>
             </div>
 
-            <form onSubmit={isEditing ? handleUpdate : handleSubmit} className={bodyFontClass}>
+            <form
+              onSubmit={isEditing ? handleUpdate : handleSubmit}
+              className={bodyFontClass}
+            >
               {/* TITLE */}
 
               <div className="mb-5">
-                <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
                   {t.title} *
                 </label>
 
@@ -1361,7 +1506,9 @@ const HostListings: React.FC = () => {
               {/* DESCRIPTION */}
 
               <div className="mb-5">
-                <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
                   {t.description} *
                 </label>
 
@@ -1379,7 +1526,9 @@ const HostListings: React.FC = () => {
               {/* PRICE */}
 
               <div className="mb-5">
-                <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
                   {t.pricePerNight} / {isAr ? "دينار" : "LYD"} *
                 </label>
 
@@ -1399,7 +1548,9 @@ const HostListings: React.FC = () => {
               {/* CATEGORY */}
 
               <div className="mb-5">
-                <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
                   {isAr ? "الفئة" : "Category"} *
                 </label>
 
@@ -1410,20 +1561,27 @@ const HostListings: React.FC = () => {
                   onChange={handleInputChange}
                   className={`${fieldInput} cursor-pointer`}
                 >
-                  <option value="">{isAr ? "اختر فئة" : "Select a category"}</option>
+                  <option value="">
+                    {isAr ? "اختر فئة" : "Select a category"}
+                  </option>
 
                   {CATEGORIES.map((category) => (
                     <option key={category.id} value={category.id}>
-                      {category.icon} {isAr ? category.labelAr : category.labelEn}
+                      {category.icon}{" "}
+                      {isAr ? category.labelAr : category.labelEn}
                     </option>
                   ))}
                 </select>
 
                 {formData.category && (
-                  <div className={`text-[11px] text-[#666] mt-1.5 ${bodyFontClass}`}>
+                  <div
+                    className={`text-[11px] text-[#666] mt-1.5 ${bodyFontClass}`}
+                  >
                     {isAr
-                      ? CATEGORIES.find((c) => c.id === formData.category)?.descriptionAr
-                      : CATEGORIES.find((c) => c.id === formData.category)?.descriptionEn}
+                      ? CATEGORIES.find((c) => c.id === formData.category)
+                          ?.descriptionAr
+                      : CATEGORIES.find((c) => c.id === formData.category)
+                          ?.descriptionEn}
                   </div>
                 )}
               </div>
@@ -1433,7 +1591,9 @@ const HostListings: React.FC = () => {
               {/* LOCATION */}
 
               <div className="mb-5">
-                <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
                   {t.location} *
                 </label>
 
@@ -1449,7 +1609,9 @@ const HostListings: React.FC = () => {
                       onBlur={() => {
                         setTimeout(() => setShowSuggestions(false), 150);
                       }}
-                      placeholder={isAr ? "ابحث عن عنوان" : "Search for an address"}
+                      placeholder={
+                        isAr ? "ابحث عن عنوان" : "Search for an address"
+                      }
                       className={fieldInput}
                       disabled={!MAPBOX_TOKEN}
                     />
@@ -1475,7 +1637,9 @@ const HostListings: React.FC = () => {
                     )}
 
                     {!MAPBOX_TOKEN && (
-                      <p className={`text-[11px] text-[#e05a5a] mt-1 ${bodyFontClass}`}>
+                      <p
+                        className={`text-[11px] text-[#e05a5a] mt-1 ${bodyFontClass}`}
+                      >
                         {isAr
                           ? "أضف VITE_MAPBOX_TOKEN لتفعيل البحث عن العناوين"
                           : "Add VITE_MAPBOX_TOKEN to enable address search"}
@@ -1488,10 +1652,14 @@ const HostListings: React.FC = () => {
                     onClick={useCurrentLocation}
                     disabled={isGettingLocation}
                     className={`px-4 py-2.5 rounded-lg text-xs font-medium border-none cursor-pointer whitespace-nowrap transition-all hover:opacity-88 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed ${
-                      isGettingLocation ? "bg-[#ccc] text-white" : "bg-[#1D9E75] text-white"
+                      isGettingLocation
+                        ? "bg-[#ccc] text-white"
+                        : "bg-[#1D9E75] text-white"
                     } ${bodyFontClass}`}
                   >
-                    {isGettingLocation ? t.gettingLocation : `📍 ${t.myLocation}`}
+                    {isGettingLocation
+                      ? t.gettingLocation
+                      : `📍 ${t.myLocation}`}
                   </button>
                 </div>
 
@@ -1512,8 +1680,13 @@ const HostListings: React.FC = () => {
 
                 <div className="border border-black/10 rounded-xl overflow-hidden">
                   <div className="bg-[#1a1a2e] px-4 py-2.5 flex justify-between items-center flex-wrap gap-2">
-                    <span className={`text-[11px] text-white/50 ${bodyFontClass}`}>
-                      💡 {isAr ? "انقر على الخريطة لتحديد الموقع" : "Click on the map to select location"}
+                    <span
+                      className={`text-[11px] text-white/50 ${bodyFontClass}`}
+                    >
+                      💡{" "}
+                      {isAr
+                        ? "انقر على الخريطة لتحديد الموقع"
+                        : "Click on the map to select location"}
                     </span>
                   </div>
 
@@ -1522,7 +1695,9 @@ const HostListings: React.FC = () => {
                       {isGettingLocation ? (
                         <>
                           <div className="w-10 h-10 border-[3px] border-[#e8c547] border-t-transparent rounded-full animate-spin" />
-                          <p className={`text-xs text-[#999] ${bodyFontClass}`}>{t.gettingLocation}</p>
+                          <p className={`text-xs text-[#999] ${bodyFontClass}`}>
+                            {t.gettingLocation}
+                          </p>
                         </>
                       ) : (
                         <p className={`text-xs text-[#999] ${bodyFontClass}`}>
@@ -1541,7 +1716,9 @@ const HostListings: React.FC = () => {
                         <div ref={mapContainerRef} className="h-full w-full" />
                       ) : (
                         <div className="h-full w-full flex items-center justify-center bg-[#f7f6f2] px-6 text-center">
-                          <p className={`text-xs text-[#e05a5a] ${bodyFontClass}`}>
+                          <p
+                            className={`text-xs text-[#e05a5a] ${bodyFontClass}`}
+                          >
                             {isAr
                               ? "أضف VITE_MAPBOX_TOKEN في ملف البيئة لعرض الخريطة"
                               : "Add VITE_MAPBOX_TOKEN to your env file to display the map"}
@@ -1555,15 +1732,22 @@ const HostListings: React.FC = () => {
                 {/* LOCATION PILL */}
 
                 <div className="bg-[#fdf8e7] border border-[#e8c547]/30 rounded-xl px-3.5 py-2.5 mt-2.5">
-                  <p className={`text-xs text-[#7a6012] font-medium ${bodyFontClass}`}>
+                  <p
+                    className={`text-xs text-[#7a6012] font-medium ${bodyFontClass}`}
+                  >
                     📍{" "}
                     {selectedLocation?.address ||
-                      (isAr ? "اختر موقعاً على الخريطة" : "Select a location on the map")}
+                      (isAr
+                        ? "اختر موقعاً على الخريطة"
+                        : "Select a location on the map")}
                   </p>
 
                   {selectedLocation && (
-                    <p className={`text-[11px] text-[#a08020] mt-0.5 ${bodyFontClass}`}>
-                      {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                    <p
+                      className={`text-[11px] text-[#a08020] mt-0.5 ${bodyFontClass}`}
+                    >
+                      {selectedLocation.lat.toFixed(6)},{" "}
+                      {selectedLocation.lng.toFixed(6)}
                     </p>
                   )}
                 </div>
@@ -1575,7 +1759,9 @@ const HostListings: React.FC = () => {
 
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] ${bodyFontClass}`}>
+                  <label
+                    className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] ${bodyFontClass}`}
+                  >
                     {t.imagesRequired}
                   </label>
 
@@ -1625,12 +1811,25 @@ const HostListings: React.FC = () => {
                       disabled={uploadingImages}
                       className="min-h-[160px] border-2 border-dashed border-black/12 rounded-xl p-6 bg-[#fafaf8] cursor-pointer flex flex-col items-center justify-center gap-2 text-xs text-[#999] transition-all hover:border-[#e8c547] hover:text-[#e8c547] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <svg width="30" height="30" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                      <svg
+                        width="30"
+                        height="30"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M12 4v16m8-8H4"
+                        />
                       </svg>
 
                       <span>{t.addImage}</span>
-                      <span className="text-[9px] text-[#bbb]">JPG · JPEG · PNG · WEBP · HEIC · HEIF</span>
+                      <span className="text-[9px] text-[#bbb]">
+                        JPG · JPEG · PNG · WEBP · HEIC · HEIF
+                      </span>
                       <span className="text-[9px] text-[#bbb]">Max 10 MB</span>
                     </button>
                   )}
@@ -1640,11 +1839,19 @@ const HostListings: React.FC = () => {
                   <div className="mt-4 bg-[#fdf8e7] border border-[#e8c547]/30 rounded-xl p-4">
                     <div className="flex items-center gap-3 mb-2">
                       <div className="w-5 h-5 border-2 border-[#e8c547] border-t-transparent rounded-full animate-spin" />
-                      <span className={`text-xs text-[#7a6012] font-medium ${bodyFontClass}`}>{t.imageUploading}</span>
+                      <span
+                        className={`text-xs text-[#7a6012] font-medium ${bodyFontClass}`}
+                      >
+                        {t.imageUploading}
+                      </span>
                     </div>
 
                     {uploadingFileName && (
-                      <p className={`text-[10px] text-[#a08020] mb-2 truncate ${bodyFontClass}`}>{uploadingFileName}</p>
+                      <p
+                        className={`text-[10px] text-[#a08020] mb-2 truncate ${bodyFontClass}`}
+                      >
+                        {uploadingFileName}
+                      </p>
                     )}
 
                     <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
@@ -1654,7 +1861,11 @@ const HostListings: React.FC = () => {
                       />
                     </div>
 
-                    <div className={`text-[10px] text-[#a08020] mt-1 ${bodyFontClass}`}>{uploadProgress}%</div>
+                    <div
+                      className={`text-[10px] text-[#a08020] mt-1 ${bodyFontClass}`}
+                    >
+                      {uploadProgress}%
+                    </div>
                   </div>
                 )}
 
@@ -1670,7 +1881,9 @@ const HostListings: React.FC = () => {
               {/* AMENITIES */}
 
               <div className="mb-6">
-                <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
                   {t.amenities}
                 </label>
 
@@ -1679,7 +1892,9 @@ const HostListings: React.FC = () => {
                     <input
                       type="text"
                       value={amenity}
-                      onChange={(e) => handleArrayChange(index, "amenities", e.target.value)}
+                      onChange={(e) =>
+                        handleArrayChange(index, "amenities", e.target.value)
+                      }
                       placeholder={t.amenityPlaceholder}
                       className={`${fieldInput} flex-1`}
                     />
@@ -1708,7 +1923,9 @@ const HostListings: React.FC = () => {
               {/* CANCELLATION POLICY */}
 
               <div className="mb-6">
-                <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
                   {isAr ? "سياسة الإلغاء" : "Cancellation Policy"}
                 </label>
 
@@ -1719,30 +1936,40 @@ const HostListings: React.FC = () => {
                 </p>
 
                 <div className="mb-4">
-                  <label className={`block text-[10px] tracking-[0.08em] uppercase text-[#999] mb-2 ${bodyFontClass}`}>
+                  <label
+                    className={`block text-[10px] tracking-[0.08em] uppercase text-[#999] mb-2 ${bodyFontClass}`}
+                  >
                     {isAr ? "نوع السياسة" : "Policy Type"}
                   </label>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {[
                       { value: "flexible", label: isAr ? "مرنة" : "Flexible" },
-                      { value: "moderate", label: isAr ? "متوسطة" : "Moderate" },
+                      {
+                        value: "moderate",
+                        label: isAr ? "متوسطة" : "Moderate",
+                      },
                       { value: "strict", label: isAr ? "صارمة" : "Strict" },
                     ].map((policy) => {
-                      const selected = formData.cancellation_policy.type === policy.value;
+                      const selected =
+                        formData.cancellation_policy.type === policy.value;
 
                       return (
                         <button
                           key={policy.value}
                           type="button"
-                          onClick={() => handleCancellationPolicyChange("type", policy.value)}
+                          onClick={() =>
+                            handleCancellationPolicyChange("type", policy.value)
+                          }
                           className={`text-left rounded-lg border px-3.5 py-3 cursor-pointer transition-all ${
                             selected
                               ? "border-[#e8c547] bg-[#fdf8e7]"
                               : "border-black/10 bg-[#fafaf8] hover:border-[#e8c547]/50"
                           } ${bodyFontClass}`}
                         >
-                          <div className={`text-xs font-medium ${selected ? "text-[#7a6012]" : "text-[#555]"}`}>
+                          <div
+                            className={`text-xs font-medium ${selected ? "text-[#7a6012]" : "text-[#555]"}`}
+                          >
                             {policy.label}
                           </div>
                         </button>
@@ -1752,14 +1979,23 @@ const HostListings: React.FC = () => {
                 </div>
 
                 <div className="mb-4">
-                  <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
-                    {isAr ? "سياسة الإلغاء الخاصة بك" : "Your Cancellation Policy"}
+                  <label
+                    className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                  >
+                    {isAr
+                      ? "سياسة الإلغاء الخاصة بك"
+                      : "Your Cancellation Policy"}
                   </label>
 
                   <textarea
                     rows={5}
                     value={formData.cancellation_policy.description}
-                    onChange={(e) => handleCancellationPolicyChange("description", e.target.value)}
+                    onChange={(e) =>
+                      handleCancellationPolicyChange(
+                        "description",
+                        e.target.value,
+                      )
+                    }
                     className={`${fieldInput} resize-y`}
                     placeholder={
                       isAr
@@ -1768,7 +2004,9 @@ const HostListings: React.FC = () => {
                     }
                   />
 
-                  <p className={`text-[10px] text-[#999] mt-1.5 ${bodyFontClass}`}>
+                  <p
+                    className={`text-[10px] text-[#999] mt-1.5 ${bodyFontClass}`}
+                  >
                     {isAr
                       ? "سيتم عرض هذه السياسة للضيوف قبل الحجز."
                       : "This policy will be shown to guests before they book."}
@@ -1776,14 +2014,23 @@ const HostListings: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
-                    {isAr ? "شروط الإلغاء الإضافية" : "Additional Cancellation Rules"}
+                  <label
+                    className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                  >
+                    {isAr
+                      ? "شروط الإلغاء الإضافية"
+                      : "Additional Cancellation Rules"}
                   </label>
 
                   {formData.cancellation_policy.rules.map((rule, index) => (
                     <div key={index} className="flex gap-2 mb-2 items-center">
                       <div className="w-5 h-5 rounded shrink-0 bg-[#e8c547] flex items-center justify-center">
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                        <svg
+                          width="12"
+                          height="12"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                        >
                           <path
                             d="M2 6l3 3 5-6"
                             stroke="#1a1a2e"
@@ -1797,8 +2044,14 @@ const HostListings: React.FC = () => {
                       <input
                         type="text"
                         value={rule}
-                        onChange={(e) => handleCancellationRuleChange(index, e.target.value)}
-                        placeholder={isAr ? "اكتب شرط الإلغاء" : "Write a cancellation rule"}
+                        onChange={(e) =>
+                          handleCancellationRuleChange(index, e.target.value)
+                        }
+                        placeholder={
+                          isAr
+                            ? "اكتب شرط الإلغاء"
+                            : "Write a cancellation rule"
+                        }
                         className={`${fieldInput} flex-1`}
                       />
 
@@ -1825,12 +2078,16 @@ const HostListings: React.FC = () => {
               {/* RULES */}
 
               <div className="mb-5">
-                <label className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}>
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
                   {t.houseRules}
                 </label>
 
                 <div className="mb-3">
-                  <div className={`text-[10px] tracking-[0.08em] uppercase text-[#999] mb-2 ${bodyFontClass}`}>
+                  <div
+                    className={`text-[10px] tracking-[0.08em] uppercase text-[#999] mb-2 ${bodyFontClass}`}
+                  >
                     {t.quickAdd}
                   </div>
 
@@ -1848,7 +2105,10 @@ const HostListings: React.FC = () => {
                         type="button"
                         onClick={() => {
                           if (!formData.rules.includes(suggestion)) {
-                            setFormData((prev) => ({ ...prev, rules: [...prev.rules, suggestion] }));
+                            setFormData((prev) => ({
+                              ...prev,
+                              rules: [...prev.rules, suggestion],
+                            }));
                           }
                         }}
                         className={`border border-black/10 rounded-full px-3 py-1 text-[11px] cursor-pointer transition-colors ${bodyFontClass} ${
@@ -1866,7 +2126,12 @@ const HostListings: React.FC = () => {
                 {formData.rules.map((rule, index) => (
                   <div key={index} className="flex gap-2 mb-2 items-center">
                     <div className="w-5 h-5 rounded shrink-0 bg-[#e8c547] flex items-center justify-center">
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                      >
                         <path
                           d="M2 6l3 3 5-6"
                           stroke="#1a1a2e"
@@ -1880,7 +2145,9 @@ const HostListings: React.FC = () => {
                     <input
                       type="text"
                       value={rule}
-                      onChange={(e) => handleArrayChange(index, "rules", e.target.value)}
+                      onChange={(e) =>
+                        handleArrayChange(index, "rules", e.target.value)
+                      }
                       placeholder={t.rulePlaceholder}
                       className={`${fieldInput} flex-1`}
                     />
@@ -1946,7 +2213,9 @@ const HostListings: React.FC = () => {
             <div className="bg-white rounded-2xl border border-black/7 py-20 px-6 text-center">
               <div className="text-5xl mb-3">🏠</div>
 
-              <p className={`text-[13px] text-[#999] mb-4 ${bodyFontClass}`}>{t.noListingsYet}</p>
+              <p className={`text-[13px] text-[#999] mb-4 ${bodyFontClass}`}>
+                {t.noListingsYet}
+              </p>
 
               <button
                 onClick={() => {
@@ -1961,15 +2230,20 @@ const HostListings: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {listings.map((listing) => {
-                const category = CATEGORIES.find((category) => category.id === listing.category);
+                const category = CATEGORIES.find(
+                  (category) => category.id === listing.category,
+                );
                 const isToggling = togglingId === listing.id;
-                const firstImage = listing.images?.find(Boolean) || "/placeholder.jpg";
+                const firstImage =
+                  listing.images?.find(Boolean) || "/placeholder.jpg";
 
                 return (
                   <div
                     key={listing.id}
                     className={`bg-white rounded-2xl border overflow-hidden transition-all duration-[220ms] hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.08)] ${
-                      listing.is_active ? "border-black/7" : "border-[#e05a5a]/30"
+                      listing.is_active
+                        ? "border-black/7"
+                        : "border-[#e05a5a]/30"
                     }`}
                   >
                     <div className="h-[200px] overflow-hidden relative">
@@ -1986,22 +2260,35 @@ const HostListings: React.FC = () => {
 
                       <div className="absolute top-3 right-3 bg-[rgba(26,26,46,0.92)] text-[#e8c547] rounded-lg px-2.5 py-1 text-xs font-medium">
                         {formatCurrency(Number(listing.price))}
-                        <span className="text-[10px] text-[#e8c547]/60">/{t.night}</span>
+                        <span className="text-[10px] text-[#e8c547]/60">
+                          /{t.night}
+                        </span>
                       </div>
 
                       {category && (
                         <div className="absolute bottom-3 left-3 bg-[rgba(26,26,46,0.9)] text-[#e8c547] rounded-full px-2.5 py-1 text-[11px] flex items-center gap-1">
-                          {category.icon} {isAr ? category.labelAr : category.labelEn}
+                          {category.icon}{" "}
+                          {isAr ? category.labelAr : category.labelEn}
                         </div>
                       )}
 
                       <div
                         className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-[10px] font-medium flex items-center gap-1 ${
-                          listing.is_active ? "bg-[#1D9E75] text-white" : "bg-[#e05a5a] text-white"
+                          listing.is_active
+                            ? "bg-[#1D9E75] text-white"
+                            : "bg-[#e05a5a] text-white"
                         }`}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full bg-white ${listing.is_active ? "opacity-100" : "opacity-70"}`} />
-                        {listing.is_active ? (isAr ? "نشط" : "Active") : isAr ? "غير نشط" : "Inactive"}
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full bg-white ${listing.is_active ? "opacity-100" : "opacity-70"}`}
+                        />
+                        {listing.is_active
+                          ? isAr
+                            ? "نشط"
+                            : "Active"
+                          : isAr
+                            ? "غير نشط"
+                            : "Inactive"}
                       </div>
 
                       {listing.images?.length > 1 && (
@@ -2012,12 +2299,22 @@ const HostListings: React.FC = () => {
                     </div>
 
                     <div className="p-5">
-                      <h3 className={`text-[15px] font-medium text-[#111118] mb-1.5 ${bodyFontClass}`}>{listing.title}</h3>
+                      <h3
+                        className={`text-[15px] font-medium text-[#111118] mb-1.5 ${bodyFontClass}`}
+                      >
+                        {listing.title}
+                      </h3>
 
-                      <p className={`text-xs text-[#888] mb-3 ${bodyFontClass}`}>📍 {listing.location}</p>
+                      <p
+                        className={`text-xs text-[#888] mb-3 ${bodyFontClass}`}
+                      >
+                        📍 {listing.location}
+                      </p>
 
                       <div className="flex items-center justify-between bg-[#f7f6f2] rounded-lg px-3 py-2 mb-3 border border-black/5">
-                        <span className={`text-[11px] text-[#666] ${bodyFontClass}`}>
+                        <span
+                          className={`text-[11px] text-[#666] ${bodyFontClass}`}
+                        >
                           {listing.is_active
                             ? isAr
                               ? "مفتوح للحجز"
@@ -2044,7 +2341,10 @@ const HostListings: React.FC = () => {
                       </div>
 
                       <div className="flex justify-between items-center border-t border-black/[0.06] pt-3.5">
-                        <Link to={`/listings/${listing.id}`} className={`text-xs text-[#1a1a2e] no-underline ${bodyFontClass}`}>
+                        <Link
+                          to={`/listings/${listing.id}`}
+                          className={`text-xs text-[#1a1a2e] no-underline ${bodyFontClass}`}
+                        >
                           {t.viewDetails} →
                         </Link>
 

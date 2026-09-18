@@ -1,18 +1,27 @@
+
 export async function compressImage(file: File): Promise<File> {
-  // PDFs don't need image compression
-  if (file.type === "application/pdf") {
+  // PDFs don't need image compression/conversion
+  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
     return file;
   }
+
+  const fileName = file.name.toLowerCase();
 
   const isHeic =
     file.type === "image/heic" ||
     file.type === "image/heif" ||
-    file.type === "application/octet-stream" ||
-    file.type === "" ||
-    file.name.toLowerCase().endsWith(".heic") ||
-    file.name.toLowerCase().endsWith(".heif");
+    fileName.endsWith(".heic") ||
+    fileName.endsWith(".heif");
 
-  // Convert HEIC/HEIF → JPEG
+  const isWebp =
+    file.type === "image/webp" ||
+    fileName.endsWith(".webp");
+
+  /**
+   * Convert HEIC / HEIF → JPEG first.
+   * The resulting JPEG is then passed through the normal
+   * canvas compression below.
+   */
   if (isHeic) {
     try {
       const heic2any = (await import("heic2any")).default;
@@ -27,7 +36,9 @@ export async function compressImage(file: File): Promise<File> {
         ? convertedBlob[0]
         : convertedBlob;
 
-      return new File(
+      // Convert the resulting JPEG blob into a File so it can
+      // continue through the normal compression pipeline.
+      file = new File(
         [blob],
         file.name
           .replace(/\.heic$/i, ".jpg")
@@ -38,14 +49,27 @@ export async function compressImage(file: File): Promise<File> {
         }
       );
     } catch (error) {
-      console.error("HEIC conversion failed:", error);
+      console.error("HEIC/HEIF conversion failed:", error);
 
-      // Keep original if conversion fails
+      // Keep original if HEIC conversion fails
       return file;
     }
   }
 
-  // Compress normal images
+  /**
+   * WebP is supported by modern browsers and can be drawn
+   * directly onto a canvas.
+   *
+   * The canvas output below is ALWAYS image/jpeg, so WebP
+   * automatically becomes JPG.
+   */
+  if (isWebp) {
+    console.log("Converting WebP → JPEG:", file.name);
+  }
+
+  /**
+   * Compress / convert image to JPEG.
+   */
   return new Promise<File>((resolve) => {
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
@@ -72,6 +96,11 @@ export async function compressImage(file: File): Promise<File> {
       canvas.width = width;
       canvas.height = height;
 
+      // White background prevents transparent PNG/WebP
+      // areas from becoming black in the JPEG.
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+
       ctx.drawImage(img, 0, 0, width, height);
 
       URL.revokeObjectURL(url);
@@ -83,14 +112,28 @@ export async function compressImage(file: File): Promise<File> {
             return;
           }
 
+          // ALWAYS use .jpg
           const newName = file.name.replace(/\.[^.]+$/, ".jpg");
 
-          resolve(
-            new File([blob], newName, {
+          const compressedFile = new File(
+            [blob],
+            newName,
+            {
               type: "image/jpeg",
               lastModified: Date.now(),
-            })
+            }
           );
+
+          console.log("Image converted/compressed:", {
+            original: file.name,
+            originalType: file.type,
+            originalSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+            output: compressedFile.name,
+            outputType: compressedFile.type,
+            outputSize: `${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`,
+          });
+
+          resolve(compressedFile);
         },
         "image/jpeg",
         0.92
@@ -99,9 +142,14 @@ export async function compressImage(file: File): Promise<File> {
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
+
+      console.error("Could not load image:", file.name);
+
+      // Keep original if browser cannot decode it
       resolve(file);
     };
 
     img.src = url;
   });
 }
+
