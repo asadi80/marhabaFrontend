@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useLanguage } from "../../hooks/useLanguage";
+import { useAuth } from "../../context/AuthContext";
 import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
 
-import type { Listing, AppUser, NavLink } from "../../types";
+import type { Listing, NavLink } from "../../types";
 
 interface Category {
   key: string;
@@ -32,12 +33,23 @@ export default function Home() {
 
   // ============================================================
   // AUTH STATE
+  //
+  // SECURITY / CORRECTNESS: this page previously re-implemented its
+  // own auth check by reading localStorage("authToken") and calling
+  // /auth/me directly. That key doesn't exist in this app's current
+  // auth scheme (AuthContext stores the access token as
+  // "accessToken", and the refresh token isn't in localStorage at
+  // all — it's an httpOnly cookie). The old code here silently
+  // always failed, showing every visitor as logged out regardless
+  // of their real session. Using the shared AuthContext instead of a
+  // second, independent auth system fixes this and means there's
+  // only one place that can ever be wrong about who's logged in.
   // ============================================================
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userType, setUserType] = useState<string | null>(null);
-  const [user, setUser] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isAuthenticated, isLoading: authLoading, getAccessToken } =
+    useAuth();
+
+  const userType = (user?.role || "user").toLowerCase();
 
   // ============================================================
   // UI STATE
@@ -71,46 +83,14 @@ export default function Home() {
   // ============================================================
 
   const categories: Category[] = [
-    {
-      key: "beachfront",
-      icon: "🏖️",
-      label: isAr ? "شاطئ" : "Beachfront",
-    },
-    {
-      key: "mountain",
-      icon: "🏔️",
-      label: isAr ? "جبال" : "Mountain",
-    },
-    {
-      key: "city",
-      icon: "🏙️",
-      label: isAr ? "مدينة" : "City",
-    },
-    {
-      key: "countryside",
-      icon: "🏡",
-      label: isAr ? "ريفي" : "Countryside",
-    },
-    {
-      key: "pool",
-      icon: "🏊",
-      label: isAr ? "مسبح" : "Pool",
-    },
-    {
-      key: "desert",
-      icon: "🏜️",
-      label: isAr ? "صحراء" : "Desert",
-    },
-    {
-      key: "camping",
-      icon: "🏕️",
-      label: isAr ? "تخييم" : "Camping",
-    },
-    {
-      key: "cabins",
-      icon: "🛖",
-      label: isAr ? "كوخ" : "Cabins",
-    },
+    { key: "beachfront", icon: "🏖️", label: isAr ? "شاطئ" : "Beachfront" },
+    { key: "mountain", icon: "🏔️", label: isAr ? "جبال" : "Mountain" },
+    { key: "city", icon: "🏙️", label: isAr ? "مدينة" : "City" },
+    { key: "countryside", icon: "🏡", label: isAr ? "ريفي" : "Countryside" },
+    { key: "pool", icon: "🏊", label: isAr ? "مسبح" : "Pool" },
+    { key: "desert", icon: "🏜️", label: isAr ? "صحراء" : "Desert" },
+    { key: "camping", icon: "🏕️", label: isAr ? "تخييم" : "Camping" },
+    { key: "cabins", icon: "🛖", label: isAr ? "كوخ" : "Cabins" },
   ];
 
   const cardColors = [
@@ -148,81 +128,17 @@ export default function Home() {
     : listings;
 
   // ============================================================
-  // AUTH CHECK
-  // ============================================================
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = localStorage.getItem("authToken");
-
-        const headers: HeadersInit = token
-          ? {
-              Authorization: `Bearer ${token}`,
-            }
-          : {};
-
-        const res = await fetch(`${API_BASE}/auth/me`, {
-          credentials: "include",
-          headers,
-        });
-
-        if (!res.ok) {
-          setIsLoggedIn(false);
-
-          setUser(null);
-          setUserType(null);
-          return;
-        }
-
-        const data = await res.json();
-        console.log("data", data);
-
-        // ✅ user is at data.data.user
-        const userObj = data?.data?.user ?? data?.user ?? data?.data;
-
-        if (data.success === true && userObj?.id) {
-          setIsLoggedIn(true);
-          setUser(userObj);
-          setUserType((userObj.role || "user").toLowerCase());
-        } else {
-          setIsLoggedIn(false);
-          setUser(null);
-          setUserType(null);
-        }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-
-        setIsLoggedIn(false);
-        setUser(null);
-        setUserType(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  // ============================================================
   // FETCH STATS
+  //
+  // Public aggregate counts — no need to attach a user's access
+  // token here. Keeping auth tokens off endpoints that don't need
+  // them limits how many places a token could ever leak from (logs,
+  // proxies, browser extensions that inspect requests, etc.).
   // ============================================================
 
   const fetchStats = useCallback(async () => {
     try {
-      const token = localStorage.getItem("authToken");
-
-      const headers: HeadersInit = token
-        ? {
-            Authorization: `Bearer ${token}`,
-          }
-        : {};
-
-      const res = await fetch(`${API_BASE}/stats/simple`, {
-        credentials: "include",
-        headers,
-      });
-
+      const res = await fetch(`${API_BASE}/stats/simple`);
       const data = await res.json();
 
       if (!res.ok) {
@@ -249,20 +165,19 @@ export default function Home() {
   const fetchAllListings = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/listings`);
-
       const data = await res.json();
 
       if (!res.ok) {
         throw new Error(data.message || `HTTP ${res.status}`);
       }
 
-      if (data.success && Array.isArray(data.listings)) {
-        setListings(data.listings);
-      } else if (Array.isArray(data.listings)) {
-        setListings(data.listings);
-      } else if (Array.isArray(data.data)) {
-        setListings(data.data);
-      }
+      const list = Array.isArray(data.listings)
+        ? data.listings
+        : Array.isArray(data.data)
+          ? data.data
+          : [];
+
+      setListings(list);
     } catch (error) {
       console.error("Error fetching listings:", error);
     }
@@ -299,21 +214,15 @@ export default function Home() {
         }
 
         const data = await res.json();
+        const list = Array.isArray(data.listings) ? data.listings : [];
 
-        if (
-          data.success &&
-          Array.isArray(data.listings) &&
-          data.listings.length > 0
-        ) {
-          setListings(data.listings);
-        } else if (Array.isArray(data.listings) && data.listings.length > 0) {
-          setListings(data.listings);
+        if (list.length > 0) {
+          setListings(list);
         } else {
           await fetchAllListings();
         }
       } catch (error) {
         console.error("Nearby listings failed:", error);
-
         await fetchAllListings();
       } finally {
         setListingsLoading(false);
@@ -346,7 +255,6 @@ export default function Home() {
     navigator.geolocation.getCurrentPosition(
       async ({ coords: { latitude, longitude } }) => {
         setLocationPermission(true);
-
         await fetchNearbyListings(latitude, longitude);
       },
 
@@ -364,7 +272,6 @@ export default function Home() {
         );
 
         setListingsLoading(false);
-
         fetchAllListings();
       },
 
@@ -383,7 +290,8 @@ export default function Home() {
   useEffect(() => {
     fetchStats();
     getUserLocation();
-  }, [fetchStats, getUserLocation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============================================================
   // HANDLERS
@@ -394,11 +302,7 @@ export default function Home() {
   };
 
   const handleDashboardRedirect = () => {
-    if (userType === "host") {
-      navigate("/host-dashboard");
-    } else {
-      navigate("/user-dashboard");
-    }
+    navigate(userType === "host" ? "/host-dashboard" : "/user-dashboard");
   };
 
   // ============================================================
@@ -417,14 +321,8 @@ export default function Home() {
   // NAV LINKS
   // ============================================================
 
-  const NAV_LINKS: NavLink[] = isLoggedIn
-    ? [
-        {
-          id: "listings",
-          label: isAr ? "تصفح" : "Browse",
-          href: "/listings",
-        },
-      ]
+  const NAV_LINKS: NavLink[] = isAuthenticated
+    ? [{ id: "listings", label: isAr ? "تصفح" : "Browse", href: "/listings" }]
     : [
         {
           id: "how-to-book",
@@ -442,7 +340,7 @@ export default function Home() {
   // LOADING
   // ============================================================
 
-  if (loading) {
+  if (authLoading) {
     return <LoadingScreen />;
   }
 
@@ -461,7 +359,7 @@ export default function Home() {
 
       <Navbar
         NAV_LINKS={NAV_LINKS}
-        user={isLoggedIn ? user : null}
+        user={isAuthenticated ? user : null}
         lang={lang}
         toggleLanguage={toggleLanguage}
         ini={userInitials}
@@ -474,9 +372,7 @@ export default function Home() {
       <section className="relative min-h-[480px] sm:min-h-[580px] flex items-center overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#2d2d5e] to-[#1a1a2e]">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(232,197,71,0.15)_0%,transparent_60%)]" />
-
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_20%,rgba(55,138,221,0.1)_0%,transparent_50%)]" />
-
           <div
             className="absolute inset-0 opacity-[0.04]"
             style={{
@@ -489,7 +385,6 @@ export default function Home() {
         <div className="relative max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20 w-full">
           <div className="inline-flex items-center gap-2 bg-yellow-400/15 border border-yellow-400/30 text-yellow-400 px-3.5 py-1.5 rounded-full text-[10px] sm:text-[11px] tracking-widest uppercase mb-6">
             <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
-
             {content.heroBadge}
           </div>
 
@@ -506,7 +401,7 @@ export default function Home() {
             {content.heroSubtitle}
           </p>
 
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <div className="flex gap-3 flex-wrap">
               <button
                 onClick={handleDashboardRedirect}
@@ -568,7 +463,6 @@ export default function Home() {
                     />
                   </svg>
                 </span>
-
                 {item}
               </div>
             ))}
@@ -593,7 +487,6 @@ export default function Home() {
               className="bg-[#1a1a2e] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed border-none rounded-full px-4 py-1.5 text-[12px] flex items-center gap-2 cursor-pointer transition-all text-yellow-400 font-medium"
             >
               <span>📍</span>
-
               {listingsLoading
                 ? isAr
                   ? "جاري التحميل..."
@@ -621,7 +514,6 @@ export default function Home() {
                 }`}
               >
                 <span className="text-2xl">{cat.icon}</span>
-
                 <span className="text-xs font-medium whitespace-nowrap text-gray-900">
                   {cat.label}
                 </span>
@@ -741,6 +633,7 @@ export default function Home() {
                       src={listing.images[0]}
                       alt={listing.title}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-5xl">
@@ -914,13 +807,12 @@ export default function Home() {
                       />
                     </svg>
                   </span>
-
                   {p}
                 </li>
               ))}
             </ul>
 
-            {!isLoggedIn && (
+            {!isAuthenticated && (
               <Link
                 to="/signup"
                 className="inline-flex items-center gap-1.5 bg-[#1a1a2e] text-yellow-400 px-5 py-2.5 rounded-[10px] text-[13px] font-semibold no-underline hover:opacity-85 transition-opacity w-fit"
@@ -979,13 +871,12 @@ export default function Home() {
                       />
                     </svg>
                   </span>
-
                   {p}
                 </li>
               ))}
             </ul>
 
-            {!isLoggedIn && (
+            {!isAuthenticated && (
               <Link
                 to="/signup"
                 className="inline-flex items-center gap-1.5 bg-yellow-400 text-[#1a1a2e] px-5 py-2.5 rounded-[10px] text-[13px] font-semibold no-underline hover:opacity-85 transition-opacity w-fit"
@@ -1001,7 +892,7 @@ export default function Home() {
           CTA
       ====================================================== */}
 
-      {!isLoggedIn && (
+      {!isAuthenticated && (
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10">
           <div className="relative bg-gradient-to-br from-[#1a1a2e] to-[#2d2d5e] rounded-3xl px-6 sm:px-12 py-12 sm:py-16 text-center overflow-hidden">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(232,197,71,0.2)_0%,transparent_60%)]" />
@@ -1071,52 +962,25 @@ export default function Home() {
               {
                 heading: content.travelersHeading,
                 links: [
-                  {
-                    label: content.howToBook,
-                    href: "/how-to-book",
-                  },
-                  {
-                    label: content.paymentMethods,
-                    href: "/payment-methods",
-                  },
-                  {
-                    label: content.travelTips,
-                    href: "/travel-tips",
-                  },
+                  { label: content.howToBook, href: "/how-to-book" },
+                  { label: content.paymentMethods, href: "/payment-methods" },
+                  { label: content.travelTips, href: "/travel-tips" },
                 ],
               },
               {
                 heading: content.hostsHeading,
                 links: [
-                  {
-                    label: content.startHosting,
-                    href: "/start-hosting",
-                  },
-                  {
-                    label: content.hostResources,
-                    href: "/host-resources",
-                  },
-                  {
-                    label: content.pricingTips,
-                    href: "/pricing-tips",
-                  },
+                  { label: content.startHosting, href: "/start-hosting" },
+                  { label: content.hostResources, href: "/host-resources" },
+                  { label: content.pricingTips, href: "/pricing-tips" },
                 ],
               },
               {
                 heading: content.supportHeading,
                 links: [
-                  {
-                    label: content.helpCenter,
-                    href: "/help-center",
-                  },
-                  {
-                    label: content.safetyInfo,
-                    href: "/safety-info",
-                  },
-                  {
-                    label: content.contactUs,
-                    href: "/contact",
-                  },
+                  { label: content.helpCenter, href: "/help-center" },
+                  { label: content.safetyInfo, href: "/safety-info" },
+                  { label: content.contactUs, href: "/contact" },
                 ],
               },
             ].map(({ heading, links }) => (
