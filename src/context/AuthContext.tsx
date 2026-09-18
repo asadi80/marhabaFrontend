@@ -250,7 +250,7 @@ export const AuthProvider: React.FC<{
 
       setUser(freshUser);
 
-      localStorage.setItem("user", JSON.stringify(freshUser));
+      // localStorage.setItem("user", JSON.stringify(freshUser));
 
       return freshUser;
     }
