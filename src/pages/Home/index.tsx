@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useLanguage } from "../../hooks/useLanguage";
 import { useAuth } from "../../context/AuthContext";
 import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
+import ListingsMap from "../../components/ListingsMap";
 
 import type { Listing, NavLink } from "../../types";
 
@@ -21,8 +22,19 @@ interface Stats {
   total_listings: number;
 }
 
+type Coords = { lat: number; lng: number };
+
 const API_BASE =
   import.meta.env.VITE_API_URL || "https://api.mar-haba.ly/api/v1";
+
+// Pull the listings array out of whichever shape the API returned.
+// Handles: { listings }, { data: [...] }, { data: { listings: [...] } }
+const parseListings = (data: any): Listing[] => {
+  if (Array.isArray(data?.listings)) return data.listings;
+  if (Array.isArray(data?.data?.listings)) return data.data.listings;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+};
 
 export default function Home() {
   const navigate = useNavigate();
@@ -31,23 +43,16 @@ export default function Home() {
   const content = t;
   const isAr = lang === "ar";
 
+  // Keep a ref so callbacks that must not depend on `isAr` still see the
+  // latest value without being re-created on every language toggle.
+  const isArRef = useRef(isAr);
+  isArRef.current = isAr;
+
   // ============================================================
   // AUTH STATE
-  //
-  // SECURITY / CORRECTNESS: this page previously re-implemented its
-  // own auth check by reading localStorage("authToken") and calling
-  // /auth/me directly. That key doesn't exist in this app's current
-  // auth scheme (AuthContext stores the access token as
-  // "accessToken", and the refresh token isn't in localStorage at
-  // all — it's an httpOnly cookie). The old code here silently
-  // always failed, showing every visitor as logged out regardless
-  // of their real session. Using the shared AuthContext instead of a
-  // second, independent auth system fixes this and means there's
-  // only one place that can ever be wrong about who's logged in.
   // ============================================================
 
-  const { user, isAuthenticated, isLoading: authLoading, getAccessToken } =
-    useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const userType = (user?.role || "user").toLowerCase();
 
@@ -63,6 +68,7 @@ export default function Home() {
   // ============================================================
 
   const [listings, setListings] = useState<Listing[]>([]);
+  const [userCoords, setUserCoords] = useState<Coords | null>(null);
   const [listingsLoading, setListingsLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [locationPermission, setLocationPermission] = useState(false);
@@ -113,10 +119,12 @@ export default function Home() {
   const filteredListings = activeCategory
     ? listings.filter((listing) => {
         const haystack = [
-          listing.category,
-          listing.type,
-          listing.propertyType,
-          ...(Array.isArray(listing.tags) ? listing.tags : []),
+          (listing as any).category,
+          (listing as any).type,
+          (listing as any).propertyType,
+          ...(Array.isArray((listing as any).tags)
+            ? (listing as any).tags
+            : []),
           listing.title,
           listing.description,
         ]
@@ -128,12 +136,7 @@ export default function Home() {
     : listings;
 
   // ============================================================
-  // FETCH STATS
-  //
-  // Public aggregate counts — no need to attach a user's access
-  // token here. Keeping auth tokens off endpoints that don't need
-  // them limits how many places a token could ever leak from (logs,
-  // proxies, browser extensions that inspect requests, etc.).
+  // FETCH STATS (public, no token)
   // ============================================================
 
   const fetchStats = useCallback(async () => {
@@ -159,103 +162,85 @@ export default function Home() {
   }, []);
 
   // ============================================================
-  // FETCH ALL LISTINGS
+  // FETCH LISTINGS
   // ============================================================
 
-  const fetchAllListings = useCallback(async () => {
+  const fetchListings = useCallback(async (coords: Coords | null) => {
+    setListingsLoading(true);
+
     try {
-      const res = await fetch(`${API_BASE}/listings`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || `HTTP ${res.status}`);
-      }
-
-      const list = Array.isArray(data.listings)
-        ? data.listings
-        : Array.isArray(data.data)
-          ? data.data
-          : [];
-
-      setListings(list);
-    } catch (error) {
-      console.error("Error fetching listings:", error);
-    }
-  }, []);
-
-  // ============================================================
-  // FETCH NEARBY LISTINGS
-  // ============================================================
-
-  const fetchNearbyListings = useCallback(
-    async (lat: number, lng: number) => {
-      try {
-        setListingsLoading(true);
-
+      if (coords) {
         const params = new URLSearchParams({
-          lat: String(lat),
-          lng: String(lng),
-          radius: "50",
-          limit: "12",
+          lat: String(coords.lat),
+          lng: String(coords.lng),
+          radius: "100",
+          limit: "100",
         });
 
         const res = await fetch(
           `${API_BASE}/listings/nearby?${params.toString()}`,
         );
 
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
+        if (res.ok) {
+          const list = parseListings(await res.json());
+
+          if (list.length > 0) {
+            setListings(list);
+            setLocationPermission(true);
+            return;
+          }
         }
-
-        const contentType = res.headers.get("content-type");
-
-        if (!contentType?.includes("application/json")) {
-          throw new Error("Server returned non-JSON response");
-        }
-
-        const data = await res.json();
-        const list = Array.isArray(data.listings) ? data.listings : [];
-
-        if (list.length > 0) {
-          setListings(list);
-        } else {
-          await fetchAllListings();
-        }
-      } catch (error) {
-        console.error("Nearby listings failed:", error);
-        await fetchAllListings();
-      } finally {
-        setListingsLoading(false);
       }
-    },
-    [fetchAllListings],
-  );
+
+      const res = await fetch(`${API_BASE}/listings`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      setListings(parseListings(await res.json()));
+      setLocationPermission(false);
+    } catch (error) {
+      console.error("Error fetching listings:", error);
+      // Clear stale data so the UI shows the empty state instead of
+      // listings from a previous successful request.
+      setListings([]);
+      setLocationPermission(false);
+    } finally {
+      setListingsLoading(false);
+    }
+  }, []);
 
   // ============================================================
   // GET USER LOCATION
+  //
+  // NOTE: reads language from `isArRef` so this callback does NOT
+  // need to depend on `isAr` (which would re-request geolocation on
+  // every language toggle).
   // ============================================================
 
   const getUserLocation = useCallback(() => {
-    setListingsLoading(true);
     setLocationError(null);
+    const ar = isArRef.current;
 
     if (!navigator.geolocation) {
       setLocationError(
-        isAr
+        ar
           ? "متصفحك لا يدعم تحديد الموقع"
           : "Your browser doesn't support geolocation",
       );
 
-      setListingsLoading(false);
-      fetchAllListings();
-
+      fetchListings(null);
       return;
     }
 
+    setListingsLoading(true);
+
     navigator.geolocation.getCurrentPosition(
-      async ({ coords: { latitude, longitude } }) => {
-        setLocationPermission(true);
-        await fetchNearbyListings(latitude, longitude);
+      ({ coords }) => {
+        const c = { lat: coords.latitude, lng: coords.longitude };
+        setUserCoords(c);
+        fetchListings(c);
       },
 
       (err) => {
@@ -263,25 +248,23 @@ export default function Home() {
 
         setLocationError(
           err.code === 1
-            ? isAr
+            ? ar
               ? "الرجاء السماح بالوصول إلى الموقع"
               : "Please allow location access"
-            : isAr
+            : ar
               ? "تعذر الحصول على موقعك"
               : "Unable to get your location",
         );
 
-        setListingsLoading(false);
-        fetchAllListings();
+        fetchListings(null);
       },
 
       {
-        enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 0,
+        maximumAge: 60000,
       },
     );
-  }, [isAr, fetchAllListings, fetchNearbyListings]);
+  }, [fetchListings]);
 
   // ============================================================
   // INITIAL DATA LOAD
@@ -290,8 +273,7 @@ export default function Home() {
   useEffect(() => {
     fetchStats();
     getUserLocation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchStats, getUserLocation]);
 
   // ============================================================
   // HANDLERS
@@ -301,8 +283,32 @@ export default function Home() {
     setActiveCategory((prev) => (prev === key ? null : key));
   };
 
+  const getDashboardRoute = () => {
+    switch (userType) {
+      case "host":
+        return "/host-dashboard";
+      case "admin":
+      case "super_admin":
+        return "/admin";
+      default:
+        return "/user-dashboard";
+    }
+  };
+
+  const getDashboardLabel = () => {
+    switch (userType) {
+      case "host":
+        return isAr ? "لوحة المضيف" : "Host Dashboard";
+      case "admin":
+      case "super_admin":
+        return isAr ? "لوحة الإدارة" : "Admin Dashboard";
+      default:
+        return isAr ? "لوحة المستخدم" : "User Dashboard";
+    }
+  };
+
   const handleDashboardRedirect = () => {
-    navigate(userType === "host" ? "/host-dashboard" : "/user-dashboard");
+    navigate(getDashboardRoute());
   };
 
   // ============================================================
@@ -353,10 +359,7 @@ export default function Home() {
       dir={isAr ? "rtl" : "ltr"}
       className="bg-white min-h-screen text-gray-900"
     >
-      {/* ======================================================
-          NAVBAR
-      ====================================================== */}
-
+      {/* NAVBAR */}
       <Navbar
         NAV_LINKS={NAV_LINKS}
         user={isAuthenticated ? user : null}
@@ -365,10 +368,7 @@ export default function Home() {
         ini={userInitials}
       />
 
-      {/* ======================================================
-          HERO
-      ====================================================== */}
-
+      {/* HERO */}
       <section className="relative min-h-[480px] sm:min-h-[580px] flex items-center overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#2d2d5e] to-[#1a1a2e]">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(232,197,71,0.15)_0%,transparent_60%)]" />
@@ -407,14 +407,7 @@ export default function Home() {
                 onClick={handleDashboardRedirect}
                 className="inline-flex items-center gap-2 bg-yellow-400 text-[#1a1a2e] px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl text-sm font-semibold border-none cursor-pointer hover:bg-yellow-300 hover:-translate-y-px transition-all"
               >
-                {userType === "host"
-                  ? isAr
-                    ? "لوحة المضيف"
-                    : "Host Dashboard"
-                  : isAr
-                    ? "لوحة المستخدم"
-                    : "User Dashboard"}{" "}
-                →
+                {getDashboardLabel()} →
               </button>
 
               <Link
@@ -470,10 +463,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ======================================================
-          CATEGORIES
-      ====================================================== */}
-
+      {/* CATEGORIES */}
       <div className="border-b border-gray-100">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 pt-8">
           <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -484,6 +474,9 @@ export default function Home() {
             <button
               onClick={getUserLocation}
               disabled={listingsLoading}
+              aria-label={
+                isAr ? "أظهر القريب مني" : "Show listings near me"
+              }
               className="bg-[#1a1a2e] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed border-none rounded-full px-4 py-1.5 text-[12px] flex items-center gap-2 cursor-pointer transition-all text-yellow-400 font-medium"
             >
               <span>📍</span>
@@ -523,10 +516,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ======================================================
-          LISTINGS
-      ====================================================== */}
-
+      {/* LISTINGS */}
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
@@ -576,6 +566,14 @@ export default function Home() {
             </Link>
           </div>
         </div>
+
+        <ListingsMap
+          listings={filteredListings}
+          userLocation={userCoords}
+          isAr={isAr}
+          onSelect={(id) => navigate(`/listings/${id}`)}
+          className="w-full h-[420px] sm:h-[520px] mb-8"
+        />
 
         {listingsLoading ? (
           <div className="min-h-[300px] sm:min-h-[400px] flex items-center justify-center">
@@ -641,7 +639,13 @@ export default function Home() {
                     </div>
                   )}
 
-                  <div className="absolute top-3 end-3 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-white transition-colors">
+                  <button
+                    type="button"
+                    aria-label={
+                      isAr ? "أضف إلى المفضلة" : "Add to favorites"
+                    }
+                    className="absolute top-3 end-3 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-white transition-colors border-none"
+                  >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                       <path
                         d="M7 12.5S1 9 1 4.5a3 3 0 0 1 6 0 3 3 0 0 1 6 0C13 9 7 12.5 7 12.5z"
@@ -651,23 +655,23 @@ export default function Home() {
                         strokeLinejoin="round"
                       />
                     </svg>
-                  </div>
+                  </button>
 
                   <div className="absolute top-3 start-3 bg-white text-gray-900 rounded-md px-2.5 py-1 text-[11px] font-semibold">
                     {isAr ? "🏆 مميز" : "🏆 Featured"}
                   </div>
 
-                  {listing.distance !== undefined &&
-                    listing.distance !== null && (
+                  {(listing as any).distance !== undefined &&
+                    (listing as any).distance !== null && (
                       <div className="absolute bottom-3 end-3 bg-black/70 text-white rounded-full px-2.5 py-1 text-[11px] font-medium">
-                        📍 {listing.distance} {isAr ? "كم" : "km"}
+                        📍 {(listing as any).distance} {isAr ? "كم" : "km"}
                       </div>
                     )}
                 </div>
 
                 <div className="px-1">
                   <div className="font-semibold text-sm text-gray-900 mb-0.5">
-                    {listing.location?.split(",")[0] ||
+                    {(listing as any).location?.split(",")[0] ||
                       listing.title?.slice(0, 30)}
                   </div>
 
@@ -686,10 +690,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* ======================================================
-          STATS
-      ====================================================== */}
-
+      {/* STATS */}
       <div className="bg-[#1a1a2e] my-10 py-10 sm:py-12 px-4 sm:px-6">
         <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {[
@@ -732,10 +733,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ======================================================
-          CHOOSE PATH
-      ====================================================== */}
-
+      {/* CHOOSE PATH */}
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10">
         <div className="mb-7">
           <div className="text-[10px] tracking-[0.12em] uppercase text-gray-400 mb-1.5">
@@ -759,7 +757,6 @@ export default function Home() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {/* TRAVELER */}
-
           <div className="rounded-[20px] p-7 sm:p-9 relative overflow-hidden min-h-[300px] sm:min-h-[340px] flex flex-col justify-end bg-gradient-to-br from-[#e6f3ff] to-[#cce4ff]">
             <div
               className={`text-4xl sm:text-5xl absolute top-6 sm:top-7 ${
@@ -823,7 +820,6 @@ export default function Home() {
           </div>
 
           {/* HOST */}
-
           <div className="rounded-[20px] p-7 sm:p-9 relative overflow-hidden min-h-[300px] sm:min-h-[340px] flex flex-col justify-end bg-gradient-to-br from-[#1a1a2e] to-[#2d2d5e]">
             <div
               className={`text-4xl sm:text-5xl absolute top-6 sm:top-7 ${
@@ -888,10 +884,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ======================================================
-          CTA
-      ====================================================== */}
-
+      {/* CTA */}
       {!isAuthenticated && (
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10">
           <div className="relative bg-gradient-to-br from-[#1a1a2e] to-[#2d2d5e] rounded-3xl px-6 sm:px-12 py-12 sm:py-16 text-center overflow-hidden">
@@ -934,10 +927,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* ======================================================
-          FOOTER
-      ====================================================== */}
-
+      {/* FOOTER */}
       <footer className="bg-[#111] px-4 sm:px-6 pt-12 pb-7">
         <div className="max-w-screen-xl mx-auto">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-10 pb-10 border-b border-[#222]">
