@@ -360,7 +360,7 @@ export default function UserDashboard() {
   const fetchListings = async () => {
     try {
       const response = await apiService.getProtectedData<any>(
-        "/api/v1/listings"
+        "/api/v1/listings/"
       );
       if (!response.success || !response.data) {
         console.error("Failed to fetch listings:", response.message);

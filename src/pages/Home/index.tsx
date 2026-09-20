@@ -178,7 +178,7 @@ export default function Home() {
         });
 
         const res = await fetch(
-          `${API_BASE}/listings/nearby?${params.toString()}`,
+          `${API_BASE}/listings)}`,
         );
 
         if (res.ok) {
