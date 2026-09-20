@@ -1,20 +1,12 @@
 // src/pages/User-dashboard/index.tsx
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../hooks/useLanguage";
 import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
+import ListingsMap from "../../components/ListingsMap";
 import { apiService } from "../../services/api";
-
-// Mapbox access token
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string;
-
-if (MAPBOX_TOKEN) {
-  mapboxgl.accessToken = MAPBOX_TOKEN;
-}
 
 // ---------- Types ----------
 
@@ -26,8 +18,8 @@ interface Listing {
   images?: string[];
   coordinates?: { lat: number; lng: number };
   is_active: boolean;
-  latitude?: string;
-  longitude?: string;
+  latitude?: string | number;
+  longitude?: string | number;
 }
 
 type BookingStatus = "confirmed" | "pending" | "cancelled";
@@ -74,28 +66,6 @@ const STATUS_STYLES: Record<
   pending: { bg: "#FAEEDA", c: "#633806", label: ["pending", "قيد الانتظار"] },
   cancelled: { bg: "#FCEBEB", c: "#791F1F", label: ["cancelled", "ملغي"] },
 };
-
-// Base classes shared by every listing marker; active state is toggled on top of this.
-const MARKER_BASE_CLASS =
-  "listing-marker cursor-pointer transition-transform duration-150 hover:scale-110";
-const MARKER_DEFAULT_CLASS = MARKER_BASE_CLASS;
-const MARKER_ACTIVE_CLASS = `${MARKER_BASE_CLASS} scale-110`;
-
-const GOLD = "#e8c547";
-const NAVY = "#1a1a2e";
-
-// Classic teardrop pin shape (like a Google Maps marker), pointed end down.
-const buildPinSVG = (fill: string, stroke: string) => `
-  <svg width="28" height="40" viewBox="0 0 24 36" xmlns="http://www.w3.org/2000/svg">
-    <path
-      d="M12 0C5.373 0 0 5.373 0 12c0 9 12 24 12 24s12-15 12-24C24 5.373 18.627 0 12 0z"
-      fill="${fill}"
-      stroke="${stroke}"
-      stroke-width="1.5"
-    />
-    <circle cx="12" cy="12" r="4.5" fill="${stroke}" />
-  </svg>
-`;
 
 // ---------- Helpers ----------
 
@@ -156,85 +126,6 @@ const getIPGeolocation = async (): Promise<Coords | null> => {
   return null;
 };
 
-// ---------- Extra client-side token guard ----------
-// NOTE: this is a UX nicety, not real security — anyone can edit their own
-// localStorage. It only lets us redirect to /login early (before firing off
-// API calls) when the stored token is missing/expired. The actual security
-// boundary is the server rejecting unauthorized/expired tokens on every
-// request; this never replaces that.
-
-const readStoredAccessToken = (): string | null => {
-  try {
-    const raw = localStorage.getItem("tokens");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return typeof parsed?.accessToken === "string" ? parsed.accessToken : null;
-  } catch {
-    return null;
-  }
-};
-
-// Decodes a JWT's payload (no signature verification — that's the server's job)
-// just to read the `exp` claim.
-const isJwtExpired = (token: string): boolean => {
-  try {
-    const payloadB64 = token.split(".")[1];
-    const payload = JSON.parse(
-      atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/"))
-    );
-    if (!payload?.exp) return false; // no exp claim — nothing to check locally
-    return Date.now() >= payload.exp * 1000;
-  } catch {
-    return true; // malformed/unreadable token — treat as invalid
-  }
-};
-
-const hasValidStoredToken = (): boolean => {
-  const token = readStoredAccessToken();
-  return !!token && !isJwtExpired(token);
-};
-
-// Builds the small green dot used to mark the user's own location on the map.
-const createUserLocationMarkerElement = () => {
-  const el = document.createElement("div");
-  el.className =
-    "w-4 h-4 rounded-full bg-[#1D9E75] border-2 border-white shadow-[0_0_0_3px_rgba(29,158,117,0.25)]";
-  return el;
-};
-
-// Builds a Google-Maps-style teardrop pin marker for a single listing
-// (price is shown in the popup instead of on the pin itself).
-const createListingMarkerElement = (
-  listing: Listing,
-  isActive: boolean,
-  onClick: () => void
-) => {
-  const el = document.createElement("div");
-
-  el.classList.add("listing-marker");
-
-  if (isActive) {
-    el.classList.add("scale-110");
-  }
-
-  el.innerHTML = isActive ? buildPinSVG(GOLD, NAVY) : buildPinSVG(NAVY, GOLD);
-
-  el.dataset.listingId = listing.id;
-
-  el.addEventListener("click", onClick);
-
-  return el;
-};
-
-const buildListingPopupHTML = (
-  listing: Listing,
-  formattedPrice: string
-) => `
-  <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${listing.title}</div>
-  <div style="font-size:12px;color:#666;">${listing.location}</div>
-  <div style="font-size:14px;font-weight:bold;margin-top:4px;color:#1a1a2e;">${formattedPrice}/night</div>
-`;
-
 // ---------- Component ----------
 
 export default function UserDashboard() {
@@ -248,16 +139,9 @@ export default function UserDashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<Coords | null>(null);
-  const [mapCenter, setMapCenter] = useState<Coords>(WORLDWIDE_CENTER);
   const [searchRadius, setSearchRadius] = useState(10);
   const [activeTab, setActiveTab] = useState("nearby");
   const [activeMarkerId, setActiveMarkerId] = useState<string | null>(null);
-  const [mapReady, setMapReady] = useState(false);
-
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
-  const userMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const listingMarkersRef = useRef<Record<string, mapboxgl.Marker>>({});
 
   const isAuthorizedUser =
     isAuthenticated && !!user && toRole((user as any).role) === USER_ROLE;
@@ -291,11 +175,6 @@ export default function UserDashboard() {
   };
 
   // ----- Auth + role guard -----
-  // Combines the AuthContext's server-derived auth state with a local check
-  // of the stored JWT's expiry, so an expired/missing token bounces the user
-  // to /login immediately instead of waiting on the first failed API call.
-  // Only accounts with role "user" may stay on this page; anything else is
-  // redirected to its own dashboard.
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated || !user) {
@@ -337,7 +216,6 @@ export default function UserDashboard() {
           lng: pos.coords.longitude,
         };
         setUserLocation(location);
-        setMapCenter(location);
         return;
       } catch {
         // GPS unavailable or denied — fall through to IP lookup.
@@ -348,13 +226,11 @@ export default function UserDashboard() {
     const ipLocation = await getIPGeolocation();
     if (ipLocation) {
       setUserLocation(ipLocation);
-      setMapCenter(ipLocation);
       return;
     }
 
-    // 3. Give up and show the worldwide view.
+    // 3. Give up — userLocation stays null.
     setUserLocation(null);
-    setMapCenter(WORLDWIDE_CENTER);
   };
 
   const fetchListings = async () => {
@@ -371,29 +247,41 @@ export default function UserDashboard() {
         ? response.data
         : response.data.data ?? response.data.listings ?? [];
 
-      const transformed: Listing[] = rawListings.map((item) => ({
-        id: item.id,
-        title: item.title,
-        location: item.location,
-        price: parseFloat(item.price) || 0,
-        images: item.images || [],
-        is_active: item.is_active !== false,
-        latitude: item.latitude,
-        longitude: item.longitude,
-        coordinates:
-          item.latitude && item.longitude
-            ? {
-                lat: parseFloat(item.latitude),
-                lng: parseFloat(item.longitude),
-              }
-            : item.coordinates?.lat !== undefined &&
-                item.coordinates?.lng !== undefined
-              ? {
-                  lat: Number(item.coordinates.lat),
-                  lng: Number(item.coordinates.lng),
-                }
-              : undefined,
-      }));
+      const transformed: Listing[] = rawListings.map((item) => {
+        // Prefer top-level latitude/longitude, fall back to coordinates object.
+        const lat =
+          item.latitude !== undefined && item.latitude !== null
+            ? Number(item.latitude)
+            : item.coordinates?.lat !== undefined
+              ? Number(item.coordinates.lat)
+              : undefined;
+        const lng =
+          item.longitude !== undefined && item.longitude !== null
+            ? Number(item.longitude)
+            : item.coordinates?.lng !== undefined
+              ? Number(item.coordinates.lng)
+              : undefined;
+
+        const coords =
+          lat !== undefined &&
+          lng !== undefined &&
+          Number.isFinite(lat) &&
+          Number.isFinite(lng)
+            ? { lat, lng }
+            : undefined;
+
+        return {
+          id: item.id,
+          title: item.title,
+          location: item.location,
+          price: parseFloat(item.price) || 0,
+          images: item.images || [],
+          is_active: item.is_active !== false,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          coordinates: coords,
+        };
+      });
 
       const active = transformed.filter((l) => l.is_active !== false);
       setListings(active);
@@ -483,159 +371,6 @@ export default function UserDashboard() {
       );
     }
   };
-
-  // ----- Map lifecycle -----
-
-  // Create the map once when the "nearby" tab is first shown.
-  useEffect(() => {
-    if (activeTab !== "nearby") return;
-
-    const parent = mapContainerRef.current;
-    if (!parent || mapInstanceRef.current) return;
-    if (!MAPBOX_TOKEN) return;
-
-    // Clear any residue from a previous mount (StrictMode / tab switch).
-    parent.innerHTML = "";
-
-    // Dedicated child element so map.remove() can't pollute the ref'd div.
-    const el = document.createElement("div");
-    el.style.cssText = "position:absolute;inset:0;width:100%;height:100%";
-    parent.appendChild(el);
-
-    const map = new mapboxgl.Map({
-      container: el,
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: [mapCenter.lng, mapCenter.lat],
-      zoom: 12,
-    });
-
-    map.addControl(
-      new mapboxgl.NavigationControl({ showCompass: false }),
-      "top-right"
-    );
-
-    // Force a resize once the style loads (the container may have settled
-    // after Mapbox first measured it).
-    map.on("load", () => {
-      map.resize();
-      setMapReady(true);
-    });
-
-    // Also resize whenever the container size changes.
-    const resizeObserver = new ResizeObserver(() => map.resize());
-    resizeObserver.observe(parent);
-
-    mapInstanceRef.current = map;
-
-    return () => {
-      resizeObserver.disconnect();
-      map.remove();
-      el.remove();
-      mapInstanceRef.current = null;
-      userMarkerRef.current = null;
-      listingMarkersRef.current = {};
-      setMapReady(false);
-    };
-  }, [activeTab]);
-
-  // Re-center the map whenever the target center changes.
-  useEffect(() => {
-    if (mapInstanceRef.current && mapReady) {
-      mapInstanceRef.current.flyTo({ center: [mapCenter.lng, mapCenter.lat] });
-    }
-  }, [mapCenter, mapReady]);
-
-  // Keep the "your location" marker in sync.
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !mapReady) return;
-
-    if (!userLocation) {
-      userMarkerRef.current?.remove();
-      userMarkerRef.current = null;
-      return;
-    }
-
-    if (!userMarkerRef.current) {
-      userMarkerRef.current = new mapboxgl.Marker({
-        element: createUserLocationMarkerElement(),
-      })
-        .setLngLat([userLocation.lng, userLocation.lat])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 14 }).setText(
-            isAr ? "موقعك" : "Your location"
-          )
-        )
-        .addTo(map);
-    } else {
-      userMarkerRef.current.setLngLat([userLocation.lng, userLocation.lat]);
-    }
-  }, [userLocation, mapReady, isAr]);
-
-  // Keep listing markers in sync with the filtered list.
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map || !mapReady) return;
-
-    const withCoords = filtered.filter((l) => l.coordinates);
-    const currentIds = new Set(withCoords.map((l) => l.id));
-
-    // Drop markers for listings no longer in view.
-    Object.keys(listingMarkersRef.current).forEach((id) => {
-      if (!currentIds.has(id)) {
-        listingMarkersRef.current[id].remove();
-        delete listingMarkersRef.current[id];
-      }
-    });
-
-    withCoords.forEach((listing) => {
-      const coords = listing.coordinates!;
-      const priceLabel = `${formatPrice(listing.price)} LYD`;
-
-      if (listingMarkersRef.current[listing.id]) {
-        listingMarkersRef.current[listing.id].setLngLat([
-          coords.lng,
-          coords.lat,
-        ]);
-        return;
-      }
-
-      const el = createListingMarkerElement(
-        listing,
-        activeMarkerId === listing.id,
-        () =>
-          setActiveMarkerId((prev) =>
-            prev === listing.id ? null : listing.id
-          )
-      );
-
-      const marker = new mapboxgl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([coords.lng, coords.lat])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 25 }).setHTML(
-            buildListingPopupHTML(listing, priceLabel)
-          )
-        )
-        .addTo(map);
-
-      listingMarkersRef.current[listing.id] = marker;
-    });
-  }, [filtered, mapReady, activeMarkerId]);
-
-  // Toggle the active/default look of markers when selection changes,
-  // without tearing down and recreating them.
-  useEffect(() => {
-    Object.entries(listingMarkersRef.current).forEach(([id, marker]) => {
-      const el = marker.getElement();
-      const isActive = id === activeMarkerId;
-
-      el.classList.toggle("scale-110", isActive);
-
-      el.innerHTML = isActive
-        ? buildPinSVG(GOLD, NAVY)
-        : buildPinSVG(NAVY, GOLD);
-    });
-  }, [activeMarkerId]);
 
   if (authLoading || loading) return <LoadingScreen />;
   if (!isAuthorizedUser) return null;
@@ -753,23 +488,14 @@ export default function UserDashboard() {
               </div>
             </div>
 
-            {/* Map */}
-            <div
-              className="relative rounded-xl overflow-hidden border border-black/8 mb-5 h-[clamp(280px,45vw,440px)] bg-gray-200"
-              style={{ minHeight: 320 }}
-            >
-              {MAPBOX_TOKEN ? (
-                <div ref={mapContainerRef} className="absolute inset-0" />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
-                  <p className="text-gray-500 text-xs">
-                    {isAr
-                      ? "أضف VITE_MAPBOX_TOKEN في ملف البيئة لعرض الخريطة"
-                      : "Add VITE_MAPBOX_TOKEN to your env file to display the map"}
-                  </p>
-                </div>
-              )}
-            </div>
+            {/* Map — shared component */}
+            <ListingsMap
+              listings={filtered}
+              userLocation={userLocation}
+              isAr={isAr}
+              onSelect={(id) => setActiveMarkerId(String(id))}
+              className="w-full h-[clamp(280px,45vw,440px)] mb-5"
+            />
 
             {/* Listing cards */}
             {filtered.length > 0 ? (
