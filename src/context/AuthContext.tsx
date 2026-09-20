@@ -18,7 +18,10 @@ import { useNavigate } from "react-router-dom";
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface VerificationStatus { /* ...unchanged... */ }
-export interface User { /* ...unchanged... */ }
+export interface User {
+  created_at: any;
+  name(name: any): unknown;
+}
 
 interface Tokens {
   accessToken: string;

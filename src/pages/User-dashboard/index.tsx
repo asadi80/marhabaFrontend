@@ -8,6 +8,14 @@ import Navbar from "../../components/Navbar";
 import ListingsMap from "../../components/ListingsMap";
 import { apiService } from "../../services/api";
 
+// ---------- Constants ----------
+
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://api.mar-haba.ly/api/v1";
+
+const USER_ROLE = "user";
+const RADIUS_OPTIONS = [5, 10, 20, 50, 100];
+
 // ---------- Types ----------
 
 interface Listing {
@@ -42,12 +50,7 @@ interface Coords {
   lng: number;
 }
 
-// ---------- Constants ----------
-
-const USER_ROLE = "user";
-
-const WORLDWIDE_CENTER: Coords = { lat: 20, lng: 0 };
-const RADIUS_OPTIONS = [5, 10, 20, 50, 100];
+// ---------- Static data ----------
 
 const AVATAR_PALETTE = [
   { bg: "#EEEDFE", c: "#3C3489" },
@@ -111,6 +114,33 @@ const getStatusStyle = (status: BookingStatus) =>
     label: [status, status] as [string, string],
   };
 
+/**
+ * Normalize whatever shape the listings API returns into a plain array.
+ * Handles:
+ *   - [ ... ]
+ *   - { data: [...] }
+ *   - { data: { listings: [...] } }
+ *   - { listings: [...] }
+ */
+const extractListingsArray = (payload: any): any[] => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data?.listings)) return payload.data.listings;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.listings)) return payload.listings;
+  return [];
+};
+
+/**
+ * Normalize whatever shape the bookings API returns into a plain array.
+ */
+const extractBookingsArray = (payload: any): Booking[] => {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data?.bookings)) return payload.data.bookings;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.bookings)) return payload.bookings;
+  return [];
+};
+
 // IP-based fallback geolocation, used when the browser denies/lacks GPS access.
 const getIPGeolocation = async (): Promise<Coords | null> => {
   try {
@@ -121,7 +151,7 @@ const getIPGeolocation = async (): Promise<Coords | null> => {
       return { lat: data.latitude as number, lng: data.longitude as number };
     }
   } catch {
-    // Ignore network/parse errors — caller falls back to worldwide view.
+    // Ignore network/parse errors — caller falls back to no location.
   }
   return null;
 };
@@ -137,7 +167,7 @@ export default function UserDashboard() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [filtered, setFiltered] = useState<Listing[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [listingsLoading, setListingsLoading] = useState(true);
   const [userLocation, setUserLocation] = useState<Coords | null>(null);
   const [searchRadius, setSearchRadius] = useState(10);
   const [activeTab, setActiveTab] = useState("nearby");
@@ -145,6 +175,8 @@ export default function UserDashboard() {
 
   const isAuthorizedUser =
     isAuthenticated && !!user && toRole((user as any).role) === USER_ROLE;
+
+  // ---------- Formatting helpers ----------
 
   const formatDate = (value?: string) => {
     if (!value) return "—";
@@ -174,7 +206,8 @@ export default function UserDashboard() {
     }).format(amount);
   };
 
-  // ----- Auth + role guard -----
+  // ---------- Auth + role guard ----------
+
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated || !user) {
@@ -190,15 +223,39 @@ export default function UserDashboard() {
     }
   }, [authLoading, isAuthenticated, user, navigate]);
 
-  // ----- Initial data load -----
+  // ---------- Initial data load ----------
+  // Listings are PUBLIC — fetch them as soon as the page is authorized,
+  // in parallel with location + bookings. Each one resolves independently
+  // so a slow geolocation prompt doesn't block the map from rendering.
+
   useEffect(() => {
     if (!isAuthorizedUser) return;
 
     resolveUserLocation();
     fetchListings();
     fetchBookings();
-    setLoading(false);
   }, [isAuthorizedUser]);
+
+  // Re-filter whenever the radius changes.
+  useEffect(() => {
+    if (!userLocation) {
+      setFiltered(listings);
+      return;
+    }
+
+    setFiltered(
+      listings.filter(
+        (l) =>
+          l.coordinates &&
+          haversineDistanceKm(
+            userLocation.lat,
+            userLocation.lng,
+            l.coordinates.lat,
+            l.coordinates.lng
+          ) <= searchRadius
+      )
+    );
+  }, [listings, userLocation, searchRadius]);
 
   const resolveUserLocation = async () => {
     // 1. Try browser GPS.
@@ -211,11 +268,10 @@ export default function UserDashboard() {
             maximumAge: 0,
           })
         );
-        const location = {
+        setUserLocation({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
-        };
-        setUserLocation(location);
+        });
         return;
       } catch {
         // GPS unavailable or denied — fall through to IP lookup.
@@ -229,23 +285,24 @@ export default function UserDashboard() {
       return;
     }
 
-    // 3. Give up — userLocation stays null.
+    // 3. Give up — userLocation stays null; filter will show all listings.
     setUserLocation(null);
   };
 
   const fetchListings = async () => {
+    setListingsLoading(true);
+
     try {
-      const response = await apiService.getProtectedData<any>(
-        "/api/v1/listings/"
-      );
-      if (!response.success || !response.data) {
-        console.error("Failed to fetch listings:", response.message);
-        return;
+      // /listings is a PUBLIC endpoint. No auth required — plain fetch
+      // avoids failures when the token is expired/mid-refresh.
+      const res = await fetch(`${API_BASE}/listings`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
 
-      const rawListings: any[] = Array.isArray(response.data)
-        ? response.data
-        : response.data.data ?? response.data.listings ?? [];
+      const payload = await res.json();
+      const rawListings = extractListingsArray(payload);
 
       const transformed: Listing[] = rawListings.map((item) => {
         // Prefer top-level latitude/longitude, fall back to coordinates object.
@@ -288,47 +345,35 @@ export default function UserDashboard() {
       setFiltered(active);
     } catch (error) {
       console.error("Error fetching listings:", error);
+      // Explicitly clear so the empty state is honest.
+      setListings([]);
+      setFiltered([]);
+    } finally {
+      setListingsLoading(false);
     }
   };
 
   const fetchBookings = async () => {
     try {
-      const response = await apiService.getProtectedData<any>("/api/v1/bookings");
+      // Bookings ARE user-specific — keep the protected call.
+      const response =
+        await apiService.getProtectedData<any>("/api/v1/bookings");
+
       if (!response.success || !response.data) {
         console.error("Failed to fetch bookings:", response.message);
         return;
       }
 
-      const bookingsData: Booking[] = Array.isArray(response.data)
-        ? response.data
-        : response.data.data ?? response.data.bookings ?? [];
-
-      setBookings(bookingsData);
+      setBookings(extractBookingsArray(response.data));
     } catch (error) {
       console.error("Error fetching bookings:", error);
     }
   };
 
+  // ---------- Handlers ----------
+
   const filterByDistance = (radius: number) => {
     setSearchRadius(radius);
-
-    if (!userLocation) {
-      setFiltered(listings);
-      return;
-    }
-
-    setFiltered(
-      listings.filter(
-        (l) =>
-          l.coordinates &&
-          haversineDistanceKm(
-            userLocation.lat,
-            userLocation.lng,
-            l.coordinates.lat,
-            l.coordinates.lng
-          ) <= radius
-      )
-    );
   };
 
   const openInMaps = (listing: Listing) => {
@@ -372,7 +417,9 @@ export default function UserDashboard() {
     }
   };
 
-  if (authLoading || loading) return <LoadingScreen />;
+  // ---------- Early returns ----------
+
+  if (authLoading) return <LoadingScreen />;
   if (!isAuthorizedUser) return null;
 
   const { bg: avatarBg, c: avatarColor } = getAvatarColors(user!.name);
@@ -397,6 +444,8 @@ export default function UserDashboard() {
   const bodyFontClass = isAr
     ? "font-['Cairo','Tajawal',sans-serif]"
     : "font-['DM_Mono',monospace]";
+
+  // ---------- Render ----------
 
   return (
     <div
@@ -488,17 +537,27 @@ export default function UserDashboard() {
               </div>
             </div>
 
-            {/* Map — shared component */}
+            {/* Map — shared component. Mounts immediately; data flows in
+                as the listings fetch resolves. */}
             <ListingsMap
               listings={filtered}
               userLocation={userLocation}
               isAr={isAr}
-              onSelect={(id) => setActiveMarkerId(String(id))}
+              onSelect={(id) => {
+                // Match Home: navigate to the listing. The map's own
+                // popup already gives users a peek without navigating.
+                setActiveMarkerId(String(id));
+                navigate(`/listings/${id}`);
+              }}
               className="w-full h-[clamp(280px,45vw,440px)] mb-5"
             />
 
             {/* Listing cards */}
-            {filtered.length > 0 ? (
+            {listingsLoading && filtered.length === 0 ? (
+              <div className="min-h-[200px] flex items-center justify-center bg-white rounded-xl border border-black/7">
+                <div className="w-8 h-8 border-[3px] border-[#e8c547] border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : filtered.length > 0 ? (
               <div className="flex flex-col gap-4">
                 {filtered.map((listing) => {
                   const distanceKm =
