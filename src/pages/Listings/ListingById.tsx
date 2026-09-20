@@ -8,6 +8,11 @@ import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
 import HostDateManager from "../../components/HostDateManager";
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://api.mar-haba.ly/api/v1";
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Listing {
@@ -77,7 +82,7 @@ interface BookingData {
   guests: number;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Static config ────────────────────────────────────────────────────────────
 
 const CATEGORIES = [
   { id: "beachfront", icon: "🏖️", labelEn: "Beachfront", labelAr: "شاطئ" },
@@ -168,6 +173,12 @@ const translations = {
     bookingCreatedSuccess: "Booking created successfully!",
     pleaseSelectDates: "Please select check-in and check-out dates.",
     views: "views",
+    // Guest login prompt
+    loginToBook: "Log in to book",
+    loginToBookDesc:
+      "You need an account to select dates and complete a booking.",
+    logIn: "Log in",
+    createAccount: "Create account",
   },
   ar: {
     dashboard: "لوحة التحكم",
@@ -203,6 +214,11 @@ const translations = {
     bookingCreatedSuccess: "تم إنشاء الحجز بنجاح!",
     pleaseSelectDates: "يرجى تحديد تاريخي تسجيل الوصول والمغادرة.",
     views: "مشاهدة",
+    // Guest login prompt
+    loginToBook: "سجّل الدخول للحجز",
+    loginToBookDesc: "تحتاج إلى حساب لتحديد التواريخ وإتمام الحجز.",
+    logIn: "تسجيل الدخول",
+    createAccount: "إنشاء حساب",
   },
 };
 
@@ -237,10 +253,7 @@ const getInitials = (name?: string) =>
     .slice(0, 2)
     .toUpperCase() || "H";
 
-// ─── Components ──────────────────────────────────────────────────────────────
-
-// Simple Booking Calendar (simplified version)
-// ─── Proper Booking Calendar ────────────────────────────────────────────────
+// ─── Booking Calendar ────────────────────────────────────────────────────────
 
 function BookingCalendar({
   unavailableDates,
@@ -269,7 +282,6 @@ function BookingCalendar({
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
-
     return `${year}-${month}-${day}`;
   };
 
@@ -343,48 +355,35 @@ function BookingCalendar({
     calendarDays.push(new Date(year, month, day));
   }
 
-  /*
-   * UnavailableDates contains dates that cannot be Unavailable.
-   */
   const unavailableSet = new Set(unavailableDates);
 
   const isPast = (date: Date) => {
     const d = new Date(date);
     d.setHours(0, 0, 0, 0);
-
     return d < today;
   };
 
-  const isUnavailable = (date: Date) => {
-    return unavailableSet.has(formatKey(date));
-  };
+  const isUnavailable = (date: Date) => unavailableSet.has(formatKey(date));
 
-  const isAvailable = (date: Date) => {
-    return !isPast(date) && !isUnavailable(date);
-  };
+  const isAvailable = (date: Date) => !isPast(date) && !isUnavailable(date);
+
   const isBeforeCheckIn = (date: Date) => {
     if (!checkIn) return false;
-
     return formatKey(date) < checkIn;
   };
 
   const isSelected = (date: Date) => {
     const key = formatKey(date);
-
     return key === checkIn || key === checkOut;
   };
 
   const isInRange = (date: Date) => {
     if (!checkIn || !checkOut) return false;
-
     const key = formatKey(date);
-
     return key > checkIn && key < checkOut;
   };
 
-  const isToday = (date: Date) => {
-    return formatKey(date) === formatKey(today);
-  };
+  const isToday = (date: Date) => formatKey(date) === formatKey(today);
 
   const changeMonth = (amount: number) => {
     setCurrentMonth(
@@ -394,79 +393,66 @@ function BookingCalendar({
 
   const canGoPrevious = () => {
     const previousMonth = new Date(year, month - 1, 1);
-
     const currentMonthStart = new Date(
       today.getFullYear(),
       today.getMonth(),
       1,
     );
-
     return previousMonth >= currentMonthStart;
   };
 
-const handleDateClick = (date: Date) => {
-  if (isHost) return;
+  const handleDateClick = (date: Date) => {
+    if (isHost) return;
 
-  const key = formatKey(date);
+    const key = formatKey(date);
 
-  if (isPast(date)) return;
+    if (isPast(date)) return;
 
-  // Block unavailable dates only when starting a selection (picking
-  // check-in). An unavailable date can still be a valid checkout, since
-  // checking out that morning doesn't occupy the night.
-  if (!selectingCheckOut && isUnavailable(date)) return;
+    if (!selectingCheckOut && isUnavailable(date)) return;
 
-  // 1. No check-in selected yet
-  if (!checkIn) {
-    onDateSelect({ checkIn: key, checkOut: "" });
-    setSelectingCheckOut(true);
-    return;
-  }
-
-  // 2. Selecting checkout
-  if (selectingCheckOut) {
-    if (key === checkIn) {
-      onDateSelect({ checkIn: "", checkOut: "" });
-      setSelectingCheckOut(false);
-      return;
-    }
-
-    if (key < checkIn) {
-      if (isUnavailable(date)) return; // new check-in must be available
+    if (!checkIn) {
       onDateSelect({ checkIn: key, checkOut: "" });
       setSelectingCheckOut(true);
       return;
     }
 
-    // Check every night strictly between check-in and checkout —
-    // checkout itself is excluded, since it's a departure day, not an
-    // occupied night.
-    const start = parseDate(checkIn);
-    const end = date;
-    const cursor = new Date(start);
-    cursor.setDate(cursor.getDate() + 1);
+    if (selectingCheckOut) {
+      if (key === checkIn) {
+        onDateSelect({ checkIn: "", checkOut: "" });
+        setSelectingCheckOut(false);
+        return;
+      }
 
-    while (cursor < end) {
-      if (isUnavailable(cursor)) return;
+      if (key < checkIn) {
+        if (isUnavailable(date)) return;
+        onDateSelect({ checkIn: key, checkOut: "" });
+        setSelectingCheckOut(true);
+        return;
+      }
+
+      const start = parseDate(checkIn);
+      const end = date;
+      const cursor = new Date(start);
       cursor.setDate(cursor.getDate() + 1);
+
+      while (cursor < end) {
+        if (isUnavailable(cursor)) return;
+        cursor.setDate(cursor.getDate() + 1);
+      }
+
+      onDateSelect({ checkIn, checkOut: key });
+      setSelectingCheckOut(false);
+      return;
     }
 
-    onDateSelect({ checkIn, checkOut: key });
-    setSelectingCheckOut(false);
-    return;
-  }
-
-  // 3. Both dates already selected — start a new selection.
-  if (isUnavailable(date)) return; // new check-in must be available
-  onDateSelect({ checkIn: key, checkOut: "" });
-  setSelectingCheckOut(true);
-};
+    if (isUnavailable(date)) return;
+    onDateSelect({ checkIn: key, checkOut: "" });
+    setSelectingCheckOut(true);
+  };
 
   const formatDisplayDate = (dateString: string) => {
     if (!dateString) return "";
-
     const date = parseDate(dateString);
-
     return date.toLocaleDateString(isAr ? "ar-LY" : "en-US", {
       month: "short",
       day: "numeric",
@@ -479,7 +465,7 @@ const handleDateClick = (date: Date) => {
       className="bg-white rounded-xl border border-black/8 overflow-hidden"
       dir={isAr ? "rtl" : "ltr"}
     >
-      {/* Calendar Header */}
+      {/* Header */}
       <div className="px-4 pt-4 pb-3 border-b border-black/7">
         <div className="flex items-center justify-between">
           <button
@@ -506,12 +492,13 @@ const handleDateClick = (date: Date) => {
           </button>
         </div>
 
-        {/* Selection status */}
         {!isHost && (
           <div className="mt-3 text-center">
             {!checkIn && !checkOut ? (
               <span className="text-[11px] text-[#888]">
-                {isAr ? "اختر تاريخ تسجيل الوصول" : "Select your check-in date"}
+                {isAr
+                  ? "اختر تاريخ تسجيل الوصول"
+                  : "Select your check-in date"}
               </span>
             ) : checkIn && !checkOut ? (
               <span className="text-[11px] text-[#185FA5] font-medium">
@@ -528,7 +515,7 @@ const handleDateClick = (date: Date) => {
         )}
       </div>
 
-      {/* Week Days */}
+      {/* Week days */}
       <div className="grid grid-cols-7 px-3 pt-3">
         {weekDays.map((day) => (
           <div
@@ -540,7 +527,7 @@ const handleDateClick = (date: Date) => {
         ))}
       </div>
 
-      {/* Calendar Grid */}
+      {/* Grid */}
       <div className="grid grid-cols-7 gap-y-1 px-3 pb-4 pt-1">
         {calendarDays.map((date, index) => {
           if (!date) {
@@ -548,11 +535,9 @@ const handleDateClick = (date: Date) => {
           }
 
           const key = formatKey(date);
-
           const past = isPast(date);
           const unavailable = isUnavailable(date);
           const available = isAvailable(date);
-
           const beforeCheckIn = isBeforeCheckIn(date);
           const selected = isSelected(date);
           const inRange = isInRange(date);
@@ -569,7 +554,6 @@ const handleDateClick = (date: Date) => {
               key={key}
               className="h-10 flex items-center justify-center relative"
             >
-              {/* Selected range background */}
               {inRange && (
                 <div className="absolute inset-y-1 left-0 right-0 bg-[#FEF3C7]" />
               )}
@@ -597,39 +581,32 @@ const handleDateClick = (date: Date) => {
                   relative z-10 w-8 h-8 rounded-full text-[11px]
                   flex items-center justify-center
                   transition-all duration-150
-
                   ${past ? "text-[#ccc] cursor-not-allowed" : ""}
-
                   ${
                     unavailable
                       ? "text-[#c4c4c4] bg-[#f1f1ee] cursor-not-allowed"
                       : ""
                   }
-
                   ${
                     beforeCheckIn && selectingCheckOut
                       ? "text-[#ccc] cursor-not-allowed"
                       : ""
                   }
-
                   ${
                     selected
                       ? "bg-[#e8c547] text-[#1a1a2e] font-semibold shadow-sm"
                       : ""
                   }
-
                   ${
                     !selected && !disabled && !inRange
                       ? "text-[#333] hover:bg-[#f7f6f2] cursor-pointer"
                       : ""
                   }
-
                   ${
                     !selected && inRange
                       ? "text-[#633806] hover:bg-[#FAEEDA] cursor-pointer"
                       : ""
                   }
-
                   ${
                     todayDate && !selected
                       ? "ring-1 ring-[#e8c547] ring-inset font-semibold"
@@ -640,12 +617,10 @@ const handleDateClick = (date: Date) => {
                 {date.getDate()}
               </button>
 
-              {/* Unavailable indicator */}
               {unavailable && (
                 <span className="absolute bottom-[2px] w-1 h-1 rounded-full bg-[#d66]" />
               )}
 
-              {/* Available indicator */}
               {available && !selected && !past && !unavailable && (
                 <span className="absolute bottom-[2px] w-1 h-1 rounded-full bg-[#1D9E75]" />
               )}
@@ -657,35 +632,27 @@ const handleDateClick = (date: Date) => {
       {/* Legend */}
       {!isHost && (
         <div className="border-t border-black/7 px-3 py-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] text-[#888]">
-          {/* Available */}
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-[#EAF3DE] border border-[#1D9E75]/20 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
             </span>
-
             <span>{isAr ? "متاح" : "Available"}</span>
           </div>
 
-          {/* Unavailable */}
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-[#f1f1ee] border border-black/5 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-[#d66]" />
             </span>
-
             <span>{isAr ? "محجوز" : "Unavailable"}</span>
           </div>
 
-          {/* Selected */}
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-[#e8c547]" />
-
             <span>{isAr ? "محدد" : "Selected"}</span>
           </div>
 
-          {/* Today */}
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full ring-1 ring-[#e8c547]" />
-
             <span>{isAr ? "اليوم" : "Today"}</span>
           </div>
         </div>
@@ -704,7 +671,8 @@ const handleDateClick = (date: Date) => {
   );
 }
 
-// Cancellation Policy Card
+// ─── Cancellation Policy Card ─────────────────────────────────────────────────
+
 function CancellationPolicyCard({
   policy,
   isAr,
@@ -781,7 +749,6 @@ function CancellationPolicyCard({
   );
 }
 
-// Mini policy badge
 function CancellationPolicyMini({
   policy,
   isAr,
@@ -843,27 +810,159 @@ export default function ListingDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
 
-  // ─── Authentication Guard ──────────────────────────────────────────────────
+  // ─── Fetch listing (public endpoint) ───────────────────────────────────────
+
+  const fetchListing = async () => {
+    if (!id) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Public endpoint — works for both guests and logged-in users.
+      // If the user is logged in, sending the Authorization header lets
+      // the backend return personalised fields (e.g. bookings if this is
+      // their own listing).
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      const token = localStorage.getItem("tokens");
+      if (token) {
+        try {
+          const parsed = JSON.parse(token);
+          if (parsed?.accessToken) {
+            headers.Authorization = `Bearer ${parsed.accessToken}`;
+          }
+        } catch {
+          /* ignore malformed storage */
+        }
+      }
+
+      const res = await fetch(`${API_BASE}/listings/${id}`, { headers });
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      }
+
+      const response = await res.json();
+
+      const listingData = response?.data?.data ?? response?.data ?? response;
+
+      if (!listingData || !listingData.id) {
+        setError(isAr ? "تعذر تحميل القائمة" : "Failed to load listing");
+        return;
+      }
+
+      setListing(listingData);
+
+      // ── Build unavailable dates ────────────────────────────────────────────
+      const unavailable = new Set<string>();
+
+      // Bookings block check-in through the night before check-out.
+      if (Array.isArray(listingData.bookings)) {
+        listingData.bookings.forEach((b: any) => {
+          if (!b.check_in || !b.check_out) return;
+          if (
+            b.status === "cancelled" ||
+            b.status === "canceled" ||
+            b.status === "rejected"
+          ) {
+            return;
+          }
+
+          const start = fromDateString(b.check_in.slice(0, 10));
+          const end = fromDateString(b.check_out.slice(0, 10));
+          if (!start || !end) return;
+
+          const cursor = new Date(start);
+          while (cursor < end) {
+            unavailable.add(
+              `${cursor.getUTCFullYear()}-${String(
+                cursor.getUTCMonth() + 1,
+              ).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(
+                2,
+                "0",
+              )}`,
+            );
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
+          }
+        });
+      }
+
+      // Host blocked date ranges.
+      const blockedRanges = Array.isArray(listingData.blocked_dates)
+        ? listingData.blocked_dates
+        : Array.isArray(listingData.blockedDates)
+          ? listingData.blockedDates
+          : [];
+
+      blockedRanges.forEach((blocked: any) => {
+        if (!blocked.startDate || !blocked.endDate) return;
+
+        const start = fromDateString(blocked.startDate);
+        const end = fromDateString(blocked.endDate);
+        if (!start || !end) return;
+
+        const cursor = new Date(start);
+        while (cursor < end) {
+          unavailable.add(
+            `${cursor.getUTCFullYear()}-${String(
+              cursor.getUTCMonth() + 1,
+            ).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(
+              2,
+              "0",
+            )}`,
+          );
+          cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+      });
+
+      setUnavailableDates(Array.from(unavailable));
+    } catch (err) {
+      console.error("Error fetching listing:", err);
+      setError(isAr ? "حدث خطأ أثناء تحميل القائمة" : "Error loading listing");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── Fetch view count (only when logged in) ────────────────────────────────
+
+  const fetchListingView = async () => {
+    if (!id || !isAuthenticated) return;
+    try {
+      const response = await apiService.postProtectedData(
+        `/api/v1/listings/${id}/view`,
+        {},
+      );
+      if (response.success && response.data) {
+        setListingView(response.data.views || response.data.view_count);
+      }
+    } catch (err) {
+      // Non-fatal — the page works without the view counter.
+      console.error("Error updating view count:", err);
+    }
+  };
+
+  // ─── Effects ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      navigate("/login");
-    }
-  }, [authLoading, isAuthenticated, navigate]);
-
-  // ─── Fetch Data ────────────────────────────────────────────────────────────
+    if (id) fetchListing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   useEffect(() => {
-    if (isAuthenticated && id) {
-      fetchListing();
-      fetchListingView();
-    }
-  }, [isAuthenticated, id]);
+    if (id) fetchListingView();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isAuthenticated]);
 
   useEffect(() => {
     if (user && listing) {
       setIsHost(user.id === listing.host?.id);
       setIsAdmin(user.role === "admin" || user.role === "super_admin");
+    } else {
+      setIsHost(false);
+      setIsAdmin(false);
     }
   }, [user, listing]);
 
@@ -880,165 +979,6 @@ export default function ListingDetail() {
     setTotalPrice(nights > 0 ? listing.price * nights : 0);
   }, [booking.checkIn, booking.checkOut, listing]);
 
-  const fetchListing = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const response = await apiService.getProtectedData<any>(
-        `/api/v1/listings/user/${id}`,
-      );
-      console.log("listing info", response);
-
-      if (response.success && response.data) {
-        const listingData = response.data.data || response.data;
-
-        setListing(listingData);
-
-        /*
-         * Build a complete list of unavailable dates.
-         *
-         * Sources:
-         * 1. UnavailableDates returned by backend
-         * 2. blockedDates ranges created by host
-         */
-        const unavailableDates = new Set<string>();
-
-        // --------------------------------------------------
-        // Unavailable DATES
-        // --------------------------------------------------
-        // --------------------------------------------------
-        // BOOKINGS
-        // --------------------------------------------------
-        // Backend returns bookings as:
-        // {
-        //   check_in,
-        //   check_out,
-        //   status
-        // }
-        //
-        // A booking blocks check-in through the night before
-        // check-out.
-        //
-        // Cancelled bookings do NOT block dates.
-        if (Array.isArray(listingData.bookings)) {
-          listingData.bookings.forEach((booking: any) => {
-            if (!booking.check_in || !booking.check_out) return;
-
-            // Cancelled bookings should not block anything.
-            if (
-              booking.status === "cancelled" ||
-              booking.status === "canceled" ||
-              booking.status === "rejected"
-            ) {
-              return;
-            }
-
-            const start = fromDateString(booking.check_in.slice(0, 10));
-            const end = fromDateString(booking.check_out.slice(0, 10));
-
-            if (!start || !end) return;
-
-            const cursor = new Date(start);
-
-            // Block check-in through the day BEFORE check-out.
-            while (cursor < end) {
-              unavailableDates.add(
-                `${cursor.getUTCFullYear()}-${String(
-                  cursor.getUTCMonth() + 1,
-                ).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(
-                  2,
-                  "0",
-                )}`,
-              );
-
-              cursor.setUTCDate(cursor.getUTCDate() + 1);
-            }
-          });
-        }
-
-        // --------------------------------------------------
-        // HOST BLOCKED DATE RANGES
-        // --------------------------------------------------
-        // --------------------------------------------------
-        // HOST BLOCKED DATE RANGES
-        // --------------------------------------------------
-        // Backend returns:
-        // blocked_dates: [
-        //   {
-        //     id,
-        //     startDate: "2026-09-23",
-        //     endDate: "2026-09-24",
-        //     reason
-        //   }
-        // ]
-
-        const blockedDateRanges = Array.isArray(listingData.blocked_dates)
-          ? listingData.blocked_dates
-          : Array.isArray(listingData.blockedDates)
-            ? listingData.blockedDates
-            : [];
-
-        console.log("🚫 Host blocked date ranges:", blockedDateRanges);
-
-        blockedDateRanges.forEach((blocked: any) => {
-          if (!blocked.startDate || !blocked.endDate) return;
-
-          const start = fromDateString(blocked.startDate);
-          const end = fromDateString(blocked.endDate);
-
-          if (!start || !end) return;
-
-          const cursor = new Date(start);
-
-          // Include BOTH startDate and endDate.
-          while (cursor < end) {
-            const dateString = `${cursor.getUTCFullYear()}-${String(
-              cursor.getUTCMonth() + 1,
-            ).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(
-              2,
-              "0",
-            )}`;
-
-            unavailableDates.add(dateString);
-
-            cursor.setUTCDate(cursor.getUTCDate() + 1);
-          }
-        });
-
-        setUnavailableDates(Array.from(unavailableDates));
-
-        console.log(
-          "📅 Calendar unavailable dates:",
-          Array.from(unavailableDates).sort(),
-        );
-      } else {
-        setError(isAr ? "تعذر تحميل القائمة" : "Failed to load listing");
-      }
-    } catch (err) {
-      console.error("Error fetching listing:", err);
-
-      setError(isAr ? "حدث خطأ أثناء تحميل القائمة" : "Error loading listing");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchListingView = async () => {
-    if (!id) return;
-    try {
-      const response = await apiService.postProtectedData(
-        `/api/v1/listings/${id}/view`,
-        {},
-      );
-      if (response.success && response.data) {
-        setListingView(response.data.views || response.data.view_count);
-      }
-    } catch (err) {
-      console.error("Error updating view count:", err);
-    }
-  };
-
   // ─── Handlers ──────────────────────────────────────────────────────────────
 
   const handleBooking = async (e: React.FormEvent) => {
@@ -1051,6 +991,11 @@ export default function ListingDetail() {
       setBookingError(
         isAr ? "معرف القائمة غير موجود." : "Listing ID is missing.",
       );
+      return;
+    }
+
+    if (!isAuthenticated) {
+      navigate("/login", { state: { from: `/listings/${id}` } });
       return;
     }
 
@@ -1086,20 +1031,15 @@ export default function ListingDetail() {
       guests: booking.guests,
     };
 
-    console.log("📤 Creating booking:", payload);
-
     try {
       const response = await apiService.postProtectedData(
         "/api/v1/bookings/create",
         payload,
       );
 
-      console.log("📥 Booking response:", response);
-
       if (response?.success) {
         setBookingSuccess(t.bookingCreatedSuccess);
 
-        // Refresh availability after successful booking
         try {
           await fetchListing();
         } catch (refreshError) {
@@ -1120,12 +1060,8 @@ export default function ListingDetail() {
         response?.data?.error ||
         (isAr ? "فشل إنشاء الحجز." : "Failed to create booking.");
 
-      console.error("❌ Booking failed:", response);
-
       setBookingError(errorMessage);
     } catch (err: any) {
-      console.error("❌ Booking request error:", err);
-
       let message =
         err?.response?.data?.message ||
         err?.response?.data?.error ||
@@ -1134,7 +1070,6 @@ export default function ListingDetail() {
           ? "حدث خطأ أثناء إنشاء الحجز."
           : "An error occurred while creating the booking.");
 
-      // Handle validation errors returned as an array
       if (Array.isArray(err?.response?.data?.errors)) {
         message = err.response.data.errors
           .map((error: any) => error.msg || error.message)
@@ -1153,9 +1088,7 @@ export default function ListingDetail() {
     try {
       const response = await apiService.putProtectedData(
         `/api/v1/listings/${id}`,
-        {
-          is_active: !listing?.is_active,
-        },
+        { is_active: !listing?.is_active },
       );
       if (response.success && response.data) {
         setListing((prev) => ({
@@ -1172,21 +1105,18 @@ export default function ListingDetail() {
 
   const formatCurrency = (amount: number) => {
     const roundedAmount = Math.round(Number(amount) || 0);
-
     return isAr
       ? `${roundedAmount.toLocaleString("ar-LY")} دينار`
       : `${roundedAmount.toLocaleString("en-US")} LYD`;
   };
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render guards ─────────────────────────────────────────────────────────
 
   if (authLoading || loading) {
     return <LoadingScreen />;
   }
 
-  if (!isAuthenticated || !user) {
-    return <LoadingScreen />;
-  }
+  const userInitials = user ? getInitials(user.name) : "?";
 
   if (error || !listing) {
     return (
@@ -1199,6 +1129,7 @@ export default function ListingDetail() {
           user={user}
           lang={lang}
           toggleLanguage={toggleLanguage}
+          ini={userInitials}
         />
         <div className="max-w-[1100px] mx-auto p-6">
           <div className="bg-white rounded-2xl p-8 text-center border border-black/7">
@@ -1223,7 +1154,6 @@ export default function ListingDetail() {
     : null;
   const hostAvi = getAvatar(listing.host?.name);
   const hostInitial = getInitials(listing.host?.name);
-  const userInitials = getInitials(user.name);
   const nights =
     booking.checkIn && booking.checkOut
       ? Math.ceil(
@@ -1240,7 +1170,8 @@ export default function ListingDetail() {
     ? "font-['Cairo','Tajawal',sans-serif]"
     : "font-['DM_Mono',monospace]";
 
-  const canBook = !isHost && !isAdmin && listing.is_active;
+  const canBook =
+    isAuthenticated && !isHost && !isAdmin && listing.is_active;
 
   return (
     <div
@@ -1436,7 +1367,6 @@ export default function ListingDetail() {
               </div>
             </div>
 
-            {/* Map */}
             {/* Location */}
             {listing.latitude && listing.longitude && (
               <section className="bg-white rounded-2xl border border-black/5 overflow-hidden">
@@ -1452,7 +1382,6 @@ export default function ListingDetail() {
                   <p className="text-sm text-[#666] mt-1">{listing.location}</p>
                 </div>
 
-                {/* Google Maps Embed */}
                 <a
                   href={`https://www.google.com/maps?q=${encodeURIComponent(
                     `${listing.latitude},${listing.longitude}`,
@@ -1487,14 +1416,12 @@ export default function ListingDetail() {
                     tabIndex={-1}
                   />
 
-                  {/* Open in Google Maps overlay */}
                   <span className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-md text-xs font-medium text-[#1a1a2e] flex items-center gap-2">
                     <span>🗺️</span>
                     {isAr ? "فتح في خرائط Google" : "Open in Google Maps"}
                   </span>
                 </a>
 
-                {/* Location information + Directions */}
                 <div className="p-5">
                   <div className="flex items-start gap-3 mb-4">
                     <div className="w-9 h-9 rounded-full bg-[#f7f6f2] flex items-center justify-center shrink-0">
@@ -1512,14 +1439,11 @@ export default function ListingDetail() {
                     </div>
                   </div>
 
-                  {/* Coordinates */}
                   <div className="text-[10px] text-[#999] mb-4">
                     {listing.latitude}, {listing.longitude}
                   </div>
 
-                  {/* Buttons */}
                   <div className="flex flex-wrap gap-2">
-                    {/* Open Google Maps */}
                     <a
                       href={`https://www.google.com/maps?q=${encodeURIComponent(
                         `${listing.latitude},${listing.longitude}`,
@@ -1532,7 +1456,6 @@ export default function ListingDetail() {
                       {isAr ? "فتح في خرائط Google" : "Open in Google Maps"}
                     </a>
 
-                    {/* Directions */}
                     <a
                       href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
                         `${listing.latitude},${listing.longitude}`,
@@ -1552,7 +1475,43 @@ export default function ListingDetail() {
 
           {/* ── RIGHT column ── */}
           <div>
-            {canBook ? (
+            {!isAuthenticated ? (
+              /* Guest: login prompt, no calendar */
+              <div className="bg-white rounded-2xl border border-black/7 border-t-[3px] border-t-[#e8c547] px-6 py-6 text-center">
+                <div className="text-4xl mb-3">🔒</div>
+                <div
+                  className={`font-light text-[18px] text-[#111118] mb-2 ${displayFontClass}`}
+                >
+                  {t.loginToBook}
+                </div>
+                <p className="text-[12px] text-[#666] leading-[1.6] mb-4">
+                  {t.loginToBookDesc}
+                </p>
+                <Link
+                  to="/login"
+                  state={{ from: `/listings/${id}` }}
+                  className="block w-full bg-[#e8c547] text-[#1a1a2e] px-4 py-3 rounded-[10px] text-[13px] font-semibold no-underline hover:opacity-90 transition"
+                >
+                  {t.logIn} →
+                </Link>
+                <Link
+                  to="/signup"
+                  state={{ from: `/listings/${id}` }}
+                  className="block w-full mt-2 border border-black/10 text-[#111118] px-4 py-3 rounded-[10px] text-[13px] font-medium no-underline hover:bg-[#f7f6f2] transition"
+                >
+                  {t.createAccount}
+                </Link>
+
+                {listing.cancellation_policy && (
+                  <div className="mt-4 text-start">
+                    <CancellationPolicyMini
+                      policy={listing.cancellation_policy}
+                      isAr={isAr}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : canBook ? (
               /* Guest booking panel */
               <div className="bg-white rounded-2xl border border-black/7 border-t-[3px] border-t-[#e8c547] px-5 pb-5">
                 <div className="flex items-baseline gap-1 mb-5 pt-4">
@@ -1582,7 +1541,6 @@ export default function ListingDetail() {
                       unavailableDates={unavailableDates}
                       onDateSelect={(dates) => {
                         setBooking((prev) => ({ ...prev, ...dates }));
-
                         if (dates.checkIn && dates.checkOut) {
                           setBookingError("");
                         }
