@@ -1129,7 +1129,7 @@ export default function ListingDetail() {
           user={user}
           lang={lang}
           toggleLanguage={toggleLanguage}
-          ini={userInitials}
+         
         />
         <div className="max-w-[1100px] mx-auto p-6">
           <div className="bg-white rounded-2xl p-8 text-center border border-black/7">
@@ -1185,7 +1185,7 @@ export default function ListingDetail() {
         user={user}
         lang={lang}
         toggleLanguage={toggleLanguage}
-        ini={userInitials}
+        
       />
 
       <main className="max-w-[1100px] mx-auto px-4 md:px-6 py-7">

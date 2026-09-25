@@ -1,5 +1,5 @@
+
 // src/context/AuthContext.tsx
-import { apiService } from "../services/api";
 
 import React, {
   createContext,
@@ -12,15 +12,23 @@ import React, {
 } from "react";
 
 import { useNavigate } from "react-router-dom";
+import { apiService } from "../services/api";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Types (kept the same as yours)
+// Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface VerificationStatus { /* ...unchanged... */ }
+export interface VerificationStatus {
+  [key: string]: any;
+}
+
 export interface User {
-  created_at: any;
-  name(name: any): unknown;
+  id: string;
+  role: string;
+  name: string;
+  email: string;
+  created_at?: any;
+  [key: string]: any;
 }
 
 interface Tokens {
@@ -39,25 +47,41 @@ interface AuthContextType {
   updateUser: (user: User) => void;
 
   getAccessToken: () => string | null;
+
   refreshTokens: () => Promise<boolean>;
   refreshUser: () => Promise<User | null>;
+
   updateVerificationStatus: (status: VerificationStatus) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
 const API_URL = "https://api.mar-haba.ly";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// JWT helpers — derive minimal identity from token (no user info storage)
+// JWT helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
 function decodeJwt(token: string): any | null {
   try {
     const payload = token.split(".")[1];
+
     if (!payload) return null;
-    // base64url → base64
+
     const b64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(decodeURIComponent(escape(atob(b64))));
+
+    // Add missing base64 padding if necessary
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+
+    return JSON.parse(
+      decodeURIComponent(
+        Array.from(atob(padded))
+          .map((char) =>
+            "%" + char.charCodeAt(0).toString(16).padStart(2, "0")
+          )
+          .join("")
+      )
+    );
   } catch {
     return null;
   }
@@ -65,14 +89,21 @@ function decodeJwt(token: string): any | null {
 
 function userFromToken(accessToken: string): User | null {
   const claims = decodeJwt(accessToken);
+
   if (!claims) return null;
 
-  const id = claims.sub || claims.userId || claims.user_id || claims.id;
-  const role = claims.role || claims.user_role;
+  const id =
+    claims.sub ||
+    claims.userId ||
+    claims.user_id ||
+    claims.id;
+
+  const role =
+    claims.role ||
+    claims.user_role;
 
   if (!id) return null;
 
-  // Minimal placeholder — real data comes from /auth/me
   return {
     id: String(id),
     role: role ?? "user",
@@ -85,173 +116,555 @@ function userFromToken(accessToken: string): User | null {
 // Provider
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [tokens, setTokens] = useState<Tokens | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
   const navigate = useNavigate();
 
-  // ─────────────────────────────────────────────
-  // Fetch full user from server
-  // ─────────────────────────────────────────────
-  const fetchCurrentUser = useCallback(async (accessToken: string): Promise<User | null> => {
-    try {
-      const res = await fetch(`${API_URL}/api/v1/auth/me`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-      });
+  // ───────────────────────────────────────────────────────────────────────────
+  // Fetch current user
+  // ───────────────────────────────────────────────────────────────────────────
 
-      if (!res.ok) return null;
+  const fetchCurrentUser = useCallback(
+    async (accessToken: string): Promise<User | null> => {
+      try {
+        const res = await fetch(`${API_URL}/api/v1/auth/me`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
 
-      const data = await res.json();
-      return (data?.data?.user ?? data?.data ?? data?.user ?? null) as User | null;
-    } catch {
+        if (!res.ok) {
+          return null;
+        }
+
+        const data = await res.json();
+
+        return (
+          data?.data?.user ??
+          data?.data ??
+          data?.user ??
+          null
+        ) as User | null;
+      } catch (error) {
+        console.error("❌ Failed to fetch current user:", error);
+        return null;
+      }
+    },
+    []
+  );
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Logout
+  // ───────────────────────────────────────────────────────────────────────────
+
+  const logout = useCallback(() => {
+    setUser(null);
+    setTokens(null);
+
+    localStorage.removeItem("tokens");
+
+    // Clean up legacy storage
+    localStorage.removeItem("user");
+    localStorage.removeItem("authToken");
+
+    apiService.setAccessToken(null);
+
+    navigate("/login");
+  }, [navigate]);
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Refresh tokens
+  // ───────────────────────────────────────────────────────────────────────────
+
+  const refreshTokens = useCallback(
+    async (): Promise<boolean> => {
+      const storedTokens = localStorage.getItem("tokens");
+
+      let currentTokens: Tokens | null = null;
+
+      try {
+        if (storedTokens) {
+          currentTokens = JSON.parse(storedTokens);
+        }
+      } catch {
+        currentTokens = null;
+      }
+
+      const refreshToken =
+        tokens?.refreshToken ??
+        currentTokens?.refreshToken;
+
+      if (!refreshToken) {
+        console.warn("⚠️ No refresh token available");
+        return false;
+      }
+
+      try {
+        console.log("🔄 Attempting token refresh...");
+
+        const res = await fetch(
+          `${API_URL}/api/v1/auth/refresh`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify({
+              refresh_token: refreshToken,
+            }),
+          }
+        );
+
+        if (!res.ok) {
+          const errorText = await res.text().catch(() => "");
+
+          console.error(
+            "❌ Token refresh failed:",
+            res.status,
+            errorText
+          );
+
+          return false;
+        }
+
+        const data = await res.json();
+
+        const newTokens: Tokens | undefined =
+          data?.data?.tokens ??
+          data?.tokens;
+
+        if (
+          !newTokens?.accessToken ||
+          !newTokens?.refreshToken
+        ) {
+          console.error(
+            "❌ Refresh response did not contain valid tokens:",
+            data
+          );
+
+          return false;
+        }
+
+        // Persist ONLY tokens
+        localStorage.setItem(
+          "tokens",
+          JSON.stringify(newTokens)
+        );
+
+        setTokens(newTokens);
+
+        apiService.setAccessToken(
+          newTokens.accessToken
+        );
+
+        console.log("✅ Token refresh successful");
+
+        // Re-fetch the actual user
+        const freshUser = await fetchCurrentUser(
+          newTokens.accessToken
+        );
+
+        if (freshUser) {
+          setUser(freshUser);
+        }
+
+        return true;
+      } catch (error) {
+        console.error(
+          "❌ Token refresh request failed:",
+          error
+        );
+
+        return false;
+      }
+    },
+    [
+      tokens?.refreshToken,
+      fetchCurrentUser,
+    ]
+  );
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Refresh user
+  // ───────────────────────────────────────────────────────────────────────────
+
+  const refreshUser = useCallback(async (): Promise<User | null> => {
+    const currentAccessToken =
+      tokens?.accessToken;
+
+    if (!currentAccessToken) {
       return null;
     }
-  }, []);
 
-  // ─────────────────────────────────────────────
-  // refreshUser — public API
-  // ─────────────────────────────────────────────
-  const refreshUser = useCallback(async (): Promise<User | null> => {
-    if (!tokens?.accessToken) return null;
-    const fresh = await fetchCurrentUser(tokens.accessToken);
-    if (fresh) setUser(fresh);
+    const fresh = await fetchCurrentUser(
+      currentAccessToken
+    );
+
+    if (fresh) {
+      setUser(fresh);
+    }
+
     return fresh;
-  }, [tokens?.accessToken, fetchCurrentUser]);
+  }, [
+    tokens?.accessToken,
+    fetchCurrentUser,
+  ]);
 
-  // ─────────────────────────────────────────────
-  // Load auth state on mount
-  // ─────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
+  // Load authentication state
+  //
+  // IMPORTANT:
+  // If /auth/me returns 401, attempt /auth/refresh.
+  // ───────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
+    let cancelled = false;
+
     const loadAuthState = async () => {
       try {
-        const storedTokens = localStorage.getItem("tokens");
+        const storedTokens =
+          localStorage.getItem("tokens");
+
         if (!storedTokens) {
-          setIsLoading(false);
+          if (!cancelled) {
+            setIsLoading(false);
+          }
           return;
         }
 
-        const parsedTokens: Tokens = JSON.parse(storedTokens);
+        let parsedTokens: Tokens;
 
-        // 1. Seed user from token (id + role only)
-        const seedUser = userFromToken(parsedTokens.accessToken);
-        if (seedUser) setUser(seedUser);
+        try {
+          parsedTokens = JSON.parse(storedTokens);
+        } catch {
+          console.error(
+            "❌ Invalid tokens in localStorage"
+          );
 
+          localStorage.removeItem("tokens");
+
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+
+          return;
+        }
+
+        if (
+          !parsedTokens?.accessToken ||
+          !parsedTokens?.refreshToken
+        ) {
+          console.error(
+            "❌ Stored tokens are incomplete"
+          );
+
+          localStorage.removeItem("tokens");
+
+          if (!cancelled) {
+            setIsLoading(false);
+          }
+
+          return;
+        }
+
+        // Keep tokens in memory
         setTokens(parsedTokens);
-        apiService.setAccessToken(parsedTokens.accessToken);
 
-        // 2. Hydrate full user from server (in-memory only)
-        const fresh = await fetchCurrentUser(parsedTokens.accessToken);
-        if (fresh) setUser(fresh);
-      } catch (err) {
-        console.error("❌ Failed to load auth state:", err);
+        // Set access token for apiService
+        apiService.setAccessToken(
+          parsedTokens.accessToken
+        );
+
+        // Seed minimal user from JWT
+        const seedUser = userFromToken(
+          parsedTokens.accessToken
+        );
+
+        if (seedUser && !cancelled) {
+          setUser(seedUser);
+        }
+
+        // ─────────────────────────────────────────────
+        // First attempt: current access token
+        // ─────────────────────────────────────────────
+
+        console.log(
+          "🔐 Checking existing access token..."
+        );
+
+        const freshUser =
+          await fetchCurrentUser(
+            parsedTokens.accessToken
+          );
+
+        if (freshUser) {
+          if (!cancelled) {
+            setUser(freshUser);
+          }
+
+          console.log(
+            "✅ Existing access token is valid"
+          );
+
+          return;
+        }
+
+        // ─────────────────────────────────────────────
+        // Access token failed → refresh
+        // ─────────────────────────────────────────────
+
+        console.log(
+          "⚠️ Access token rejected. Attempting refresh..."
+        );
+
+        try {
+          const res = await fetch(
+            `${API_URL}/api/v1/auth/refresh`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "include",
+              body: JSON.stringify({
+                refresh_token:
+                  parsedTokens.refreshToken,
+              }),
+            }
+          );
+
+          if (!res.ok) {
+            const errorText =
+              await res.text().catch(() => "");
+
+            console.error(
+              "❌ Refresh failed:",
+              res.status,
+              errorText
+            );
+
+            // Only remove tokens when refresh itself fails.
+            localStorage.removeItem("tokens");
+            apiService.setAccessToken(null);
+
+            if (!cancelled) {
+              setTokens(null);
+              setUser(null);
+            }
+
+            return;
+          }
+
+          const data = await res.json();
+
+          const newTokens: Tokens | undefined =
+            data?.data?.tokens ??
+            data?.tokens;
+
+          if (
+            !newTokens?.accessToken ||
+            !newTokens?.refreshToken
+          ) {
+            console.error(
+              "❌ Invalid refresh response:",
+              data
+            );
+
+            localStorage.removeItem("tokens");
+            apiService.setAccessToken(null);
+
+            if (!cancelled) {
+              setTokens(null);
+              setUser(null);
+            }
+
+            return;
+          }
+
+          // Persist ONLY the new tokens
+          localStorage.setItem(
+            "tokens",
+            JSON.stringify(newTokens)
+          );
+
+          apiService.setAccessToken(
+            newTokens.accessToken
+          );
+
+          if (!cancelled) {
+            setTokens(newTokens);
+          }
+
+          console.log(
+            "✅ Access token refreshed successfully"
+          );
+
+          // Fetch full user with new access token
+          const refreshedUser =
+            await fetchCurrentUser(
+              newTokens.accessToken
+            );
+
+          if (refreshedUser && !cancelled) {
+            setUser(refreshedUser);
+
+            console.log(
+              "✅ User restored after token refresh"
+            );
+          } else if (!refreshedUser) {
+            console.error(
+              "❌ New access token was issued but /auth/me failed"
+            );
+
+            localStorage.removeItem("tokens");
+            apiService.setAccessToken(null);
+
+            if (!cancelled) {
+              setTokens(null);
+              setUser(null);
+            }
+          }
+        } catch (refreshError) {
+          console.error(
+            "❌ Refresh request error:",
+            refreshError
+          );
+
+          localStorage.removeItem("tokens");
+          apiService.setAccessToken(null);
+
+          if (!cancelled) {
+            setTokens(null);
+            setUser(null);
+          }
+        }
+      } catch (error) {
+        console.error(
+          "❌ Failed to load auth state:",
+          error
+        );
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadAuthState();
+
+    return () => {
+      cancelled = true;
+    };
   }, [fetchCurrentUser]);
 
-  // ─────────────────────────────────────────────
-  // Persist ONLY tokens (never user)
-  // ─────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
+  // Persist ONLY tokens
+  // ───────────────────────────────────────────────────────────────────────────
+
   useEffect(() => {
     if (tokens) {
-      localStorage.setItem("tokens", JSON.stringify(tokens));
+      localStorage.setItem(
+        "tokens",
+        JSON.stringify(tokens)
+      );
     }
   }, [tokens]);
 
-  // ─────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   // Login
-  // ─────────────────────────────────────────────
-  const login = useCallback((userData: User, tokensData: Tokens) => {
-    setUser(userData);           // in memory only
-    setTokens(tokensData);       // persisted
-    apiService.setAccessToken(tokensData.accessToken);
-  }, []);
+  // ───────────────────────────────────────────────────────────────────────────
 
-  // ─────────────────────────────────────────────
-  // Logout
-  // ─────────────────────────────────────────────
-  const logout = useCallback(() => {
-    setUser(null);
-    setTokens(null);
-    localStorage.removeItem("tokens");
-    localStorage.removeItem("user");     // clean up legacy
-    localStorage.removeItem("authToken");
-    apiService.setAccessToken(null);
-    navigate("/login");
-  }, [navigate]);
+  const login = useCallback(
+    (userData: User, tokensData: Tokens) => {
+      setUser(userData);
+      setTokens(tokensData);
 
-  // ─────────────────────────────────────────────
-  // updateUser (in-memory only)
-  // ─────────────────────────────────────────────
-  const updateUser = useCallback((userData: User) => {
-    setUser(userData);
-  }, []);
+      localStorage.setItem(
+        "tokens",
+        JSON.stringify(tokensData)
+      );
 
-  // ─────────────────────────────────────────────
-  // updateVerificationStatus (in-memory only)
-  // ─────────────────────────────────────────────
-  const updateVerificationStatus = useCallback((status: VerificationStatus) => {
-    setUser((cur) => (cur ? { ...cur, verificationStatus: status } : cur));
-  }, []);
+      apiService.setAccessToken(
+        tokensData.accessToken
+      );
+    },
+    []
+  );
 
-  // ─────────────────────────────────────────────
-  // getAccessToken
-  // ─────────────────────────────────────────────
-  const getAccessToken = useCallback(() => tokens?.accessToken ?? null, [tokens?.accessToken]);
+  // ───────────────────────────────────────────────────────────────────────────
+  // Update user
+  // ───────────────────────────────────────────────────────────────────────────
 
-  // ─────────────────────────────────────────────
-  // refreshTokens
-  // ─────────────────────────────────────────────
-  const refreshTokens = useCallback(async (): Promise<boolean> => {
-    if (!tokens?.refreshToken) {
-      logout();
-      return false;
-    }
-    try {
-      const res = await fetch(`${API_URL}/api/v1/auth/refresh`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: tokens.refreshToken }),
-      });
-      if (!res.ok) throw new Error("Refresh failed");
+  const updateUser = useCallback(
+    (userData: User) => {
+      setUser(userData);
+    },
+    []
+  );
 
-      const data = await res.json();
-      const newTokens: Tokens | undefined = data.data?.tokens;
-      if (!newTokens) return false;
+  // ───────────────────────────────────────────────────────────────────────────
+  // Update verification status
+  // ───────────────────────────────────────────────────────────────────────────
 
-      setTokens(newTokens);
-      apiService.setAccessToken(newTokens.accessToken);
+  const updateVerificationStatus = useCallback(
+    (status: VerificationStatus) => {
+      setUser((current) =>
+        current
+          ? {
+              ...current,
+              verificationStatus: status,
+            }
+          : current
+      );
+    },
+    []
+  );
 
-      // Re-sync user after token refresh
-      const fresh = await fetchCurrentUser(newTokens.accessToken);
-      if (fresh) setUser(fresh);
+  // ───────────────────────────────────────────────────────────────────────────
+  // Get access token
+  // ───────────────────────────────────────────────────────────────────────────
 
-      return true;
-    } catch (err) {
-      console.error("❌ Token refresh failed:", err);
-      logout();
-      return false;
-    }
-  }, [tokens?.refreshToken, logout, fetchCurrentUser]);
+  const getAccessToken = useCallback(
+    () => tokens?.accessToken ?? null,
+    [tokens?.accessToken]
+  );
 
-  // ─────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
   // Context value
-  // ─────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────────────────
+
   const value = useMemo<AuthContextType>(
     () => ({
       user,
       tokens,
       isLoading,
-      isAuthenticated: !!user && !!tokens,
+      isAuthenticated:
+        !!user && !!tokens,
+
+      login,
+      logout,
+      updateUser,
+
+      getAccessToken,
+
+      refreshTokens,
+      refreshUser,
+
+      updateVerificationStatus,
+    }),
+    [
+      user,
+      tokens,
+      isLoading,
       login,
       logout,
       updateUser,
@@ -259,15 +672,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       refreshTokens,
       refreshUser,
       updateVerificationStatus,
-    }),
-    [user, tokens, isLoading, login, logout, updateUser, getAccessToken, refreshTokens, refreshUser, updateVerificationStatus]
+    ]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hook
+// ─────────────────────────────────────────────────────────────────────────────
 
 export const useAuth = (): AuthContextType => {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
+
+  if (!ctx) {
+    throw new Error(
+      "useAuth must be used within an AuthProvider"
+    );
+  }
+
   return ctx;
 };
+

@@ -229,7 +229,7 @@ export default function HowToBookPage() {
         user={null}
         lang={lang}
         toggleLanguage={toggleLanguage}
-        ini=""
+       
       />
 
       {/* HERO */}

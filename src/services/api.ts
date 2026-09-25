@@ -1,6 +1,7 @@
 const API_URL = "https://api.mar-haba.ly";
 
 export interface ApiResponse<T = any> {
+  error: string | undefined;
   success: boolean;
   message?: string;
   data?: T;
