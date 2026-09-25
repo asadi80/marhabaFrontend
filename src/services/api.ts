@@ -1,55 +1,117 @@
+//src/services/api.ts
 const API_URL = "https://api.mar-haba.ly";
 
 export interface ApiResponse<T = any> {
-  error: string | undefined;
+  error?: string;
   success: boolean;
   message?: string;
   data?: T;
   code?: string;
 }
 
+interface LoginResponseData {
+  user: {
+    id: string;
+    role: string;
+    name: string;
+    email: string;
+    created_at?: any;
+    [key: string]: any;
+  };
+
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+  };
+
+  verificationStatus?: {
+    [key: string]: any;
+  };
+}
+
+interface StoredTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
 class ApiService {
   private accessToken: string | null = null;
 
   constructor() {
-  this.accessToken =
-    localStorage.getItem("authToken");
+    // Single source of truth: localStorage["tokens"]
+    this.loadStoredAccessToken();
+  }
 
-  // Backward-compatible fallback
-  if (!this.accessToken) {
-    const storedTokens =
-      localStorage.getItem("tokens");
+  // ─────────────────────────────────────────────
+  // Load access token from tokens storage
+  // ─────────────────────────────────────────────
 
-    if (storedTokens) {
-      try {
-        const parsedTokens =
-          JSON.parse(storedTokens);
+  private loadStoredAccessToken() {
+    try {
+      const storedTokens = localStorage.getItem("tokens");
 
-        this.accessToken =
-          parsedTokens?.accessToken || null;
-      } catch (error) {
-        console.error(
-          "❌ Failed to parse stored tokens:",
-          error
-        );
+      if (!storedTokens) {
+        this.accessToken = null;
+        return;
       }
+
+      const parsed: StoredTokens = JSON.parse(storedTokens);
+
+      this.accessToken = parsed?.accessToken || null;
+    } catch (error) {
+      console.error("❌ Failed to load stored tokens:", error);
+
+      this.accessToken = null;
     }
   }
-}
+
+  // ─────────────────────────────────────────────
+  // Set access token
+  // ─────────────────────────────────────────────
+
   setAccessToken(token: string | null) {
     this.accessToken = token;
+  }
 
-    if (token) {
-      localStorage.setItem("authToken", token);
-    } else {
-      localStorage.removeItem("authToken");
+  // ─────────────────────────────────────────────
+  // Get latest access token
+  // ─────────────────────────────────────────────
+
+  getAccessToken(): string | null {
+    // Prefer the in-memory token.
+    if (this.accessToken) {
+      return this.accessToken;
+    }
+
+    // Fallback to tokens in localStorage.
+    try {
+      const storedTokens = localStorage.getItem("tokens");
+
+      if (!storedTokens) {
+        return null;
+      }
+
+      const parsed: StoredTokens = JSON.parse(storedTokens);
+
+      this.accessToken = parsed?.accessToken || null;
+
+      return this.accessToken;
+    } catch {
+      return null;
     }
   }
 
-  getAccessToken() {
-    // Always prefer memory token, otherwise use localStorage
-    return this.accessToken || localStorage.getItem("authToken");
+  // ─────────────────────────────────────────────
+  // Clear authentication
+  // ─────────────────────────────────────────────
+
+  clearAccessToken() {
+    this.accessToken = null;
   }
+
+  // ─────────────────────────────────────────────
+  // Generic request
+  // ─────────────────────────────────────────────
 
   private async request<T>(
     endpoint: string,
@@ -58,9 +120,7 @@ class ApiService {
     const url = `${API_URL}${endpoint}`;
 
     /*
-     * IMPORTANT:
-     * Always get the latest token from localStorage.
-     * This fixes the upload 401 after login/page refresh.
+     * Always use the latest access token.
      */
     const token = this.getAccessToken();
 
@@ -68,17 +128,23 @@ class ApiService {
 
     const headers: Record<string, string> = {};
 
-    // Do NOT set Content-Type for FormData.
+    /*
+     * IMPORTANT:
+     *
+     * Do NOT manually set Content-Type for FormData.
+     * Browser must set multipart/form-data + boundary.
+     */
     if (!isFormData) {
       headers["Content-Type"] = "application/json";
     }
 
-    // Add JWT
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    // Merge custom headers
+    /*
+     * Merge custom headers.
+     */
     if (options.headers) {
       const customHeaders = options.headers as Record<string, string>;
 
@@ -97,16 +163,14 @@ class ApiService {
       url,
       method: options.method || "GET",
       hasToken: !!token,
-      tokenPreview: token
-        ? `${token.substring(0, 15)}...`
-        : null,
+      tokenPreview: token ? `${token.substring(0, 15)}...` : null,
       isFormData,
     });
 
     try {
-      let response = await fetch(url, config);
+      const response = await fetch(url, config);
 
-      let data: any;
+      let data: any = {};
 
       try {
         data = await response.json();
@@ -120,60 +184,65 @@ class ApiService {
         data,
       });
 
-      // ─────────────────────────────────────
+      // ─────────────────────────────────────────
       // UNAUTHORIZED
-      // ─────────────────────────────────────
+      // ─────────────────────────────────────────
 
-  if (response.status === 401) {
-  console.error("❌ API returned 401:", {
-    url,
-    hasToken: !!token,
-    message: data?.message,
-    code: data?.code,
-  });
+      if (response.status === 401) {
+        console.error("❌ API returned 401:", {
+          url,
+          hasToken: !!token,
+          message: data?.message,
+          code: data?.code,
+        });
 
-  const error = new Error(
-    data?.message || "Unauthorized"
-  );
+        const error = new Error(data?.message || "Unauthorized");
 
-  // Keep the backend error code available
-  (error as any).code = data?.code;
+        (error as any).code = data?.code || "UNAUTHORIZED";
 
-  throw error;
-}
+        throw error;
+      }
 
-      // ─────────────────────────────────────
-      // OTHER ERRORS
-      // ─────────────────────────────────────
+      // ─────────────────────────────────────────
+      // OTHER HTTP ERRORS
+      // ─────────────────────────────────────────
 
       if (!response.ok) {
         return {
           success: false,
-          message: data.message || "Request failed",
-          code: data.code,
+          message: data?.message || data?.error || "Request failed",
+          code: data?.code,
+          data: data?.data,
         };
       }
 
+      // ─────────────────────────────────────────
+      // SUCCESS
+      // ─────────────────────────────────────────
+
       return {
         success: true,
-        data: data.data || data,
-        message: data.message,
-        code: data.code,
+        data: data?.data ?? data,
+        message: data?.message,
+        code: data?.code,
       };
     } catch (error) {
+      /*
+       * Preserve HTTP 401 errors so callers can handle them.
+       */
       if (
         error instanceof Error &&
-        error.message === "UNAUTHORIZED"
+        (error.message === "Unauthorized" ||
+          (error as any).code === "UNAUTHORIZED")
       ) {
         throw error;
       }
 
+      console.error("❌ API request failed:", error);
+
       return {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Network error",
+        message: error instanceof Error ? error.message : "Network error",
       };
     }
   }
@@ -182,8 +251,11 @@ class ApiService {
   // AUTH
   // ─────────────────────────────────────────────
 
-  async login(email: string, password: string) {
-    return this.request("/api/v1/auth/login", {
+  async login(
+    email: string,
+    password: string,
+  ): Promise<ApiResponse<LoginResponseData>> {
+    return this.request<LoginResponseData>("/api/v1/auth/login", {
       method: "POST",
       body: JSON.stringify({
         email,
@@ -231,27 +303,33 @@ class ApiService {
   // PROTECTED GET
   // ─────────────────────────────────────────────
 
-async getProtectedData<T = any>(
-  endpoint: string,
-  params?: Record<string, any>
-): Promise<ApiResponse<T>> {
-  // Build URL with query parameters
-  let url = endpoint;
-  if (params) {
-    const queryString = new URLSearchParams();
-    Object.keys(params).forEach(key => {
-      if (params[key] !== undefined && params[key] !== null) {
-        queryString.append(key, String(params[key]));
+  async getProtectedData<T = any>(
+    endpoint: string,
+    params?: Record<string, any>,
+  ): Promise<ApiResponse<T>> {
+    let url = endpoint;
+
+    if (params) {
+      const queryString = new URLSearchParams();
+
+      Object.keys(params).forEach((key) => {
+        const value = params[key];
+
+        if (value !== undefined && value !== null) {
+          queryString.append(key, String(value));
+        }
+      });
+
+      const qs = queryString.toString();
+
+      if (qs) {
+        url = `${endpoint}?${qs}`;
       }
-    });
-    const qs = queryString.toString();
-    if (qs) {
-      url = `${endpoint}?${qs}`;
     }
+
+    return this.request<T>(url);
   }
-  
-  return this.request<T>(url);
-}
+
   // ─────────────────────────────────────────────
   // PROTECTED POST
   // ─────────────────────────────────────────────
@@ -262,10 +340,7 @@ async getProtectedData<T = any>(
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "POST",
-      body:
-        data instanceof FormData
-          ? data
-          : JSON.stringify(data),
+      body: data instanceof FormData ? data : JSON.stringify(data),
     });
   }
 
@@ -279,10 +354,7 @@ async getProtectedData<T = any>(
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "PUT",
-      body:
-        data instanceof FormData
-          ? data
-          : JSON.stringify(data),
+      body: data instanceof FormData ? data : JSON.stringify(data),
     });
   }
 
@@ -291,32 +363,27 @@ async getProtectedData<T = any>(
   // ─────────────────────────────────────────────
 
   async deleteProtectedData<T = any>(
-endpoint: string, p0: { userId: string; },
+    endpoint: string,
+    _options?: { userId?: string },
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "DELETE",
     });
   }
 
+  // ─────────────────────────────────────────────
+  // PROTECTED PATCH
+  // ─────────────────────────────────────────────
 
-  
-// ─────────────────────────────────────────────
-// PROTECTED PATCH
-// ─────────────────────────────────────────────
-async patchProtectedData<T = any>(
-  endpoint: string,
-  data: any,
-): Promise<ApiResponse<T>> {
-  return this.request<T>(endpoint, {
-    method: "PATCH",
-    body:
-      data instanceof FormData
-        ? data
-        : JSON.stringify(data),
-  });
-}
-
-
+  async patchProtectedData<T = any>(
+    endpoint: string,
+    data: any,
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
+      body: data instanceof FormData ? data : JSON.stringify(data),
+    });
+  }
 }
 
 export const apiService = new ApiService();

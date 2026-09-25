@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useLanguage } from "../../hooks/useLanguage";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth, User } from "../../context/AuthContext";
 import { apiService } from "../../services/api";
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -43,6 +43,7 @@ function Input({ className, ...props }: InputProps) {
     />
   );
 }
+
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -124,62 +125,104 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     setLoading(true);
     setError("");
     setHtmlError("");
 
     try {
-      // Use apiService instead of direct fetch
-      const response = await apiService.login(email, password);
+      const response = await apiService.login(email.trim(), password);
 
-      if (response.success && response.data) {
-        const userData = response.data.user;
-        const tokens = response.data.tokens;
-        const verificationStatus = response.data.verificationStatus;
+      console.log("🔐 Login response:", response);
 
-        if (userData && tokens) {
-          // If user is a host, include verification status in user data
-          if (userData.role === "host" && verificationStatus) {
-            userData.verificationStatus = verificationStatus;
-          }
-
-          // Set the access token in apiService
-          apiService.setAccessToken(tokens.accessToken);
-
-          // Login the user through context
-          login(userData, tokens);
-
-          // Redirect based on role
-          const role = userData.role;
-          if (role === "admin" || role === "super_admin") {
-            navigate("/admin");
-          } else if (role === "host") {
-            navigate("/host-dashboard");
-          } else {
-            navigate("/user-dashboard");
-          }
-        } else {
-          setError(
-            isAr ? "بيانات تسجيل الدخول غير مكتملة" : "Incomplete login data",
-          );
-          setLoading(false);
-        }
-      } else {
-        // Handle API error
+      if (!response.success || !response.data) {
         if (response.code === "EMAIL_NOT_VERIFIED") {
-          navigate(`/resend-verification?email=${encodeURIComponent(email)}`);
-        } else {
-          setError(
-            response.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"),
+          navigate(
+            `/resend-verification?email=${encodeURIComponent(email.trim())}`,
           );
+          return;
         }
-        setLoading(false);
+
+        setError(
+          response.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"),
+        );
+
+        return;
+      }
+
+      const userData = response.data?.user;
+      const tokens = response.data?.tokens;
+      const verificationStatus = response.data?.verificationStatus;
+
+      // ─────────────────────────────────────────
+      // Validate login response
+      // ─────────────────────────────────────────
+
+      if (!userData || !tokens) {
+        console.error(
+          "❌ Login response missing user or tokens:",
+          response.data,
+        );
+
+        setError(
+          isAr ? "بيانات تسجيل الدخول غير مكتملة" : "Incomplete login data",
+        );
+
+        return;
+      }
+
+      if (!tokens.accessToken || !tokens.refreshToken) {
+        console.error("❌ Login response contains invalid tokens:", tokens);
+
+        setError(
+          isAr ? "بيانات المصادقة غير صالحة" : "Invalid authentication tokens",
+        );
+
+        return;
+      }
+
+      // ─────────────────────────────────────────
+      // Add verification status for hosts
+      // ─────────────────────────────────────────
+
+      const completeUser = {
+        ...userData,
+        ...(userData.role === "host" && verificationStatus
+          ? {
+              verificationStatus,
+            }
+          : {}),
+      };
+
+      // ─────────────────────────────────────────
+      // AuthContext handles:
+      //
+      // 1. React user state
+      // 2. React token state
+      // 3. localStorage["tokens"]
+      // 4. apiService access token
+      // ─────────────────────────────────────────
+
+      login(completeUser, tokens);
+
+      // ─────────────────────────────────────────
+      // Redirect by role
+      // ─────────────────────────────────────────
+
+      const role = completeUser.role;
+
+      if (role === "admin" || role === "super_admin") {
+        navigate("/admin");
+      } else if (role === "host") {
+        navigate("/host-dashboard");
+      } else {
+        navigate("/user-dashboard");
       }
     } catch (error: any) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
 
       setError(error?.message || (isAr ? "فشل تسجيل الدخول" : "Login failed"));
-
+    } finally {
       setLoading(false);
     }
   };
