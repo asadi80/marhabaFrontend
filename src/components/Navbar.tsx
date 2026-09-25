@@ -315,6 +315,30 @@ export default function Navbar({
         ================================================================ */}
 
         <nav className="hidden flex-1 items-center gap-1 md:flex">
+          {/* DASHBOARD (authenticated users only) */}
+
+          {user && (
+            <button
+              type="button"
+              onClick={handleDashboardClick}
+              className="
+                cursor-pointer
+                rounded-md
+                border-none
+                bg-transparent
+                px-3
+                py-1.5
+                text-[12px]
+                text-white/50
+                transition-all
+                hover:bg-[#e8c547]/10
+                hover:text-[#e8c547]
+              "
+            >
+              {isAr ? "لوحة التحكم" : "Dashboard"}
+            </button>
+          )}
+
           {visibleLinks.map((link) => {
             /*
              * Dashboard
@@ -579,6 +603,28 @@ export default function Navbar({
             md:hidden
           "
         >
+          {/* DASHBOARD (authenticated users only) */}
+
+          {user && (
+            <button
+              type="button"
+              onClick={handleDashboardClick}
+              className="
+                cursor-pointer
+                border-none
+                bg-transparent
+                px-5
+                py-3
+                text-left
+                text-sm
+                text-white/70
+                hover:text-[#e8c547]
+              "
+            >
+              {isAr ? "لوحة التحكم" : "Dashboard"}
+            </button>
+          )}
+
           {visibleLinks.map((link) => {
             /*
              * Dashboard

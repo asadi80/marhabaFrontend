@@ -54,8 +54,6 @@ export default function Home() {
 
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  const userType = (user?.role || "user").toLowerCase();
-
   // ============================================================
   // UI STATE
   // ============================================================
@@ -100,12 +98,12 @@ export default function Home() {
   ];
 
   const cardColors = [
-    "bg-amber-100",
-    "bg-sky-100",
-    "bg-purple-100",
-    "bg-emerald-100",
-    "bg-pink-100",
-    "bg-lime-100",
+    "bg-amber-50",
+    "bg-sky-50",
+    "bg-purple-50",
+    "bg-emerald-50",
+    "bg-pink-50",
+    "bg-lime-50",
   ];
 
   const activeCatLabel = categories.find(
@@ -283,34 +281,6 @@ export default function Home() {
     setActiveCategory((prev) => (prev === key ? null : key));
   };
 
-  const getDashboardRoute = () => {
-    switch (userType) {
-      case "host":
-        return "/host-dashboard";
-      case "admin":
-      case "super_admin":
-        return "/admin";
-      default:
-        return "/user-dashboard";
-    }
-  };
-
-  const getDashboardLabel = () => {
-    switch (userType) {
-      case "host":
-        return isAr ? "لوحة المضيف" : "Host Dashboard";
-      case "admin":
-      case "super_admin":
-        return isAr ? "لوحة الإدارة" : "Admin Dashboard";
-      default:
-        return isAr ? "لوحة المستخدم" : "User Dashboard";
-    }
-  };
-
-  const handleDashboardRedirect = () => {
-    navigate(getDashboardRoute());
-  };
-
   // ============================================================
   // USER INITIALS
   // ============================================================
@@ -368,101 +338,6 @@ export default function Home() {
         ini={userInitials}
       />
 
-      {/* HERO */}
-      <section className="relative min-h-[480px] sm:min-h-[580px] flex items-center overflow-hidden bg-gradient-to-br from-[#1a1a2e] via-[#2d2d5e] to-[#1a1a2e]">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(232,197,71,0.15)_0%,transparent_60%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_20%,rgba(55,138,221,0.1)_0%,transparent_50%)]" />
-          <div
-            className="absolute inset-0 opacity-[0.04]"
-            style={{
-              backgroundImage:
-                "repeating-linear-gradient(45deg,#e8c547 0px,#e8c547 1px,transparent 1px,transparent 40px)",
-            }}
-          />
-        </div>
-
-        <div className="relative max-w-screen-xl mx-auto px-4 sm:px-6 py-14 sm:py-20 w-full">
-          <div className="inline-flex items-center gap-2 bg-yellow-400/15 border border-yellow-400/30 text-yellow-400 px-3.5 py-1.5 rounded-full text-[10px] sm:text-[11px] tracking-widest uppercase mb-6">
-            <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
-            {content.heroBadge}
-          </div>
-
-          <h1
-            className={`font-light text-[clamp(32px,8vw,72px)] text-white leading-[1.1] max-w-[640px] mb-5 ${
-              isAr ? "font-arabic" : "font-serif italic"
-            }`}
-          >
-            {content.heroTitle1} {content.heroTitle2}{" "}
-            <em className="not-italic text-yellow-400">{content.heroTitle3}</em>
-          </h1>
-
-          <p className="text-sm sm:text-base text-white/60 max-w-[480px] leading-[1.75] mb-9">
-            {content.heroSubtitle}
-          </p>
-
-          {isAuthenticated ? (
-            <div className="flex gap-3 flex-wrap">
-              <button
-                onClick={handleDashboardRedirect}
-                className="inline-flex items-center gap-2 bg-yellow-400 text-[#1a1a2e] px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl text-sm font-semibold border-none cursor-pointer hover:bg-yellow-300 hover:-translate-y-px transition-all"
-              >
-                {getDashboardLabel()} →
-              </button>
-
-              <Link
-                to="/listings"
-                className="inline-flex items-center gap-2 bg-white/10 text-white px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl text-sm font-medium no-underline border border-white/20 hover:bg-white/15 transition-colors"
-              >
-                {isAr ? "تصفح الإقامات" : "Browse Stays"}
-              </Link>
-            </div>
-          ) : (
-            <div className="flex gap-3 flex-wrap">
-              <Link
-                to="/signup"
-                className="inline-flex items-center gap-2 bg-yellow-400 text-[#1a1a2e] px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl text-sm font-semibold no-underline hover:bg-yellow-300 hover:-translate-y-px transition-all"
-              >
-                {content.createAccount} →
-              </Link>
-
-              <Link
-                to="/login"
-                className="inline-flex items-center gap-2 bg-white/10 text-white px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl text-sm font-medium no-underline border border-white/20 hover:bg-white/15 transition-colors"
-              >
-                {content.signIn}
-              </Link>
-            </div>
-          )}
-
-          <div className="flex gap-5 sm:gap-7 mt-10 flex-wrap">
-            {[
-              content.verifiedHosts,
-              content.securePayments,
-              content.support247,
-            ].map((item) => (
-              <div
-                key={item}
-                className="flex items-center gap-2 text-xs text-white/50"
-              >
-                <span className="w-[18px] h-[18px] rounded-full bg-yellow-400/20 border border-yellow-400/40 flex items-center justify-center shrink-0">
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                    <path
-                      d="M1 4l2 2 4-4"
-                      stroke="#e8c547"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                {item}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* CATEGORIES */}
       <div className="border-b border-gray-100">
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 pt-8">
@@ -494,20 +369,20 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="flex gap-6 sm:gap-8 overflow-x-auto pb-4 scrollbar-hide">
+          <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
             {categories.map((cat) => (
               <div
                 key={cat.key}
                 onClick={() => handleCategoryClick(cat.key)}
                 title={isAr ? `تصفية: ${cat.label}` : `Filter: ${cat.label}`}
-                className={`flex flex-col items-center gap-2 cursor-pointer flex-shrink-0 pb-2 border-b-2 transition-all ${
+                className={`flex items-center gap-2 cursor-pointer flex-shrink-0 px-4 py-2.5 rounded-xl border transition-all ${
                   activeCategory === cat.key
-                    ? "opacity-100 border-yellow-400"
-                    : "opacity-50 border-transparent hover:opacity-80"
+                    ? "border-yellow-400 bg-yellow-50 text-gray-900"
+                    : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                <span className="text-2xl">{cat.icon}</span>
-                <span className="text-xs font-medium whitespace-nowrap text-gray-900">
+                <span className="text-lg leading-none">{cat.icon}</span>
+                <span className="text-xs font-medium whitespace-nowrap">
                   {cat.label}
                 </span>
               </div>
@@ -521,8 +396,8 @@ export default function Home() {
         <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <div>
             <h2
-              className={`font-light text-[clamp(20px,4vw,30px)] text-gray-900 ${
-                isAr ? "font-arabic" : "font-serif italic"
+              className={`font-semibold text-[clamp(20px,4vw,28px)] text-gray-900 ${
+                isAr ? "font-arabic" : ""
               }`}
             >
               {activeCategory
@@ -541,7 +416,7 @@ export default function Home() {
             {activeCategory && (
               <button
                 onClick={() => setActiveCategory(null)}
-                className="mt-1.5 inline-flex items-center gap-1.5 bg-[#1a1a2e] text-yellow-400 border-none rounded-full px-3 py-1 text-xs cursor-pointer"
+                className="mt-1.5 inline-flex items-center gap-1.5 bg-gray-100 text-gray-700 border-none rounded-full px-3 py-1 text-xs cursor-pointer hover:bg-gray-200 transition-colors"
               >
                 {categories.find((c) => c.key === activeCategory)?.icon}{" "}
                 {activeCatLabel}
@@ -552,7 +427,7 @@ export default function Home() {
 
           <div className="flex items-center gap-3">
             {locationError && (
-              <div className="bg-yellow-400/20 rounded-2xl px-3 py-1.5 text-xs text-yellow-700 inline-flex items-center gap-1.5">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-full px-3 py-1.5 text-xs text-yellow-700 inline-flex items-center gap-1.5">
                 <span>📍</span>
                 {locationError}
               </div>
@@ -560,7 +435,7 @@ export default function Home() {
 
             <Link
               to="/listings"
-              className="text-sm font-semibold text-gray-900 underline cursor-pointer"
+              className="text-sm font-semibold text-gray-900 hover:text-yellow-600 transition-colors"
             >
               {isAr ? "عرض الكل" : "Show all"} →
             </Link>
@@ -572,7 +447,7 @@ export default function Home() {
           userLocation={userCoords}
           isAr={isAr}
           onSelect={(id) => navigate(`/listings/${id}`)}
-          className="w-full h-[420px] sm:h-[520px] mb-8"
+          className="w-full h-[420px] sm:h-[520px] mb-8 rounded-2xl overflow-hidden border border-gray-100"
         />
 
         {listingsLoading ? (
@@ -580,7 +455,7 @@ export default function Home() {
             <div className="w-10 h-10 border-[3px] border-yellow-400 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : filteredListings.length === 0 ? (
-          <div className="text-center py-16 px-6 bg-gray-50 rounded-2xl">
+          <div className="text-center py-16 px-6 bg-gray-50 rounded-2xl border border-gray-100">
             <div className="text-5xl mb-4">
               {activeCategory
                 ? categories.find((c) => c.key === activeCategory)?.icon
@@ -600,14 +475,14 @@ export default function Home() {
             {activeCategory ? (
               <button
                 onClick={() => setActiveCategory(null)}
-                className="bg-transparent border-none text-yellow-500 cursor-pointer text-sm underline"
+                className="bg-transparent border-none text-yellow-600 cursor-pointer text-sm font-medium underline"
               >
                 {isAr ? "← عرض كل الإقامات" : "← Show all stays"}
               </button>
             ) : (
               <button
                 onClick={getUserLocation}
-                className="bg-transparent border-none text-yellow-500 cursor-pointer text-sm underline"
+                className="bg-transparent border-none text-yellow-600 cursor-pointer text-sm font-medium underline"
               >
                 {isAr ? "حاول مرة أخرى" : "Try again"} →
               </button>
@@ -619,10 +494,10 @@ export default function Home() {
               <div
                 key={listing.id ?? index}
                 onClick={() => navigate(`/listings/${listing.id}`)}
-                className="cursor-pointer rounded-2xl overflow-hidden hover:-translate-y-1 transition-transform"
+                className="cursor-pointer rounded-2xl overflow-hidden border border-gray-100 hover:shadow-lg hover:-translate-y-1 transition-all"
               >
                 <div
-                  className={`w-full aspect-[4/3] rounded-2xl overflow-hidden relative mb-3 ${
+                  className={`w-full aspect-[4/3] overflow-hidden relative ${
                     cardColors[index % cardColors.length]
                   }`}
                 >
@@ -644,7 +519,7 @@ export default function Home() {
                     aria-label={
                       isAr ? "أضف إلى المفضلة" : "Add to favorites"
                     }
-                    className="absolute top-3 end-3 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-white transition-colors border-none"
+                    className="absolute top-3 end-3 bg-white/90 rounded-full w-8 h-8 flex items-center justify-center cursor-pointer hover:bg-white transition-colors border-none shadow-sm"
                   >
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                       <path
@@ -657,7 +532,7 @@ export default function Home() {
                     </svg>
                   </button>
 
-                  <div className="absolute top-3 start-3 bg-white text-gray-900 rounded-md px-2.5 py-1 text-[11px] font-semibold">
+                  <div className="absolute top-3 start-3 bg-white text-gray-900 rounded-md px-2.5 py-1 text-[11px] font-semibold shadow-sm">
                     {isAr ? "🏆 مميز" : "🏆 Featured"}
                   </div>
 
@@ -669,13 +544,13 @@ export default function Home() {
                     )}
                 </div>
 
-                <div className="px-1">
+                <div className="px-4 py-3">
                   <div className="font-semibold text-sm text-gray-900 mb-0.5">
                     {(listing as any).location?.split(",")[0] ||
                       listing.title?.slice(0, 30)}
                   </div>
 
-                  <div className="text-[13px] text-gray-400 mb-1">
+                  <div className="text-[13px] text-gray-400 mb-1.5">
                     {listing.title?.slice(0, 50) || "Beautiful Space"}
                   </div>
 
@@ -691,7 +566,7 @@ export default function Home() {
       </div>
 
       {/* STATS */}
-      <div className="bg-[#1a1a2e] my-10 py-10 sm:py-12 px-4 sm:px-6">
+      <div className="bg-[#1a1a2e] my-10 py-10 sm:py-12 px-4 sm:px-6 rounded-none">
         <div className="max-w-3xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           {[
             {
@@ -717,8 +592,8 @@ export default function Home() {
           ].map(({ val, suffix, label }) => (
             <div key={label}>
               <div
-                className={`font-light text-[clamp(28px,5vw,44px)] leading-none text-white mb-1.5 ${
-                  isAr ? "font-arabic" : "font-serif italic"
+                className={`font-bold text-[clamp(24px,5vw,38px)] leading-none text-white mb-1.5 ${
+                  isAr ? "font-arabic" : ""
                 }`}
               >
                 {val}
@@ -741,8 +616,8 @@ export default function Home() {
           </div>
 
           <h2
-            className={`font-light text-[clamp(20px,4vw,30px)] text-gray-900 ${
-              isAr ? "font-arabic" : "font-serif italic"
+            className={`font-semibold text-[clamp(20px,4vw,28px)] text-gray-900 ${
+              isAr ? "font-arabic" : ""
             }`}
           >
             {content.choosePath}
@@ -757,7 +632,7 @@ export default function Home() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           {/* TRAVELER */}
-          <div className="rounded-[20px] p-7 sm:p-9 relative overflow-hidden min-h-[300px] sm:min-h-[340px] flex flex-col justify-end bg-gradient-to-br from-[#e6f3ff] to-[#cce4ff]">
+          <div className="rounded-2xl p-7 sm:p-9 relative overflow-hidden min-h-[300px] sm:min-h-[340px] flex flex-col justify-end border border-gray-100 bg-white">
             <div
               className={`text-4xl sm:text-5xl absolute top-6 sm:top-7 ${
                 isAr ? "left-6 sm:left-7" : "right-6 sm:right-7"
@@ -771,8 +646,8 @@ export default function Home() {
             </span>
 
             <div
-              className={`font-light text-[22px] sm:text-[26px] leading-[1.2] text-gray-900 mb-3 ${
-                isAr ? "font-arabic" : "font-serif italic"
+              className={`font-semibold text-[20px] sm:text-[24px] leading-[1.2] text-gray-900 mb-3 ${
+                isAr ? "font-arabic" : ""
               }`}
             >
               {content.travelerTagline}
@@ -812,7 +687,7 @@ export default function Home() {
             {!isAuthenticated && (
               <Link
                 to="/signup"
-                className="inline-flex items-center gap-1.5 bg-[#1a1a2e] text-yellow-400 px-5 py-2.5 rounded-[10px] text-[13px] font-semibold no-underline hover:opacity-85 transition-opacity w-fit"
+                className="inline-flex items-center gap-1.5 bg-[#1a1a2e] text-yellow-400 px-5 py-2.5 rounded-lg text-[13px] font-semibold no-underline hover:opacity-85 transition-opacity w-fit"
               >
                 {content.getStartedAs} {content.traveler?.toLowerCase()} →
               </Link>
@@ -820,7 +695,7 @@ export default function Home() {
           </div>
 
           {/* HOST */}
-          <div className="rounded-[20px] p-7 sm:p-9 relative overflow-hidden min-h-[300px] sm:min-h-[340px] flex flex-col justify-end bg-gradient-to-br from-[#1a1a2e] to-[#2d2d5e]">
+          <div className="rounded-2xl p-7 sm:p-9 relative overflow-hidden min-h-[300px] sm:min-h-[340px] flex flex-col justify-end bg-[#1a1a2e]">
             <div
               className={`text-4xl sm:text-5xl absolute top-6 sm:top-7 ${
                 isAr ? "left-6 sm:left-7" : "right-6 sm:right-7"
@@ -834,8 +709,8 @@ export default function Home() {
             </span>
 
             <div
-              className={`font-light text-[22px] sm:text-[26px] leading-[1.2] text-white mb-3 ${
-                isAr ? "font-arabic" : "font-serif italic"
+              className={`font-semibold text-[20px] sm:text-[24px] leading-[1.2] text-white mb-3 ${
+                isAr ? "font-arabic" : ""
               }`}
             >
               {content.hostTagline}
@@ -875,7 +750,7 @@ export default function Home() {
             {!isAuthenticated && (
               <Link
                 to="/signup"
-                className="inline-flex items-center gap-1.5 bg-yellow-400 text-[#1a1a2e] px-5 py-2.5 rounded-[10px] text-[13px] font-semibold no-underline hover:opacity-85 transition-opacity w-fit"
+                className="inline-flex items-center gap-1.5 bg-yellow-400 text-[#1a1a2e] px-5 py-2.5 rounded-lg text-[13px] font-semibold no-underline hover:opacity-85 transition-opacity w-fit"
               >
                 {content.getStartedAs} {content.host?.toLowerCase()} →
               </Link>
@@ -887,17 +762,15 @@ export default function Home() {
       {/* CTA */}
       {!isAuthenticated && (
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-10">
-          <div className="relative bg-gradient-to-br from-[#1a1a2e] to-[#2d2d5e] rounded-3xl px-6 sm:px-12 py-12 sm:py-16 text-center overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(232,197,71,0.2)_0%,transparent_60%)]" />
-
+          <div className="relative bg-[#1a1a2e] rounded-2xl px-6 sm:px-12 py-12 sm:py-16 text-center overflow-hidden">
             <div className="relative z-10">
               <div className="text-[10px] tracking-[0.12em] uppercase text-yellow-400/60 mb-3">
                 {content.ready}
               </div>
 
               <h2
-                className={`font-light text-[clamp(24px,6vw,44px)] text-white mb-3 leading-[1.15] ${
-                  isAr ? "font-arabic" : "font-serif italic"
+                className={`font-semibold text-[clamp(22px,5vw,36px)] text-white mb-3 leading-[1.15] ${
+                  isAr ? "font-arabic" : ""
                 }`}
               >
                 {content.ctaTitle}
@@ -910,14 +783,14 @@ export default function Home() {
               <div className="flex gap-3 justify-center flex-wrap">
                 <Link
                   to="/signup"
-                  className="bg-yellow-400 text-[#1a1a2e] px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl text-sm font-bold no-underline"
+                  className="bg-yellow-400 text-[#1a1a2e] px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm font-bold no-underline"
                 >
                   {content.createAccount} →
                 </Link>
 
                 <Link
                   to="/login"
-                  className="bg-white/10 text-white px-6 sm:px-7 py-3 sm:py-3.5 rounded-xl text-sm font-medium no-underline border border-white/20"
+                  className="bg-white/10 text-white px-6 sm:px-7 py-3 sm:py-3.5 rounded-lg text-sm font-medium no-underline border border-white/20"
                 >
                   {content.signIn}
                 </Link>

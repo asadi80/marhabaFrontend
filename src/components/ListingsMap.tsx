@@ -6,8 +6,8 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import type { Listing } from "../types";
 
 mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN || "";
-console.log("TOKEN RAW:", JSON.stringify(import.meta.env.VITE_MAPBOX_TOKEN));
-console.log("TOKEN LEN:", import.meta.env.VITE_MAPBOX_TOKEN?.length);
+// console.log("TOKEN RAW:", JSON.stringify(import.meta.env.VITE_MAPBOX_TOKEN));
+// console.log("TOKEN LEN:", import.meta.env.VITE_MAPBOX_TOKEN?.length);
 
 // Center of Libya, used when there are no listings to fit to.
 const DEFAULT_CENTER: [number, number] = [17.2, 27.0];

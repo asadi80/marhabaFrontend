@@ -302,6 +302,8 @@ export default function UserDashboard() {
       }
 
       const payload = await res.json();
+      console.log("listing",payload);
+      
       const rawListings = extractListingsArray(payload);
 
       const transformed: Listing[] = rawListings.map((item) => {
