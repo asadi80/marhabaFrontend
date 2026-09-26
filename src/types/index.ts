@@ -1,58 +1,25 @@
+// src/types/index.ts
+
 export type Lang = "en" | "ar";
 
+// ─────────────────────────────────────────────────────────────
+// Content
+// ─────────────────────────────────────────────────────────────
+
 export interface Content {
-  heroBadge: string;
-  heroTitle1: string;
-  heroTitle2: string;
-  heroTitle3: string;
-  heroSubtitle: string;
-  createAccount: string;
-  signIn: string;
-  dashboard: string;
-  verifiedHosts: string;
-  securePayments: string;
-  support247: string;
-  whoAreYou: string;
-  choosePath: string;
-  traveler: string;
-  travelerTagline: string;
-  travelerDesc: string;
-  travelerPerk1: string;
-  travelerPerk2: string;
-  travelerPerk3: string;
-  travelerPerk4: string;
-  host: string;
-  hostTagline: string;
-  hostDesc: string;
-  hostPerk1: string;
-  hostPerk2: string;
-  hostPerk3: string;
-  hostPerk4: string;
-  getStartedAs: string;
-  ready: string;
-  ctaTitle: string;
-  ctaDesc: string;
-  footerDesc: string;
-  travelersHeading: string;
-  howToBook: string;
-  paymentMethods: string;
-  travelTips: string;
-  hostsHeading: string;
-  startHosting: string;
-  hostResources: string;
-  pricingTips: string;
-  supportHeading: string;
-  helpCenter: string;
-  safetyInfo: string;
-  contactUs: string;
-  rights: string;
-  privacy: string;
-  terms: string;
-  happyTravelers: string;
-  activeHosts: string;
-  bookingsMade: string;
-  listingMade: string;
+  id?: string;
+  key?: string;
+  title?: string;
+  description?: string;
+  content?: string;
+  image?: string;
+  created_at?: string;
+  updated_at?: string;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Navigation
+// ─────────────────────────────────────────────────────────────
 
 export interface NavLink {
   id: string;
@@ -60,133 +27,234 @@ export interface NavLink {
   href: string;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Listing
+// ─────────────────────────────────────────────────────────────
+
+export interface BlockedDateRange {
+  id?: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
 export interface Listing {
   id: string | number;
+
   title?: string;
   description?: string;
+
   price?: number | string;
+
   location?: string;
+
   category?: string;
   type?: string;
   propertyType?: string;
+
   tags?: string[];
+
   images?: string[];
+
   distance?: number;
+
   coordinates?: {
     lat: number;
     lng: number;
   };
+
   is_active?: boolean;
   status?: string;
+
   host_id?: string;
+
   created_at?: string;
   updated_at?: string;
+
+  blocked_dates?: BlockedDateRange[];
 }
+
+// ─────────────────────────────────────────────────────────────
+// User
+// ─────────────────────────────────────────────────────────────
 
 export interface AppUser {
   id: string;
+
   name: string;
   email: string;
+
   phone_number?: string;
-  role?: "user" | "host" | "admin" | string;
+
+  role?: "user" | "host" | "admin" | "super_admin" | string;
+
   status?: string;
+
   status_reason?: string | null;
+
   host_expiry_date?: string | null;
+
   email_verified?: boolean;
+
   created_at?: string;
   createdAt?: string;
+
   updated_at?: string;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Booking Status
+// ─────────────────────────────────────────────────────────────
+
+export type BookingStatus =
+  | "pending"
+  | "confirmed"
+  | "checked_in"
+  | "checked_out"
+  | "cancelled"
+  | "no_show";
+
+// ─────────────────────────────────────────────────────────────
+// Booking
+// ─────────────────────────────────────────────────────────────
+
 export interface Booking {
   id: string;
+
   listing_id: string;
+
   user_id: string;
+
   check_in: string | Date;
+
   check_out: string | Date;
+
+  /**
+   * Optional formatted dates returned by the API.
+   *
+   * Example:
+   * "Aug 27, 2026"
+   */
+  check_in_display?: string;
+
+  check_out_display?: string;
+
   total_price: number;
+
   guests: number;
-  status: "pending" | "confirmed" | "checked_in" | "checked_out" | "cancelled" | "no_show";
+
+  status: BookingStatus;
+
   listing?: Listing;
+
   user?: AppUser;
+
   created_at?: string;
+
   updated_at?: string;
-  checked_in_at?: string | Date;
-  checked_out_at?: string | Date;
-  no_show?: boolean;
+
+  checked_in_at?: string | Date | null;
+
+  checked_out_at?: string | Date | null;
+
+  no_show?: boolean | null;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Coordinates
+// ─────────────────────────────────────────────────────────────
 
 export interface Coordinates {
   lat: number;
   lng: number;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Location
+// ─────────────────────────────────────────────────────────────
+
 export interface Location {
   lat: number;
   lng: number;
+
   address?: string;
   city?: string;
   country?: string;
 }
 
-// ─── API Response Types ──────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// API Response
+// ─────────────────────────────────────────────────────────────
 
 export interface ApiResponse<T = any> {
-  success: boolean;
+  success?: boolean;
+
   message?: string;
+
   data?: T;
-  errors?: Array<{
-    field: string;
-    message: string;
-    value?: any;
-  }>;
+
+  error?: string;
+
+  [key: string]: any;
 }
 
+// ─────────────────────────────────────────────────────────────
+// Auth Response
+// ─────────────────────────────────────────────────────────────
+
 export interface AuthResponse {
-  user: AppUser;
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
+  success?: boolean;
+
+  message?: string;
+
+  token?: string;
+
+  accessToken?: string;
+
+  refreshToken?: string;
+
+  user?: AppUser;
+
+  data?: {
+    token?: string;
+    accessToken?: string;
+    refreshToken?: string;
+    user?: AppUser;
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// Listings Response
+// ─────────────────────────────────────────────────────────────
+
 export interface ListingsResponse {
+  success?: boolean;
+
   listings: Listing[];
+
   total?: number;
+
   page?: number;
+
   limit?: number;
-  totalPages?: number;
+
+  pages?: number;
 }
+
+// ─────────────────────────────────────────────────────────────
+// Bookings Response
+// ─────────────────────────────────────────────────────────────
 
 export interface BookingsResponse {
+  success?: boolean;
+
   bookings: Booking[];
+
   total?: number;
+
   page?: number;
+
   limit?: number;
-  totalPages?: number;
-}
 
-// ─── Component Props Types ──────────────────────────────────────────────────
-
-export interface NavbarProps {
-  NAV_LINKS: NavLink[];
-  user: AppUser | null;
-  lang: Lang;
-  toggleLanguage: () => void;
-  onTabChange?: (tabId: string) => void;
-}
-
-export interface GoogleMapProps {
-  userLocation: Coordinates | null;
-  listings: Listing[];
-  onDirections: (listing: Listing) => void;
-  isAr: boolean;
-}
-
-export interface ListingCardProps {
-  listing: Listing;
-  userLocation?: Coordinates | null;
-  onOpenMaps?: (listing: Listing) => void;
-  onGetDirections?: (listing: Listing) => void;
-  isAr?: boolean;
+  pages?: number;
 }

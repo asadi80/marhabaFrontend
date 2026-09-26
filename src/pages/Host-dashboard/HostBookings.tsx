@@ -8,6 +8,7 @@ import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
 import HostCalendar from "../../components/HostCalendar";
 
+
 // ============================================================
 // TOKEN GUARD (extra client-side check)
 // ============================================================
@@ -649,7 +650,6 @@ const HostBookings: React.FC = () => {
   ];
 
   const NAV_LINKS: NavLink[] = [
-    { id: "overview", label: t.overview, href: "/host-dashboard" },
     { id: "listings", label: t.myListings, href: "/host/listings" },
     { id: "bookings", label: t.bookings, href: "/host/bookings" },
   ];

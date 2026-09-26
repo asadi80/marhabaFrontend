@@ -375,15 +375,22 @@ class ApiService {
   // PROTECTED PATCH
   // ─────────────────────────────────────────────
 
-  async patchProtectedData<T = any>(
-    endpoint: string,
-    data: any,
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: "PATCH",
-      body: data instanceof FormData ? data : JSON.stringify(data),
-    });
-  }
+async patchProtectedData<T = any>(
+  endpoint: string,
+  data?: any,
+): Promise<ApiResponse<T>> {
+  return this.request<T>(endpoint, {
+    method: "PATCH",
+    // Only serialize when data is actually provided.
+    // Passing `undefined` as body means "no body" to fetch.
+    body:
+      data === undefined
+        ? undefined
+        : data instanceof FormData
+          ? data
+          : JSON.stringify(data),
+  });
+}
 }
 
 export const apiService = new ApiService();

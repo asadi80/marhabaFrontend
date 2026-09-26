@@ -71,25 +71,6 @@ const ACCEPTED_FILE_TYPES = [
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-const NAV_LINKS = [
-  {
-    href: "/host-dashboard",
-    label: "Dashboard",
-    labelAr: "لوحة التحكم",
-  },
-  {
-    href: "/host/listings",
-    label: "My Listings",
-    labelAr: "إعلاناتي",
-  },
-  {
-    href: "/host/settings",
-    label: "Settings",
-    labelAr: "الإعدادات",
-  },
-];
-
-
 
 
 const HostSettings: React.FC = () => {
@@ -103,13 +84,12 @@ const HostSettings: React.FC = () => {
   } = useAuth();
 
   const { lang, toggleLanguage } = useLanguage();
-  const isArabic = lang === "ar";
-
+  
   const idInputRef = useRef<HTMLInputElement | null>(null);
   const paymentInputRef = useRef<HTMLInputElement | null>(null);
-
+  
   const [verificationStatus, setVerificationStatus] =
-    useState<VerificationStatus | null>(null);
+  useState<VerificationStatus | null>(null);
   const [loadingVerification, setLoadingVerification] = useState(true);
   const [uploadingID, setUploadingID] = useState(false);
   const [uploadingPayment, setUploadingPayment] = useState(false);
@@ -118,7 +98,25 @@ const HostSettings: React.FC = () => {
   const [idError, setIdError] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
+  
+  const isArabic = lang === "ar";
+  const NAV_LINKS = [
+  {
+    id: "listings",
+    label: isArabic ? "إعلاناتي" : "My Listings",
+    href: "/host/listings",
+  },
+  {
+    id: "bookings",
+    label: isArabic ? "الحجوزات" : "Bookings",
+    href: "/host/bookings",
+  },
+  {
+    id: "settings",
+    label: isArabic ? "الإعدادات" : "Settings",
+    href: "/host/settings",
+  },
+];
   /*
    * ------------------------------------------------------------
    * AUTH PROTECTION
@@ -624,7 +622,11 @@ const HostSettings: React.FC = () => {
    */
   const renderPaymentReceipts = () => {
     const payment = verificationStatus?.payment?.payment;
-    if (!payment || !payment.receipt_images || payment.receipt_images.length === 0) {
+    if (
+      !payment ||
+      !payment.receipt_images ||
+      payment.receipt_images.length === 0
+    ) {
       return null;
     }
 
@@ -646,7 +648,9 @@ const HostSettings: React.FC = () => {
             <div
               key={index}
               className={`overflow-hidden rounded-xl border ${
-                isRejected ? "border-red-200 bg-red-50" : "border-gray-200 bg-white"
+                isRejected
+                  ? "border-red-200 bg-red-50"
+                  : "border-gray-200 bg-white"
               } p-3 transition hover:shadow-md`}
             >
               {/* Image Preview */}
@@ -675,8 +679,7 @@ const HostSettings: React.FC = () => {
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-xs text-[#1a1a2e] hover:underline"
                 >
-                  🔗{" "}
-                  {isArabic ? "فتح الصورة" : "Open image"}
+                  🔗 {isArabic ? "فتح الصورة" : "Open image"}
                 </a>
               </div>
             </div>
@@ -714,8 +717,8 @@ const HostSettings: React.FC = () => {
         user={user}
         lang={lang}
         toggleLanguage={toggleLanguage}
+        defaultActiveId="settings"
       />
-
       {/* ========================================================
           MAIN
       ======================================================== */}
@@ -848,15 +851,12 @@ const HostSettings: React.FC = () => {
               </div>
 
               {verificationStatus?.id?.documents &&
-                verificationStatus.id.documents.length > 0 ? (
+              verificationStatus.id.documents.length > 0 ? (
                 <div className="space-y-4">
                   {verificationStatus.id.documents.map((doc, index) => {
-                    const isRejected =
-                      doc.status?.toLowerCase() === "rejected";
-                    const isPending =
-                      doc.status?.toLowerCase() === "pending";
-                    const isVerified =
-                      doc.status?.toLowerCase() === "verified";
+                    const isRejected = doc.status?.toLowerCase() === "rejected";
+                    const isPending = doc.status?.toLowerCase() === "pending";
+                    const isVerified = doc.status?.toLowerCase() === "verified";
                     const isLatest =
                       index === verificationStatus.id.documents!.length - 1;
 
@@ -878,8 +878,8 @@ const HostSettings: React.FC = () => {
                           isRejected
                             ? "border-red-200 bg-red-50"
                             : isLatest
-                            ? "border-blue-200 bg-blue-50"
-                            : "border-gray-200 bg-gray-50"
+                              ? "border-blue-200 bg-blue-50"
+                              : "border-gray-200 bg-gray-50"
                         }`}
                       >
                         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -1006,8 +1006,8 @@ const HostSettings: React.FC = () => {
                     uploadingID
                       ? "cursor-not-allowed border-gray-200 bg-gray-50"
                       : verificationStatus?.id?.rejected
-                      ? "border-red-300 bg-red-50/50 hover:border-red-400 hover:bg-red-50"
-                      : "border-gray-300 bg-gray-50 hover:border-[#1a1a2e] hover:bg-gray-100"
+                        ? "border-red-300 bg-red-50/50 hover:border-red-400 hover:bg-red-50"
+                        : "border-gray-300 bg-gray-50 hover:border-[#1a1a2e] hover:bg-gray-100"
                   }`}
                 >
                   {uploadingID ? (
@@ -1025,8 +1025,8 @@ const HostSettings: React.FC = () => {
                             ? "📤 رفع وثيقة جديدة"
                             : "📤 Upload a new document"
                           : isArabic
-                          ? "📤 رفع وثيقة هوية"
-                          : "📤 Upload identity document"}
+                            ? "📤 رفع وثيقة هوية"
+                            : "📤 Upload identity document"}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
                         {isArabic
@@ -1094,8 +1094,8 @@ const HostSettings: React.FC = () => {
                           verificationStatus.payment.status === "approved"
                             ? "bg-emerald-100 text-emerald-700"
                             : verificationStatus.payment.status === "rejected"
-                            ? "bg-red-100 text-red-700"
-                            : "bg-yellow-100 text-yellow-700"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-yellow-100 text-yellow-700"
                         }`}
                       >
                         {verificationStatus.payment.status}
@@ -1107,7 +1107,9 @@ const HostSettings: React.FC = () => {
                           {isArabic ? "تاريخ الدفع" : "Paid At"}
                         </p>
                         <p className="text-sm text-gray-900">
-                          {formatDate(verificationStatus.payment.payment.paid_at)}
+                          {formatDate(
+                            verificationStatus.payment.payment.paid_at,
+                          )}
                         </p>
                       </div>
                     )}
@@ -1117,7 +1119,9 @@ const HostSettings: React.FC = () => {
                           {isArabic ? "بداية الفترة" : "Period Start"}
                         </p>
                         <p className="text-sm text-gray-900">
-                          {formatDate(verificationStatus.payment.payment.period_start)}
+                          {formatDate(
+                            verificationStatus.payment.payment.period_start,
+                          )}
                         </p>
                       </div>
                     )}
@@ -1127,7 +1131,9 @@ const HostSettings: React.FC = () => {
                           {isArabic ? "نهاية الفترة" : "Period End"}
                         </p>
                         <p className="text-sm text-gray-900">
-                          {formatDate(verificationStatus.payment.payment.period_end)}
+                          {formatDate(
+                            verificationStatus.payment.payment.period_end,
+                          )}
                         </p>
                       </div>
                     )}
@@ -1272,8 +1278,8 @@ const HostSettings: React.FC = () => {
                               ? "📤 رفع إيصال جديد"
                               : "📤 Upload a new receipt"
                             : isArabic
-                            ? "📤 رفع إيصال الدفع"
-                            : "📤 Upload payment receipt"}
+                              ? "📤 رفع إيصال الدفع"
+                              : "📤 Upload payment receipt"}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
                           {isArabic
@@ -1350,8 +1356,8 @@ const HostSettings: React.FC = () => {
                       verificationStatus?.payment?.status === "approved"
                         ? "text-emerald-600"
                         : verificationStatus?.payment?.status === "rejected"
-                        ? "text-red-600"
-                        : "text-yellow-600"
+                          ? "text-red-600"
+                          : "text-yellow-600"
                     }`}
                   >
                     {verificationStatus?.payment?.status || "pending"}

@@ -1,7 +1,9 @@
-
 export async function compressImage(file: File): Promise<File> {
   // PDFs don't need image compression/conversion
-  if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+  if (
+    file.type === "application/pdf" ||
+    file.name.toLowerCase().endsWith(".pdf")
+  ) {
     return file;
   }
 
@@ -13,14 +15,10 @@ export async function compressImage(file: File): Promise<File> {
     fileName.endsWith(".heic") ||
     fileName.endsWith(".heif");
 
-  const isWebp =
-    file.type === "image/webp" ||
-    fileName.endsWith(".webp");
-
   /**
    * Convert HEIC / HEIF → JPEG first.
-   * The resulting JPEG is then passed through the normal
-   * canvas compression below.
+   * Use quality 1.0 here so we don't double-compress:
+   * the canvas step below will do the single quality pass.
    */
   if (isHeic) {
     try {
@@ -29,75 +27,77 @@ export async function compressImage(file: File): Promise<File> {
       const convertedBlob = await heic2any({
         blob: file,
         toType: "image/jpeg",
-        quality: 0.95,
+        quality: 1.0, // lossless hand-off to canvas step
       });
 
       const blob = Array.isArray(convertedBlob)
         ? convertedBlob[0]
         : convertedBlob;
 
-      // Convert the resulting JPEG blob into a File so it can
-      // continue through the normal compression pipeline.
       file = new File(
         [blob],
-        file.name
-          .replace(/\.heic$/i, ".jpg")
-          .replace(/\.heif$/i, ".jpg"),
-        {
-          type: "image/jpeg",
-          lastModified: Date.now(),
-        }
+        file.name.replace(/\.heic$/i, ".jpg").replace(/\.heif$/i, ".jpg"),
+        { type: "image/jpeg", lastModified: Date.now() },
       );
     } catch (error) {
       console.error("HEIC/HEIF conversion failed:", error);
-
-      // Keep original if HEIC conversion fails
       return file;
     }
   }
 
-  /**
-   * WebP is supported by modern browsers and can be drawn
-   * directly onto a canvas.
-   *
-   * The canvas output below is ALWAYS image/jpeg, so WebP
-   * automatically becomes JPG.
-   */
-  if (isWebp) {
-    console.log("Converting WebP → JPEG:", file.name);
-  }
+  // ---- Tunables ----------------------------------------------------------
+  const MAX_DIMENSION = 2560;   // longest side cap (up from 2400 width-only)
+  const QUALITY = 0.95;         // JPEG quality (up from 0.92)
+  const SKIP_BELOW_BYTES = 300 * 1024; // re-encode only if > 300 KB
+  const SKIP_BELOW_DIMENSION = 1920;   // and only if larger than this
+  // ------------------------------------------------------------------------
 
-  /**
-   * Compress / convert image to JPEG.
-   */
   return new Promise<File>((resolve) => {
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    if (!ctx) {
-      resolve(file);
-      return;
-    }
-
     const img = new Image();
     const url = URL.createObjectURL(file);
 
     img.onload = () => {
-      const MAX = 2400;
+      const { width: srcW, height: srcH } = img;
 
-      let { width, height } = img;
+      const longestSide = Math.max(srcW, srcH);
 
-      // Resize only if wider than MAX
-      if (width > MAX) {
-        height = Math.round((height * MAX) / width);
-        width = MAX;
+      const alreadySmall =
+        file.size <= SKIP_BELOW_BYTES && longestSide <= SKIP_BELOW_DIMENSION;
+
+      // Don't touch already-small files — re-encoding only hurts quality.
+      if (alreadySmall) {
+        URL.revokeObjectURL(url);
+        resolve(file);
+        return;
       }
 
+      // Scale so the LONGEST side fits MAX_DIMENSION (handles portrait too).
+      let width = srcW;
+      let height = srcH;
+
+      if (longestSide > MAX_DIMENSION) {
+        const scale = MAX_DIMENSION / longestSide;
+        width = Math.round(srcW * scale);
+        height = Math.round(srcH * scale);
+      }
+
+      const canvas = document.createElement("canvas");
       canvas.width = width;
       canvas.height = height;
 
-      // White background prevents transparent PNG/WebP
-      // areas from becoming black in the JPEG.
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        resolve(file);
+        return;
+      }
+
+      // High-quality downscaling — avoids the aliasing/moiré the default
+      // drawImage produces when shrinking significantly.
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+
+      // White background so transparent PNG/WebP doesn't go black in JPEG.
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, width, height);
 
@@ -112,44 +112,37 @@ export async function compressImage(file: File): Promise<File> {
             return;
           }
 
-          // ALWAYS use .jpg
           const newName = file.name.replace(/\.[^.]+$/, ".jpg");
 
-          const compressedFile = new File(
-            [blob],
-            newName,
-            {
-              type: "image/jpeg",
-              lastModified: Date.now(),
-            }
-          );
+          const compressedFile = new File([blob], newName, {
+            type: "image/jpeg",
+            lastModified: Date.now(),
+          });
 
           console.log("Image converted/compressed:", {
             original: file.name,
             originalType: file.type,
             originalSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+            originalDims: `${srcW}×${srcH}`,
             output: compressedFile.name,
             outputType: compressedFile.type,
             outputSize: `${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`,
+            outputDims: `${width}×${height}`,
           });
 
           resolve(compressedFile);
         },
         "image/jpeg",
-        0.92
+        QUALITY,
       );
     };
 
     img.onerror = () => {
       URL.revokeObjectURL(url);
-
       console.error("Could not load image:", file.name);
-
-      // Keep original if browser cannot decode it
       resolve(file);
     };
 
     img.src = url;
   });
 }
-

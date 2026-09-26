@@ -1,6 +1,7 @@
 // components/HostCalendar.tsx
 import React, { useState } from "react";
 
+
 // ============================================================
 // TYPES
 // ============================================================
@@ -36,7 +37,7 @@ interface Booking {
     id: string;
     name: string;
     email: string;
-    phoneNumber: string;
+    phone_number: string;
   };
 }
 
@@ -205,10 +206,21 @@ const HostCalendar: React.FC<HostCalendarProps> = ({
     { bg: "#FEF9C3", color: "#713F12" },
   ];
 
-  const getUserColor = (userId?: string) => {
-    const index = userId?.charCodeAt(0) % userColors.length || 0;
-    return userColors[index];
-  };
+ const getUserColor = (userId?: string) => {
+  // Non-empty string → hash the whole id for a stable color index.
+  // undefined / "" → fall back to slot 0.
+  if (typeof userId !== "string" || userId.length === 0) {
+    return userColors[0];
+  }
+
+  let hash = 0;
+  for (let i = 0; i < userId.length; i++) {
+    hash = (hash * 31 + userId.charCodeAt(i)) | 0;
+  }
+
+  const index = Math.abs(hash) % userColors.length;
+  return userColors[index] ?? userColors[0];
+};
 
   const getStatusText = (status: Booking["status"]) => {
     if (status === "confirmed") return t.confirmed;
@@ -496,7 +508,7 @@ const HostCalendar: React.FC<HostCalendarProps> = ({
                     >
                       {b.user?.name || "Guest"}
                     </span>
-                    · {b.user?.email} · {b.user?.phoneNumber} · {b.guests}{" "}
+                    · {b.user?.email} · {b.user?.phone_number} · {b.guests}{" "}
                     {b.guests !== 1 ? t.guests : t.guest}
                   </div>
                 </div>

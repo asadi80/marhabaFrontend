@@ -143,12 +143,7 @@ const HOST_ROLE = "host";
 ========================================================================== */
 
 const NAV_LINKS = [
-  {
-    id: "dashboard",
-    label: "Dashboard",
-    labelAr: "لوحة التحكم",
-    href: "/host/dashboard",
-  },
+ 
   {
     id: "listings",
     label: "My Listings",

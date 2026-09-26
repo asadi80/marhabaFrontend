@@ -17,8 +17,12 @@ const Signup = lazy(() => import("./pages/Signup"));
 const VerifyEmailPendingContent = lazy(() => import("./pages/verify-email"));
 const UserDashboard = lazy(() => import("./pages/User-dashboard"));
 const ListingById = lazy(() => import("./pages/Listings/ListingById"));
+const Listings = lazy(() => import("./pages/Listings/Listings"));
+
 const ForgotPasswordPage = lazy(() => import("./pages/forgot-password"));
-const ResendVerificationPage = lazy(() => import("./pages/Resend-verification"));
+const ResendVerificationPage = lazy(
+  () => import("./pages/Resend-verification"),
+);
 const VerificationResult = lazy(() => import("./pages/VerificationResult"));
 const HostDashboard = lazy(() => import("./pages/Host-dashboard"));
 const HostSettings = lazy(() => import("./pages/Host-dashboard/HostSettings"));
@@ -47,9 +51,14 @@ export default function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPendingContent />} />
+          <Route path="/listings" element={<Listings />} />
+
           <Route path="/listings/:id" element={<ListingById />} />
 
-          <Route path="/resend-verification" element={<ResendVerificationPage />} />
+          <Route
+            path="/resend-verification"
+            element={<ResendVerificationPage />}
+          />
           <Route path="/verification-result" element={<VerificationResult />} />
           <Route path="/user-dashboard" element={<UserDashboard />} />
           <Route path="/host-dashboard" element={<HostDashboard />} />

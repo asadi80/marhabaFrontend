@@ -1385,7 +1385,6 @@ const HostListings: React.FC = () => {
   // ============================================================
 
   const NAV_LINKS = [
-    { id: "overview", label: t.overview, href: "/host-dashboard" },
     { id: "listings", label: t.myListings, href: "/host/listings" },
     { id: "bookings", label: t.bookings, href: "/host/bookings" },
   ];
