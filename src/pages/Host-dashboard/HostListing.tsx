@@ -232,7 +232,7 @@ const ACCEPTED_IMAGE_EXTENSIONS = [
 // Change this if your backend uses another listing upload route.
 const LISTING_IMAGE_UPLOAD_ENDPOINT =
   import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT ||
-  "https://api.mar-haba.ly/api/v1/uploads/listings";
+  "/uploads/listings";
 
 // ============================================================
 // MAPBOX
@@ -434,12 +434,44 @@ const HostListings: React.FC = () => {
     return `${baseUrl.replace(/\/$/, "")}/${endpoint.replace(/^\//, "")}`;
   }, []);
 
-  const getAuthToken = () =>
+const getAuthToken = (): string => {
+  try {
+    const raw = localStorage.getItem("tokens");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed?.accessToken === "string") {
+        return parsed.accessToken;
+      }
+    }
+  } catch {
+    // fall through to legacy keys
+  }
+
+  return (
     localStorage.getItem("authToken") ||
     localStorage.getItem("token") ||
     sessionStorage.getItem("authToken") ||
     sessionStorage.getItem("token") ||
-    "";
+    ""
+  );
+};
+
+// Add near getAuthToken
+const isExpiredOrExpiringSoon = (token: string, skewSeconds = 30): boolean => {
+  try {
+    const payloadB64 = token.split(".")[1];
+    const payload = JSON.parse(
+      atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")),
+    );
+    if (!payload?.exp) return false;
+    // Refresh if the token expires within `skewSeconds`.
+    return Date.now() >= payload.exp * 1000 - skewSeconds * 1000;
+  } catch {
+    return true;
+  }
+};
+
+
 
   // ============================================================
   // FETCH HOST'S OWN LISTINGS
@@ -870,6 +902,7 @@ const HostListings: React.FC = () => {
 
     if (!isValidType) throw new Error(t.imageTypeError);
     if (file.size > MAX_IMAGE_SIZE) throw new Error(t.imageSizeError);
+    
 
     const token = getAuthToken();
     const uploadFormData = new FormData();
