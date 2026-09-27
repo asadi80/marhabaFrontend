@@ -7,6 +7,7 @@ import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
 import HostDateManager from "../../components/HostDateManager";
+import ListingQRCode from "../../components/ListingQRCode";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1211,34 +1212,50 @@ export default function ListingDetail() {
             {listing.title}
           </h1>
 
-          <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#888]">
-            <div className="flex items-center gap-1.5">
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path
-                  d="M6 1C4.07 1 2.5 2.57 2.5 4.5c0 2.78 3.5 6.5 3.5 6.5s3.5-3.72 3.5-6.5C9.5 2.57 7.93 1 6 1zm0 5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"
-                  fill="#bbb"
-                />
-              </svg>
-              {listing.location}
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#888]">
+              <div className="flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <path
+                    d="M6 1C4.07 1 2.5 2.57 2.5 4.5c0 2.78 3.5 6.5 3.5 6.5s3.5-3.72 3.5-6.5C9.5 2.57 7.93 1 6 1zm0 5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"
+                    fill="#bbb"
+                  />
+                </svg>
+                {listing.location}
+              </div>
+
+              <div className="flex items-center gap-1 text-[#666]">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="opacity-70"
+                >
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <span>
+                  {listingView || listing.view_count || 0} {t.views}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-1 text-[#666]">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="opacity-70"
-              >
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              <span>
-                {listingView || listing.view_count || 0} {t.views}
+
+            {/* QR code — scans to this exact listing URL */}
+            <div className="flex flex-col items-center">
+              <ListingQRCode
+                url={`${window.location.origin}/listings/${listing.id}`}
+                size={120}
+                filename={`listing-${listing.id}-qr.png`}
+                isAr={isAr}
+              />
+              <span className="text-[10px] text-[#999] mt-1">
+                {isAr ? "امسح للمشاركة" : "Scan to share"}
               </span>
             </div>
           </div>
