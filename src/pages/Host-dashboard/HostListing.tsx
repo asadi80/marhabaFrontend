@@ -927,81 +927,109 @@ const HostListings: React.FC = () => {
     return imageUrl;
   };
 
-  const handleImageFilesSelected = async (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const files = Array.from(event.target.files || []);
-    event.target.value = ""; // allow re-selecting the same file
+const handleImageFilesSelected = async (
+  event: React.ChangeEvent<HTMLInputElement>,
+) => {
+  const files = Array.from(event.target.files || []);
+  event.target.value = ""; // allow re-selecting the same file
 
-    if (!files.length) return;
+  if (!files.length) return;
 
-    const currentImageCount = formData.images.filter(Boolean).length;
-    const remainingSlots = MAX_IMAGES - currentImageCount;
+  const currentImageCount = formData.images.filter(Boolean).length;
+  const remainingSlots = MAX_IMAGES - currentImageCount;
 
-    if (remainingSlots <= 0) {
-      alert(t.maxImagesError);
-      return;
-    }
+  if (remainingSlots <= 0) {
+    alert(t.maxImagesError);
+    return;
+  }
 
-    if (files.length > remainingSlots) {
-      alert(
-        isAr
-          ? `يمكنك إضافة ${remainingSlots} صورة فقط`
-          : `You can add only ${remainingSlots} more image(s)`,
-      );
-    }
+  if (files.length > remainingSlots) {
+    alert(
+      isAr
+        ? `يمكنك إضافة ${remainingSlots} صورة فقط`
+        : `You can add only ${remainingSlots} more image(s)`,
+    );
+  }
 
-    const filesToUpload = files.slice(0, remainingSlots);
+  const filesToUpload = files.slice(0, remainingSlots);
 
-    setUploadingImages(true);
-    setUploadProgress(0);
+  setUploadingImages(true);
+  setUploadProgress(0);
 
-    try {
-      const uploadedUrls: string[] = [];
+  const failedFiles: { name: string; reason: string }[] = [];
 
-      for (let index = 0; index < filesToUpload.length; index++) {
-        const file = filesToUpload[index];
+  try {
+    for (let index = 0; index < filesToUpload.length; index++) {
+      const file = filesToUpload[index];
+      setUploadingFileName(file.name);
 
-        setUploadingFileName(file.name);
-
-        // HEIC / HEIF / WEBP / PNG / JPEG
-        // → resized + compressed JPEG
+      try {
+        // HEIC / HEIF / WEBP / PNG / JPEG → resized + compressed JPEG/WebP
         const compressedFile = await compressImage(file);
 
         console.log("Uploading:", {
           original: file.name,
           originalType: file.type,
+          originalSize: file.size,
           compressed: compressedFile.name,
           compressedType: compressedFile.type,
-          originalSize: file.size,
           compressedSize: compressedFile.size,
         });
 
         const url = await uploadSingleImage(compressedFile);
 
         if (url) {
-          uploadedUrls.push(url);
+          // ✅ Commit this image immediately so a later failure
+          //    can't wipe out already-uploaded ones.
+          setFormData((prev) => ({
+            ...prev,
+            images: [...prev.images.filter(Boolean), url],
+          }));
+        } else {
+          failedFiles.push({
+            name: file.name,
+            reason: isAr
+              ? "لم يُرجع الخادم رابط الصورة"
+              : "Server did not return an image URL",
+          });
         }
+      } catch (err: any) {
+        // Isolate per-file failures so the rest of the batch continues.
+        const message =
+          err?.message?.includes("HEIC")
+            ? isAr
+              ? "تعذر تحويل صورة HEIC. الرجاء تحويلها إلى JPG أولاً."
+              : "Could not convert this HEIC image. Please convert it to JPG first."
+            : err?.message || t.imageUploadFailed;
 
+        failedFiles.push({ name: file.name, reason: message });
+      } finally {
+        // Progress reflects files *attempted*, so it never gets stuck
+        // on a failure and always reaches 100%.
         setUploadProgress(
           Math.round(((index + 1) / filesToUpload.length) * 100),
         );
       }
-
-      if (uploadedUrls.length > 0) {
-        setFormData((prev) => ({
-          ...prev,
-          images: [...prev.images.filter(Boolean), ...uploadedUrls],
-        }));
-      }
-    } catch (error: any) {
-      alert(error?.message || t.imageUploadFailed);
-    } finally {
-      setUploadingImages(false);
-      setUploadingFileName(null);
-      setUploadProgress(0);
     }
-  };
+  } finally {
+    setUploadingImages(false);
+    setUploadingFileName(null);
+    setUploadProgress(0);
+  }
+
+  // Report failures after the batch, with file names.
+  if (failedFiles.length > 0) {
+    const summary = failedFiles
+      .map((f) => `• ${f.name}\n  ${f.reason}`)
+      .join("\n\n");
+
+    alert(
+      isAr
+        ? `فشل رفع ${failedFiles.length} صورة:\n\n${summary}`
+        : `Failed to upload ${failedFiles.length} image(s):\n\n${summary}`,
+    );
+  }
+};
 
   const openImagePicker = () => {
     if (uploadingImages) return;

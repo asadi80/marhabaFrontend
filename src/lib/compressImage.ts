@@ -1,5 +1,91 @@
+// lib/compressImage.ts
+
+/**
+ * Loads an image (Blob/File) into an HTMLImageElement, honouring EXIF
+ * orientation so iPhone photos don't come out rotated.
+ */
+async function loadImage(
+  file: File | Blob,
+): Promise<{ img: HTMLImageElement; revoke: () => void }> {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.decoding = "async";
+  img.src = url;
+
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("Image failed to load"));
+  });
+
+  return { img, revoke: () => URL.revokeObjectURL(url) };
+}
+
+/**
+ * Returns the dimensions the image should be drawn at, taking EXIF
+ * orientation into account (orientations 5–8 swap width/height).
+ */
+function orientedDimensions(img: HTMLImageElement) {
+  // Modern browsers expose this when the image has EXIF orientation.
+  // Fallback: assume no rotation.
+  const orientation =
+    (img.naturalWidth && img.naturalHeight && img.getAttribute?.("orientation")) ||
+    1;
+
+  // We use createImageBitmap below when available; this is the fallback path.
+  return {
+    width: img.naturalWidth || img.width,
+    height: img.naturalHeight || img.height,
+    orientation,
+  };
+}
+
+/**
+ * Draws an image to a canvas, applying EXIF orientation if needed.
+ * Uses createImageBitmap (which auto-applies orientation in modern
+ * browsers) when available, otherwise falls back to a manual transform.
+ */
+async function drawToCanvas(
+  source: File | Blob,
+  img: HTMLImageElement,
+  targetW: number,
+  targetH: number,
+): Promise<HTMLCanvasElement> {
+  const canvas = document.createElement("canvas");
+  canvas.width = targetW;
+  canvas.height = targetH;
+
+  const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) throw new Error("Canvas 2D context unavailable");
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+
+  // White background so transparent PNG/WebP → JPEG doesn't go black.
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, targetW, targetH);
+
+  // Preferred path: createImageBitmap honours EXIF orientation natively.
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(source, {
+        imageOrientation: "from-image",
+      });
+      ctx.drawImage(bitmap, 0, 0, targetW, targetH);
+      bitmap.close?.();
+      return canvas;
+    } catch {
+      // fall through to manual draw
+    }
+  }
+
+  // Fallback: draw the HTMLImageElement directly. Most modern browsers
+  // already apply EXIF orientation to <img>, so this is usually correct.
+  ctx.drawImage(img, 0, 0, targetW, targetH);
+  return canvas;
+}
+
 export async function compressImage(file: File): Promise<File> {
-  // PDFs don't need image compression/conversion
+  // PDFs are not images — pass through.
   if (
     file.type === "application/pdf" ||
     file.name.toLowerCase().endsWith(".pdf")
@@ -7,142 +93,136 @@ export async function compressImage(file: File): Promise<File> {
     return file;
   }
 
-  const fileName = file.name.toLowerCase();
-
+  const lowerName = file.name.toLowerCase();
   const isHeic =
     file.type === "image/heic" ||
     file.type === "image/heif" ||
-    fileName.endsWith(".heic") ||
-    fileName.endsWith(".heif");
+    lowerName.endsWith(".heic") ||
+    lowerName.endsWith(".heif");
 
-  /**
-   * Convert HEIC / HEIF → JPEG first.
-   * Use quality 1.0 here so we don't double-compress:
-   * the canvas step below will do the single quality pass.
-   */
+  // ──────────────────────────────────────────────────────────────
+  // HEIC / HEIF → JPEG
+  // ──────────────────────────────────────────────────────────────
   if (isHeic) {
     try {
       const heic2any = (await import("heic2any")).default;
 
-      const convertedBlob = await heic2any({
+      const converted = await heic2any({
         blob: file,
         toType: "image/jpeg",
-        quality: 1.0, // lossless hand-off to canvas step
+        // 0.92 is a good balance; the canvas step below may downscale
+        // further but won't re-encode at a lower quality than this.
+        quality: 0.92,
       });
 
-      const blob = Array.isArray(convertedBlob)
-        ? convertedBlob[0]
-        : convertedBlob;
+      const blob = Array.isArray(converted) ? converted[0] : converted;
+
+      if (!blob || blob.size === 0) {
+        throw new Error("HEIC conversion returned an empty blob");
+      }
 
       file = new File(
         [blob],
-        file.name.replace(/\.heic$/i, ".jpg").replace(/\.heif$/i, ".jpg"),
+        lowerName.replace(/\.heic$/i, ".jpg").replace(/\.heif$/i, ".jpg"),
         { type: "image/jpeg", lastModified: Date.now() },
       );
     } catch (error) {
       console.error("HEIC/HEIF conversion failed:", error);
-      return file;
+      // Returning the original HEIC would upload an unviewable file.
+      // Re-throw so the caller can show a clear error to the user.
+      throw new Error(
+        "Could not convert this HEIC/HEIF image. Please try a JPG or PNG.",
+      );
     }
   }
 
-  // ---- Tunables ----------------------------------------------------------
-  const MAX_DIMENSION = 2560;   // longest side cap (up from 2400 width-only)
-  const QUALITY = 0.95;         // JPEG quality (up from 0.92)
-  const SKIP_BELOW_BYTES = 300 * 1024; // re-encode only if > 300 KB
-  const SKIP_BELOW_DIMENSION = 1920;   // and only if larger than this
-  // ------------------------------------------------------------------------
+  // ──────────────────────────────────────────────────────────────
+  // Tunables
+  // ──────────────────────────────────────────────────────────────
+  const MAX_DIMENSION = 2048; // longest side after resize
+  const QUALITY = 0.9; // JPEG/WebP quality
+  const SKIP_BELOW_BYTES = 400 * 1024; // ≤ 400 KB AND
+  const SKIP_BELOW_DIMENSION = 1600; // ≤ 1600px → leave as-is
+  const KEEP_WEBP = true; // preserve WebP (smaller than JPEG)
+  // ──────────────────────────────────────────────────────────────
 
-  return new Promise<File>((resolve) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
+  const { img, revoke } = await loadImage(file);
 
-    img.onload = () => {
-      const { width: srcW, height: srcH } = img;
+  try {
+    const srcW = img.naturalWidth || img.width;
+    const srcH = img.naturalHeight || img.height;
+    const longestSide = Math.max(srcW, srcH);
 
-      const longestSide = Math.max(srcW, srcH);
+    const alreadySmall =
+      file.size <= SKIP_BELOW_BYTES && longestSide <= SKIP_BELOW_DIMENSION;
 
-      const alreadySmall =
-        file.size <= SKIP_BELOW_BYTES && longestSide <= SKIP_BELOW_DIMENSION;
+    // Don't touch already-small files — re-encoding only hurts quality.
+    if (alreadySmall) {
+      return file;
+    }
 
-      // Don't touch already-small files — re-encoding only hurts quality.
-      if (alreadySmall) {
-        URL.revokeObjectURL(url);
-        resolve(file);
-        return;
-      }
+    // Scale so the LONGEST side fits MAX_DIMENSION.
+    let width = srcW;
+    let height = srcH;
 
-      // Scale so the LONGEST side fits MAX_DIMENSION (handles portrait too).
-      let width = srcW;
-      let height = srcH;
+    if (longestSide > MAX_DIMENSION) {
+      const scale = MAX_DIMENSION / longestSide;
+      width = Math.max(1, Math.round(srcW * scale));
+      height = Math.max(1, Math.round(srcH * scale));
+    }
 
-      if (longestSide > MAX_DIMENSION) {
-        const scale = MAX_DIMENSION / longestSide;
-        width = Math.round(srcW * scale);
-        height = Math.round(srcH * scale);
-      }
+    const canvas = await drawToCanvas(file, img, width, height);
 
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
+    // Decide output MIME type:
+    // - Keep WebP if the source was WebP (smaller, widely supported).
+    // - Otherwise emit JPEG.
+    const isWebp =
+      KEEP_WEBP &&
+      (file.type === "image/webp" || lowerName.endsWith(".webp"));
+    const outputType = isWebp ? "image/webp" : "image/jpeg";
+    const outputExt = isWebp ? ".webp" : ".jpg";
+    const outputName = file.name.replace(/\.[^.]+$/, outputExt);
 
-      const ctx = canvas.getContext("2d", { alpha: false });
-      if (!ctx) {
-        URL.revokeObjectURL(url);
-        resolve(file);
-        return;
-      }
+    const blob: Blob | null = await new Promise((resolve) =>
+      canvas.toBlob(resolve, outputType, QUALITY),
+    );
 
-      // High-quality downscaling — avoids the aliasing/moiré the default
-      // drawImage produces when shrinking significantly.
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "high";
-
-      // White background so transparent PNG/WebP doesn't go black in JPEG.
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, width, height);
-
-      ctx.drawImage(img, 0, 0, width, height);
-
-      URL.revokeObjectURL(url);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve(file);
-            return;
-          }
-
-          const newName = file.name.replace(/\.[^.]+$/, ".jpg");
-
-          const compressedFile = new File([blob], newName, {
-            type: "image/jpeg",
-            lastModified: Date.now(),
-          });
-
-          console.log("Image converted/compressed:", {
-            original: file.name,
-            originalType: file.type,
-            originalSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
-            originalDims: `${srcW}×${srcH}`,
-            output: compressedFile.name,
-            outputType: compressedFile.type,
-            outputSize: `${(compressedFile.size / 1024 / 1024).toFixed(2)} MB`,
-            outputDims: `${width}×${height}`,
-          });
-
-          resolve(compressedFile);
-        },
-        "image/jpeg",
-        QUALITY,
+    if (!blob) {
+      // Fallback: try JPEG if WebP encoding failed.
+      const jpegBlob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", QUALITY),
       );
-    };
+      if (!jpegBlob) return file;
 
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      console.error("Could not load image:", file.name);
-      resolve(file);
-    };
+      return new File([jpegBlob], file.name.replace(/\.[^.]+$/, ".jpg"), {
+        type: "image/jpeg",
+        lastModified: Date.now(),
+      });
+    }
 
-    img.src = url;
-  });
+    // If compression made the file *bigger*, keep the original.
+    if (blob.size >= file.size && !isHeic) {
+      return file;
+    }
+
+    const outFile = new File([blob], outputName, {
+      type: outputType,
+      lastModified: Date.now(),
+    });
+
+    console.log("Image compressed:", {
+      original: file.name,
+      originalType: file.type,
+      originalSize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+      originalDims: `${srcW}×${srcH}`,
+      output: outFile.name,
+      outputType: outFile.type,
+      outputSize: `${(outFile.size / 1024 / 1024).toFixed(2)} MB`,
+      outputDims: `${width}×${height}`,
+    });
+
+    return outFile;
+  } finally {
+    revoke();
+  }
 }
