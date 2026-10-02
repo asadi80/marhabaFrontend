@@ -1,23 +1,16 @@
-
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 
 const DISMISSED_KEY = 'marhaba-pwa-dismissed';
-const RESHOW_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
+const RESHOW_AFTER_MS = 3 * 24 * 60 * 60 * 1000;
 
-function wasRecentlyDismissed() {
+function wasRecentlyDismissed(): boolean {
   try {
     const value = localStorage.getItem(DISMISSED_KEY);
-
-    if (!value) {
-      return false;
-    }
+    if (!value) return false;
 
     const timestamp = Number(value);
-
-    if (!Number.isFinite(timestamp)) {
-      return false;
-    }
+    if (!Number.isFinite(timestamp)) return false;
 
     return Date.now() - timestamp < RESHOW_AFTER_MS;
   } catch {
@@ -26,325 +19,149 @@ function wasRecentlyDismissed() {
 }
 
 export default function PWAInstallPrompt() {
-  const {
-    isInstallable,
-    isInstalled,
-    isIosDevice,
-    promptInstall,
-  } = usePWAInstall();
+  const { isInstallable, isInstalled, isIosDevice, promptInstall } =
+    usePWAInstall();
 
-  const [dismissed, setDismissed] = useState(
-    wasRecentlyDismissed()
-  );
+  const [dismissed, setDismissed] = useState(wasRecentlyDismissed);
+  const [hint, setHint] = useState<string | null>(null);
+  const [installing, setInstalling] = useState(false);
 
-  const [showInstructions, setShowInstructions] =
-    useState(false);
-
-  useEffect(() => {
-    setDismissed(wasRecentlyDismissed());
-  }, []);
-
-  /*
-   * Don't show anything if the app is already installed.
-   */
-  if (isInstalled) {
-    return null;
-  }
-
-  /*
-   * Don't show if the user dismissed it recently.
-   */
-  if (dismissed) {
-    return null;
-  }
+  if (isInstalled || dismissed) return null;
 
   const dismiss = () => {
     try {
-      localStorage.setItem(
-        DISMISSED_KEY,
-        String(Date.now())
-      );
+      localStorage.setItem(DISMISSED_KEY, String(Date.now()));
     } catch {
-      // Ignore storage errors
+      // Ignore localStorage errors.
     }
-
     setDismissed(true);
   };
 
-  const install = async () => {
-    /*
-     * iPhone / iPad
-     */
-    if (isIosDevice) {
-      setShowInstructions(true);
-      return;
-    }
+  const handleInstall = async () => {
+    if (installing) return;
+    setInstalling(true);
 
-    /*
-     * Chrome / Edge / Android / supported browsers
-     */
-    if (isInstallable) {
-      const installed = await promptInstall();
-
-      if (installed) {
-        setDismissed(true);
+    try {
+      if (isIosDevice) {
+        setHint('Tap the Share button, then choose "Add to Home Screen".');
         return;
       }
-    }
 
-    /*
-     * The browser hasn't supplied the native prompt.
-     * Show our installation instructions instead.
-     */
-    setShowInstructions(true);
+      if (isInstallable) {
+        const installed = await promptInstall();
+        if (installed) {
+          setDismissed(true);
+          return;
+        }
+      }
+
+      setHint('Use the install icon in your address bar or browser menu.');
+    } finally {
+      setInstalling(false);
+    }
   };
 
   return (
-    <>
-      {/* Main install popup */}
-      {!showInstructions && (
-        <div
+    <div
+      role="dialog"
+      aria-label="Install Marhaba"
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 10000,
+        background: '#ffffff',
+        color: '#1a1a2e',
+        borderBottom: '1px solid #e5e7eb',
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '960px',
+          margin: '0 auto',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <img
+          src="/icon-192x192.png"
+          alt="Marhaba"
           style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 10000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            background: 'rgba(0, 0, 0, 0.45)',
-            backdropFilter: 'blur(3px)',
+            width: '40px',
+            height: '40px',
+            objectFit: 'cover',
+            display: 'block',
+            flexShrink: 0,
+            borderRadius: '8px',
           }}
-        >
+        />
+
+        <div style={{ flex: '1 1 160px', minWidth: 0 }}>
           <div
             style={{
-              width: '100%',
-              maxWidth: '420px',
-              background: '#f7f6f2',
-              color: '#1a1a2e',
-              borderRadius: '20px',
-              padding: '28px',
-              boxShadow:
-                '0 15px 50px rgba(0,0,0,0.3)',
-              textAlign: 'center',
+              fontSize: '15px',
+              fontWeight: 600,
+              lineHeight: 1.3,
             }}
           >
-            {/* App icon */}
-            <div
-              style={{
-                width: '72px',
-                height: '72px',
-                margin: '0 auto 18px',
-                borderRadius: '18px',
-                overflow: 'hidden',
-                boxShadow:
-                  '0 5px 15px rgba(0,0,0,0.15)',
-              }}
-            >
-              <img
-                src="/icon-192x192.png"
-                alt="Marhaba"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                }}
-              />
-            </div>
-
-            <h2
-              style={{
-                margin: '0 0 8px',
-                fontSize: '24px',
-                fontWeight: 700,
-              }}
-            >
-              Install Marhaba
-            </h2>
-
-            <p
-              style={{
-                margin: '0 auto 22px',
-                maxWidth: '340px',
-                color: '#555',
-                lineHeight: 1.5,
-                fontSize: '15px',
-              }}
-            >
-              Install Marhaba on your device for
-              faster access to stays, bookings, and
-              your dashboard.
-            </p>
-
-            <button
-              onClick={install}
-              style={{
-                width: '100%',
-                background: '#e8c547',
-                color: '#1a1a2e',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '13px 20px',
-                fontSize: '16px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                marginBottom: '10px',
-              }}
-            >
-              Install Marhaba
-            </button>
-
-            <button
-              onClick={dismiss}
-              style={{
-                width: '100%',
-                background: 'transparent',
-                color: '#666',
-                border: 'none',
-                padding: '10px',
-                fontSize: '14px',
-                cursor: 'pointer',
-              }}
-            >
-              Maybe later
-            </button>
+            Install Marhaba
           </div>
-        </div>
-      )}
-
-      {/* Installation instructions */}
-      {showInstructions && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 10001,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px',
-            background: 'rgba(0, 0, 0, 0.5)',
-            backdropFilter: 'blur(3px)',
-          }}
-        >
           <div
             style={{
-              width: '100%',
-              maxWidth: '430px',
-              background: '#f7f6f2',
-              color: '#1a1a2e',
-              borderRadius: '20px',
-              padding: '28px',
-              boxShadow:
-                '0 15px 50px rgba(0,0,0,0.3)',
+              fontSize: '13px',
+              color: hint ? '#1a1a2e' : '#6b7280',
+              lineHeight: 1.4,
+              marginTop: '2px',
             }}
           >
-            <h2
-              style={{
-                margin: '0 0 8px',
-                fontSize: '22px',
-              }}
-            >
-              Install Marhaba
-            </h2>
-
-            {isIosDevice ? (
-              <>
-                <p
-                  style={{
-                    color: '#555',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  To install Marhaba on your iPhone
-                  or iPad:
-                </p>
-
-                <ol
-                  style={{
-                    paddingLeft: '22px',
-                    lineHeight: 1.8,
-                    color: '#333',
-                  }}
-                >
-                  <li>
-                    Tap the <strong>Share</strong>{' '}
-                    button.
-                  </li>
-
-                  <li>
-                    Select{' '}
-                    <strong>
-                      Add to Home Screen
-                    </strong>
-                    .
-                  </li>
-
-                  <li>
-                    Tap <strong>Add</strong>.
-                  </li>
-                </ol>
-              </>
-            ) : (
-              <>
-                <p
-                  style={{
-                    color: '#555',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Your browser does not currently
-                  provide the automatic install dialog.
-                </p>
-
-                <p
-                  style={{
-                    color: '#555',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Look for the{' '}
-                  <strong>Install</strong> button or
-                  install icon in your browser's address
-                  bar or browser menu.
-                </p>
-              </>
-            )}
-
-            <button
-              onClick={() => setShowInstructions(false)}
-              style={{
-                width: '100%',
-                background: '#1a1a2e',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '12px',
-                padding: '12px 20px',
-                fontSize: '15px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                marginTop: '12px',
-              }}
-            >
-              Back
-            </button>
-
-            <button
-              onClick={dismiss}
-              style={{
-                width: '100%',
-                background: 'transparent',
-                color: '#666',
-                border: 'none',
-                padding: '10px',
-                cursor: 'pointer',
-              }}
-            >
-              Don't show again
-            </button>
+            {hint ?? 'Faster access, right from your device.'}
           </div>
         </div>
-      )}
-    </>
+
+        <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={dismiss}
+            style={{
+              background: 'transparent',
+              color: '#4b5563',
+              border: '1px solid #d1d5db',
+              borderRadius: '8px',
+              padding: '9px 16px',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            Maybe later
+          </button>
+
+          <button
+            type="button"
+            onClick={handleInstall}
+            disabled={installing}
+            style={{
+              background: '#1a1a2e',
+              color: '#ffffff',
+              border: '1px solid #1a1a2e',
+              borderRadius: '8px',
+              padding: '9px 20px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: installing ? 'wait' : 'pointer',
+              opacity: installing ? 0.7 : 1,
+            }}
+          >
+            Install
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
