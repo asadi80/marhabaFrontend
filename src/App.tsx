@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "./hooks/useLanguage";
 import LoadingScreen from "./components/LoadingScreen";
 import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 // Every route is lazy-loaded: each page becomes its own chunk, fetched only
 // when the user navigates there, instead of all being bundled into the
@@ -41,7 +42,8 @@ const SafetyInfoPage = lazy(() => import("./pages/safety-info"));
 export default function App() {
   return (
     <LanguageProvider>
-      <PWAUpdatePrompt />
+     <PWAInstallPrompt /> 
+     <PWAUpdatePrompt />
 
       <Suspense fallback={<LoadingScreen />}>
         <Routes>
