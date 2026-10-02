@@ -142,7 +142,7 @@ const AVATAR_PAL = [
 const translations = {
   en: {
     dashboard: "Dashboard",
-    browse: "Browse",
+    browse: "Listings",
     backToListings: "Back to listings",
     about: "About",
     amenities: "Amenities",
@@ -183,7 +183,7 @@ const translations = {
   },
   ar: {
     dashboard: "لوحة التحكم",
-    browse: "استعراض",
+    browse: "قوايْم",
     backToListings: "العودة إلى القوائم",
     about: "الوصف",
     amenities: "وسائل الراحة",
@@ -846,6 +846,8 @@ export default function ListingDetail() {
       }
 
       const response = await res.json();
+      console.log(response);
+      
 
       const listingData = response?.data?.data ?? response?.data ?? response;
 
@@ -1124,7 +1126,7 @@ export default function ListingDetail() {
       <div className="min-h-screen bg-[#f7f6f2]">
         <Navbar
           NAV_LINKS={[
-            { id: "dashboard", label: t.dashboard, href: "/dashboard" },
+            
             { id: "browse", label: t.browse, href: "/listings" },
           ]}
           user={user}
@@ -1180,7 +1182,6 @@ export default function ListingDetail() {
     >
       <Navbar
         NAV_LINKS={[
-          { id: "dashboard", label: t.dashboard, href: "/dashboard" },
           { id: "browse", label: t.browse, href: "/listings" },
         ]}
         user={user}
