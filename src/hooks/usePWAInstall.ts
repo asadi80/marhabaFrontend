@@ -1,230 +1,69 @@
-
 import { useCallback, useEffect, useState } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
-  readonly platforms?: string[];
-
   prompt: () => Promise<void>;
-
-  userChoice: Promise<{
-    outcome: 'accepted' | 'dismissed';
-    platform: string;
-  }>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-// Keep this outside React.
-// The browser's beforeinstallprompt event is a one-time event.
 let deferredPrompt: BeforeInstallPromptEvent | null = null;
+let installedFlag = false;
+const listeners = new Set<() => void>();
+const notify = () => listeners.forEach((l) => l());
 
-function detectIOS(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e as BeforeInstallPromptEvent;
+    notify();
+  });
 
-  const userAgent = window.navigator.userAgent.toLowerCase();
-
-  return (
-    /iphone|ipad|ipod/.test(userAgent) ||
-    (
-      window.navigator.platform === 'MacIntel' &&
-      window.navigator.maxTouchPoints > 1
-    )
-  );
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    installedFlag = true;
+    notify();
+  });
 }
 
-function detectStandalone(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const standaloneMedia = window.matchMedia(
-    '(display-mode: standalone)'
-  ).matches;
-
-  const iosStandalone =
-    (window.navigator as Navigator & {
-      standalone?: boolean;
-    }).standalone === true;
-
-  return standaloneMedia || iosStandalone;
+function checkStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (navigator as any).standalone === true
+  );
 }
 
 export function usePWAInstall() {
-  const [isIOS] = useState(() => detectIOS());
-
-  const [isInstalled, setIsInstalled] = useState(() =>
-    detectStandalone()
-  );
-
-  const [isInstallable, setIsInstallable] = useState(
-    deferredPrompt !== null
-  );
+  const [, setTick] = useState(0);
 
   useEffect(() => {
-    /*
-     * Browser says the app can be installed.
-     */
-    const handleBeforeInstallPrompt = (event: Event) => {
-      console.log(
-        '[PWA] Install prompt available'
-      );
-
-      event.preventDefault();
-
-      deferredPrompt =
-        event as BeforeInstallPromptEvent;
-
-      setIsInstallable(true);
-    };
-
-    /*
-     * App was successfully installed.
-     */
-    const handleAppInstalled = () => {
-      console.log('[PWA] App installed');
-
-      deferredPrompt = null;
-
-      setIsInstallable(false);
-      setIsInstalled(true);
-    };
-
-    /*
-     * User may have installed the app outside
-     * our React session.
-     */
-    const handleDisplayModeChange = () => {
-      const standalone = detectStandalone();
-
-      setIsInstalled(standalone);
-
-      if (standalone) {
-        deferredPrompt = null;
-        setIsInstallable(false);
-      }
-    };
-
-    window.addEventListener(
-      'beforeinstallprompt',
-      handleBeforeInstallPrompt
-    );
-
-    window.addEventListener(
-      'appinstalled',
-      handleAppInstalled
-    );
-
-    const mediaQuery = window.matchMedia(
-      '(display-mode: standalone)'
-    );
-
-    mediaQuery.addEventListener(
-      'change',
-      handleDisplayModeChange
-    );
-
-    /*
-     * The event may already exist.
-     */
-    if (deferredPrompt) {
-      setIsInstallable(true);
-    }
-
-    /*
-     * Check standalone mode once on mount.
-     */
-    if (detectStandalone()) {
-      setIsInstalled(true);
-      setIsInstallable(false);
-    }
-
+    const l = () => setTick((t) => t + 1);
+    listeners.add(l);
     return () => {
-      window.removeEventListener(
-        'beforeinstallprompt',
-        handleBeforeInstallPrompt
-      );
-
-      window.removeEventListener(
-        'appinstalled',
-        handleAppInstalled
-      );
-
-      mediaQuery.removeEventListener(
-        'change',
-        handleDisplayModeChange
-      );
+      listeners.delete(l);
     };
   }, []);
 
-  const install = useCallback(async (): Promise<boolean> => {
-    /*
-     * There is no native prompt available.
-     *
-     * This is normal on iOS and some browsers.
-     */
-    if (!deferredPrompt) {
-      console.log(
-        '[PWA] Native install prompt unavailable'
-      );
+  const promptInstall = useCallback(async (): Promise<boolean> => {
+    if (!deferredPrompt) return false;
 
-      return false;
-    }
+    await deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
 
-    try {
-      const prompt = deferredPrompt;
+    deferredPrompt = null; // a prompt can only be used once
+    notify();
 
-      /*
-       * The browser requires prompt() to be called
-       * from a user interaction.
-       */
-      await prompt.prompt();
-
-      const result = await prompt.userChoice;
-
-      console.log(
-        '[PWA] Install result:',
-        result.outcome
-      );
-
-      /*
-       * The event can only be used once.
-       */
-      deferredPrompt = null;
-
-      setIsInstallable(false);
-
-      if (result.outcome === 'accepted') {
-        setIsInstalled(true);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error(
-        '[PWA] Install failed:',
-        error
-      );
-
-      deferredPrompt = null;
-      setIsInstallable(false);
-
-      return false;
-    }
+    return outcome === 'accepted';
   }, []);
+
+  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+  const isIosDevice =
+    /iphone|ipad|ipod/i.test(ua) ||
+    (ua.includes('Mac') && navigator.maxTouchPoints > 1);
 
   return {
-    isInstallable,
-    isInstalled,
-
-    /*
-     * iOS has no beforeinstallprompt.
-     */
-    isIosDevice: isIOS,
-
-    /*
-     * Native browser installation.
-     */
-    promptInstall: install,
+    isInstallable: deferredPrompt !== null,
+    isInstalled: installedFlag || checkStandalone(),
+    isIosDevice,
+    promptInstall,
   };
 }
-
