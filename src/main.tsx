@@ -9,6 +9,10 @@ import "./hooks/usePWAInstall"; // loads early so the install event isn't missed
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
 import { LanguageProvider } from "./hooks/useLanguage";
+import { registerSW } from "virtual:pwa-register";
+
+registerSW({ immediate: true });
+
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

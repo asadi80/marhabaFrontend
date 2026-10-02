@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "./hooks/useLanguage";
 import LoadingScreen from "./components/LoadingScreen";
-import PWAUpdatePrompt from "./components/PWAUpdatePrompt";
 import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 // Every route is lazy-loaded: each page becomes its own chunk, fetched only
@@ -43,7 +42,6 @@ export default function App() {
   return (
     <LanguageProvider>
      <PWAInstallPrompt /> 
-     <PWAUpdatePrompt />
 
       <Suspense fallback={<LoadingScreen />}>
         <Routes>

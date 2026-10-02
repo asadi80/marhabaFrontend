@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-cc3e37c6'], (function (workbox) { 'use strict';
+define(['./workbox-e199cb62'], (function (workbox) { 'use strict';
 
   self.addEventListener('message', event => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -81,32 +81,33 @@ define(['./workbox-cc3e37c6'], (function (workbox) { 'use strict';
    * See https://goo.gl/S9QRab
    */
   workbox.precacheAndRoute([{
-    "url": "/index.html",
-    "revision": "0.6ifk83v56cg"
+    "url": "index.html",
+    "revision": "0.88m3hovh0ug"
   }], {});
   workbox.cleanupOutdatedCaches();
-  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("/index.html"), {
+  workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/],
     denylist: [/^\/api\//]
   }));
-  workbox.registerRoute(/^https:\/\/fonts\.googleapis\.com\/.*/i, new workbox.StaleWhileRevalidate({
-    "cacheName": "google-fonts-styles",
-    plugins: []
-  }), 'GET');
-  workbox.registerRoute(/^https:\/\/fonts\.gstatic\.com\/.*/i, new workbox.CacheFirst({
-    "cacheName": "google-fonts-files",
+  workbox.registerRoute(/^https:\/\/api\.mar-haba\.ly\/api\/v1\/(auth|bookings|users|messages).*/i, new workbox.NetworkOnly(), 'GET');
+  workbox.registerRoute(/^https:\/\/api\.mar-haba\.ly\/api\/v1\/listings(\?.*)?$/i, new workbox.NetworkFirst({
+    "cacheName": "marhaba-listings",
+    "networkTimeoutSeconds": 5,
     plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 20,
-      maxAgeSeconds: 31536000
+      maxEntries: 50,
+      maxAgeSeconds: 3600
     }), new workbox.CacheableResponsePlugin({
       statuses: [0, 200]
     })]
   }), 'GET');
-  workbox.registerRoute(/\.(?:png|jpg|jpeg|webp|avif|gif)$/i, new workbox.CacheFirst({
-    "cacheName": "images",
+  workbox.registerRoute(({
+    url
+  }) => url.pathname.includes("/assets/mapbox-"), new workbox.CacheFirst({
+    "cacheName": "marhaba-mapbox-code",
     plugins: [new workbox.ExpirationPlugin({
-      maxEntries: 100,
-      maxAgeSeconds: 2592000
+      maxEntries: 5
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
     })]
   }), 'GET');
 
