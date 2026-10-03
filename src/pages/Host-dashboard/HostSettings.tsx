@@ -109,7 +109,7 @@ const MOAMALAT_SCRIPT_URL =
     ? "https://npg.moamalat.net:6006/js/lightbox.js"
     : "https://tnpg.moamalat.net:6006/js/lightbox.js";
 
-const SUBSCRIPTION_AMOUNT_LYD = 500;
+const SUBSCRIPTION_AMOUNT_LYD = 50;
 
 // ============================================================
 // COMPONENT
