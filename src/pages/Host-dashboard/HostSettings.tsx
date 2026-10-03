@@ -111,10 +111,76 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const MOAMALAT_SCRIPT_URL = "https://tnpg.moamalat.net:6006/js/lightbox.js";
 
-
-
-
 const SUBSCRIPTION_AMOUNT_LYD = 500;
+
+// ============================================================
+// MOAMALAT RESPONSE CODE → USER-FRIENDLY MESSAGE
+// ============================================================
+const getMoamalatMessage = (
+  code: string | null | undefined,
+  isArabic: boolean,
+) => {
+  if (!code) return null;
+
+  const messages: Record<string, { ar: string; en: string }> = {
+    "05": {
+      ar: "تم رفض العملية من قبل البنك.",
+      en: "Transaction declined by the bank.",
+    },
+    "13": { ar: "المبلغ غير صالح.", en: "Invalid amount." },
+    "14": { ar: "رقم البطاقة غير صحيح.", en: "Invalid card number." },
+    "16": {
+      ar: "رصيد غير كافٍ في حسابك.",
+      en: "Insufficient funds in your account.",
+    },
+    "17": {
+      ar: "تم إلغاء العملية.",
+      en: "Transaction cancelled by the customer.",
+    },
+    "51": { ar: "رصيد غير كافٍ.", en: "Insufficient funds." },
+    "54": { ar: "البطاقة منتهية الصلاحية.", en: "Card has expired." },
+    "55": { ar: "الرقم السري غير صحيح.", en: "Incorrect PIN." },
+    "57": {
+      ar: "العملية غير مسموح بها لهذه البطاقة.",
+      en: "Transaction not permitted for this card.",
+    },
+    "58": {
+      ar: "العملية غير مسموح بها في هذا المتجر.",
+      en: "Transaction not allowed at this terminal.",
+    },
+    "59": { ar: "يُشتبه في أنها عملية احتيال.", en: "Suspected fraud." },
+    "61": {
+      ar: "تم تجاوز الحد المسموح به.",
+      en: "Activity amount limit exceeded.",
+    },
+    "62": { ar: "بطاقة مقيّدة.", en: "Restricted card." },
+    "65": {
+      ar: "تم تجاوز عدد العمليات المسموح بها.",
+      en: "Activity count limit exceeded.",
+    },
+    "75": {
+      ar: "تم تجاوز عدد محاولات إدخال الرقم السري.",
+      en: "Too many PIN attempts.",
+    },
+    "82": {
+      ar: "فشل التحقق من بيانات البطاقة.",
+      en: "Card authentication failed.",
+    },
+    "91": {
+      ar: "البنك المُصدر غير متاح حالياً. حاول لاحقاً.",
+      en: "Issuer bank unavailable. Try again later.",
+    },
+    "96": {
+      ar: "خطأ في النظام. حاول لاحقاً.",
+      en: "System malfunction. Please try again later.",
+    },
+  };
+
+  const entry = messages[code];
+  if (!entry) return null;
+
+  return isArabic ? entry.ar : entry.en;
+};
 
 // ============================================================
 // COMPONENT
@@ -305,9 +371,7 @@ const HostSettings: React.FC = () => {
 
   const allPayments = verificationStatus?.all_payments || [];
   const moamalatPayments = allPayments.filter(isMoamalatPayment);
-  const bankTransferPayments = allPayments.filter(
-    (p) => !isMoamalatPayment(p),
-  );
+  const bankTransferPayments = allPayments.filter((p) => !isMoamalatPayment(p));
 
   // ============================================================
   // STATUS HELPERS
@@ -416,7 +480,9 @@ const HostSettings: React.FC = () => {
 
     if (!user?.id) {
       setIdError(
-        isArabic ? "لم يتم العثور على معرف المستخدم." : "User ID was not found.",
+        isArabic
+          ? "لم يتم العثور على معرف المستخدم."
+          : "User ID was not found.",
       );
       return;
     }
@@ -499,7 +565,9 @@ const HostSettings: React.FC = () => {
 
     if (!user?.id) {
       setPaymentError(
-        isArabic ? "لم يتم العثور على معرف المستخدم." : "User ID was not found.",
+        isArabic
+          ? "لم يتم العثور على معرف المستخدم."
+          : "User ID was not found.",
       );
       return;
     }
@@ -568,7 +636,9 @@ const HostSettings: React.FC = () => {
 
     if (!user?.id) {
       setMoamalatError(
-        isArabic ? "لم يتم العثور على معرف المستخدم." : "User ID was not found.",
+        isArabic
+          ? "لم يتم العثور على معرف المستخدم."
+          : "User ID was not found.",
       );
       return;
     }
@@ -616,6 +686,23 @@ const HostSettings: React.FC = () => {
 
         completeCallback: async (data: any) => {
           console.log("✅ Moamalat payment completed:", data);
+
+          // Moamalat sometimes returns the code directly in the callback
+          const inlineCode = data?.ResponseCode || data?.Response?.Code || null;
+          const inlineMessage =
+            data?.ResponseMessage || data?.Response?.Message || null;
+
+          if (inlineCode && inlineCode !== "00") {
+            const friendly = getMoamalatMessage(inlineCode, isArabic);
+            setMoamalatError(
+              friendly ||
+                inlineMessage ||
+                (isArabic ? "تم رفض العملية." : "Transaction was declined."),
+            );
+            setMoamalatLoading(false);
+            return;
+          }
+
           await handleMoamalatCallback(data, "completed");
         },
 
@@ -659,19 +746,31 @@ const HostSettings: React.FC = () => {
         status: string;
         amount: number;
         reference: string;
+        responseCode?: string | null;
+        responseMessage?: string | null;
       }>("/api/v1/payments/moamalat/verify", {
         ...data,
         user_id: user?.id,
         outcome,
       });
 
+      // Even if verifyResponse.success is false, we may have a code
+      const code =
+        (verifyResponse as any)?.responseCode ||
+        (verifyResponse as any)?.data?.responseCode ||
+        data?.ResponseCode ||
+        null;
+
+      const friendlyMessage = getMoamalatMessage(code, isArabic);
+
       if (!verifyResponse.success) {
-        throw new Error(
+        // Show the specific decline reason if we have one
+        const fallback =
           verifyResponse.message ||
-            (isArabic
-              ? "فشل التحقق من الدفع."
-              : "Payment verification failed."),
-        );
+          (isArabic ? "فشل التحقق من الدفع." : "Payment verification failed.");
+
+        setMoamalatError(friendlyMessage || fallback);
+        return;
       }
 
       setSuccessMessage(
@@ -683,8 +782,17 @@ const HostSettings: React.FC = () => {
       await fetchVerificationStatus();
     } catch (error: any) {
       console.error("Moamalat verification failed:", error);
+
+      const code =
+        error?.response?.data?.responseCode ||
+        error?.response?.data?.data?.responseCode ||
+        null;
+
+      const friendlyMessage = getMoamalatMessage(code, isArabic);
+
       setMoamalatError(
-        error?.response?.data?.message ||
+        friendlyMessage ||
+          error?.response?.data?.message ||
           error?.message ||
           (isArabic ? "فشل التحقق من الدفع." : "Payment verification failed."),
       );
@@ -1147,8 +1255,7 @@ const HostSettings: React.FC = () => {
                   {verificationStatus.id.documents.map((doc, index) => {
                     const isRejected = doc.status?.toLowerCase() === "rejected";
                     const isPending = doc.status?.toLowerCase() === "pending";
-                    const isVerified =
-                      doc.status?.toLowerCase() === "verified";
+                    const isVerified = doc.status?.toLowerCase() === "verified";
                     const isLatest =
                       index === verificationStatus.id.documents!.length - 1;
 
