@@ -7,6 +7,36 @@ import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
 import { compressImage } from "../../lib/compressImage";
 
+// ============================================================
+// MOAMALAT TYPES
+// ============================================================
+declare global {
+  interface Window {
+    Lightbox?: {
+      Checkout: {
+        configure: MoamalatLightboxConfig;
+        showLightbox: () => void;
+        closeLightbox: () => void;
+      };
+    };
+  }
+}
+
+interface MoamalatLightboxConfig {
+  MID: string;
+  TID: string;
+  AmountTrxn: string;
+  MerchantReference: string;
+  TrxDateTime: string;
+  SecureHash: string;
+  completeCallback?: (data: any) => void;
+  cancelCallback?: (data: any) => void;
+  errorCallback?: (error: any) => void;
+}
+
+// ============================================================
+// APP TYPES
+// ============================================================
 interface IDDocument {
   id: string;
   user_id?: string;
@@ -27,7 +57,7 @@ interface HostSubscriptionPayment {
   host_id: string;
   amount: number;
   status: "pending" | "approved" | "rejected";
-  receipt_images: string[]; // Array of image URLs
+  receipt_images: string[];
   paid_at: string | null;
   period_start: string | null;
   period_end: string | null;
@@ -54,12 +84,15 @@ interface VerificationStatus {
     rejection_reason: string | null;
     rejected?: boolean;
     approved_at?: string | null;
-    // NEW: Full payment object
     payment?: HostSubscriptionPayment | null;
   };
+  all_payments?: HostSubscriptionPayment[];
   overall_status?: string;
 }
 
+// ============================================================
+// CONSTANTS
+// ============================================================
 const ACCEPTED_FILE_TYPES = [
   "image/jpeg",
   "image/png",
@@ -71,8 +104,16 @@ const ACCEPTED_FILE_TYPES = [
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+const MOAMALAT_SCRIPT_URL =
+  import.meta.env.MODE === "production"
+    ? "https://npg.moamalat.net:6006/js/lightbox.js"
+    : "https://tnpg.moamalat.net:6006/js/lightbox.js";
 
+const SUBSCRIPTION_AMOUNT_LYD = 500;
 
+// ============================================================
+// COMPONENT
+// ============================================================
 const HostSettings: React.FC = () => {
   const navigate = useNavigate();
 
@@ -84,44 +125,49 @@ const HostSettings: React.FC = () => {
   } = useAuth();
 
   const { lang, toggleLanguage } = useLanguage();
-  
+
   const idInputRef = useRef<HTMLInputElement | null>(null);
   const paymentInputRef = useRef<HTMLInputElement | null>(null);
-  
+
+  // ------------------------------------------------------------
+  // STATE
+  // ------------------------------------------------------------
   const [verificationStatus, setVerificationStatus] =
-  useState<VerificationStatus | null>(null);
+    useState<VerificationStatus | null>(null);
   const [loadingVerification, setLoadingVerification] = useState(true);
   const [uploadingID, setUploadingID] = useState(false);
   const [uploadingPayment, setUploadingPayment] = useState(false);
-  const [idUploadDone, setIdUploadDone] = useState(false);
-  const [paymentUploadDone, setPaymentUploadDone] = useState(false);
   const [idError, setIdError] = useState("");
   const [paymentError, setPaymentError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  
+
+  const [moamalatReady, setMoamalatReady] = useState(false);
+  const [moamalatLoading, setMoamalatLoading] = useState(false);
+  const [moamalatError, setMoamalatError] = useState("");
+
   const isArabic = lang === "ar";
+
   const NAV_LINKS = [
-  {
-    id: "listings",
-    label: isArabic ? "إعلاناتي" : "My Listings",
-    href: "/host/listings",
-  },
-  {
-    id: "bookings",
-    label: isArabic ? "الحجوزات" : "Bookings",
-    href: "/host/bookings",
-  },
-  {
-    id: "settings",
-    label: isArabic ? "الإعدادات" : "Settings",
-    href: "/host/settings",
-  },
-];
-  /*
-   * ------------------------------------------------------------
-   * AUTH PROTECTION
-   * ------------------------------------------------------------
-   */
+    {
+      id: "listings",
+      label: isArabic ? "إعلاناتي" : "My Listings",
+      href: "/host/listings",
+    },
+    {
+      id: "bookings",
+      label: isArabic ? "الحجوزات" : "Bookings",
+      href: "/host/bookings",
+    },
+    {
+      id: "settings",
+      label: isArabic ? "الإعدادات" : "Settings",
+      href: "/host/settings",
+    },
+  ];
+
+  // ============================================================
+  // AUTH PROTECTION
+  // ============================================================
   useEffect(() => {
     if (authLoading) return;
 
@@ -135,11 +181,9 @@ const HostSettings: React.FC = () => {
     }
   }, [authLoading, isAuthenticated, user, navigate]);
 
-  /*
-   * ------------------------------------------------------------
-   * FETCH VERIFICATION STATUS
-   * ------------------------------------------------------------
-   */
+  // ============================================================
+  // FETCH VERIFICATION STATUS
+  // ============================================================
   const fetchVerificationStatus = async () => {
     try {
       setLoadingVerification(true);
@@ -158,20 +202,14 @@ const HostSettings: React.FC = () => {
         );
       }
 
-      const status = response.data;
-      setVerificationStatus(status);
-      setIdUploadDone(Boolean(status.id?.uploaded));
-      setPaymentUploadDone(Boolean(status.payment?.uploaded));
-      updateVerificationStatus?.(status);
+      setVerificationStatus(response.data);
+      updateVerificationStatus?.(response.data);
     } catch (error: any) {
       console.error("❌ Failed to fetch verification status:", error);
       setVerificationStatus(null);
 
       if (error?.message === "UNAUTHORIZED") {
-        navigate("/login", {
-          replace: true,
-        });
-        return;
+        navigate("/login", { replace: true });
       }
     } finally {
       setLoadingVerification(false);
@@ -179,22 +217,96 @@ const HostSettings: React.FC = () => {
   };
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !user) {
-      return;
-    }
-
-    if (String(user.role || "").toLowerCase() !== "host") {
-      return;
-    }
+    if (authLoading || !isAuthenticated || !user) return;
+    if (String(user.role || "").toLowerCase() !== "host") return;
 
     fetchVerificationStatus();
   }, [authLoading, isAuthenticated, user?.id, user?.role]);
 
-  /*
-   * ------------------------------------------------------------
-   * ID STATUS
-   * ------------------------------------------------------------
-   */
+  // ============================================================
+  // LOAD MOAMALAT SDK
+  // ============================================================
+  useEffect(() => {
+    if (window.Lightbox) {
+      setMoamalatReady(true);
+      return;
+    }
+
+    const existingScript = document.querySelector(
+      `script[src="${MOAMALAT_SCRIPT_URL}"]`,
+    ) as HTMLScriptElement | null;
+
+    if (existingScript) {
+      if (window.Lightbox) {
+        setMoamalatReady(true);
+      } else {
+        const handleLoad = () => setMoamalatReady(true);
+        existingScript.addEventListener("load", handleLoad);
+        return () => existingScript.removeEventListener("load", handleLoad);
+      }
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = MOAMALAT_SCRIPT_URL;
+    script.async = true;
+    script.onload = () => {
+      console.log("✅ Moamalat Lightbox loaded");
+      setMoamalatReady(true);
+    };
+    script.onerror = () => {
+      console.error("❌ Failed to load Moamalat Lightbox");
+      setMoamalatError(
+        isArabic ? "فشل تحميل بوابة الدفع." : "Failed to load payment gateway.",
+      );
+    };
+    document.body.appendChild(script);
+  }, []);
+
+  // ============================================================
+  // PAYMENT CLASSIFICATION HELPERS
+  // ============================================================
+  const isMoamalatPayment = (p: HostSubscriptionPayment) => {
+    if (p.reference && /^SUB-/i.test(p.reference)) return true;
+    if (p.notes && /moamalat/i.test(p.notes)) return true;
+    return false;
+  };
+
+  const getPaymentTypeLabel = (p: HostSubscriptionPayment) => {
+    if (isMoamalatPayment(p)) {
+      return isArabic ? "معاملات (بطاقة)" : "Moamalat (Card)";
+    }
+    return isArabic ? "تحويل مصرفي" : "Bank Transfer";
+  };
+
+  const getStatusBadge = (status: string) => {
+    if (status === "approved") {
+      return {
+        text: isArabic ? "تمت الموافقة" : "Approved",
+        className: "bg-emerald-100 text-emerald-700",
+      };
+    }
+    if (status === "rejected") {
+      return {
+        text: isArabic ? "مرفوض" : "Rejected",
+        className: "bg-red-100 text-red-700",
+      };
+    }
+    return {
+      text: isArabic ? "قيد المراجعة" : "Under Review",
+      className: "bg-yellow-400/20 text-[#7a5c00]",
+    };
+  };
+
+  const allPayments = verificationStatus?.all_payments || [];
+  const moamalatPayments = allPayments.filter(isMoamalatPayment);
+  const bankTransferPayments = allPayments.filter(
+    (p) => !isMoamalatPayment(p),
+  );
+
+  // ============================================================
+  // STATUS HELPERS
+  // ============================================================
   const getIDStatus = () => {
     if (!verificationStatus?.id) {
       return {
@@ -230,11 +342,6 @@ const HostSettings: React.FC = () => {
     };
   };
 
-  /*
-   * ------------------------------------------------------------
-   * PAYMENT STATUS
-   * ------------------------------------------------------------
-   */
   const getPaymentStatus = () => {
     if (!verificationStatus?.payment?.uploaded) {
       return {
@@ -266,45 +373,9 @@ const HostSettings: React.FC = () => {
   const idStatus = getIDStatus();
   const paymentStatus = getPaymentStatus();
 
-  /*
-   * ------------------------------------------------------------
-   * FIND REJECTED ID DOCUMENT
-   * ------------------------------------------------------------
-   */
-  const rejectedIDDocuments =
-    verificationStatus?.id?.documents?.filter(
-      (document) => String(document.status || "").toLowerCase() === "rejected",
-    ) || [];
-
-  const rejectedIDDocument =
-    rejectedIDDocuments.length > 0
-      ? rejectedIDDocuments[rejectedIDDocuments.length - 1]
-      : null;
-
-  const rejectedIDUrl = rejectedIDDocument?.file_url || null;
-  const rejectedIDReason =
-    rejectedIDDocument?.rejection_reason ||
-    verificationStatus?.id?.rejection_reason ||
-    null;
-
-  /*
-   * ------------------------------------------------------------
-   * FIND CURRENT DOCUMENT
-   * ------------------------------------------------------------
-   */
-  const currentIDDocument =
-    verificationStatus?.id?.documents &&
-    verificationStatus.id.documents.length > 0
-      ? verificationStatus.id.documents[
-          verificationStatus.id.documents.length - 1
-        ]
-      : null;
-
-  /*
-   * ------------------------------------------------------------
-   * FILE VALIDATION
-   * ------------------------------------------------------------
-   */
+  // ============================================================
+  // FILE VALIDATION
+  // ============================================================
   const validateFile = (file: File) => {
     if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
       return isArabic
@@ -321,11 +392,9 @@ const HostSettings: React.FC = () => {
     return null;
   };
 
-  /*
-   * ------------------------------------------------------------
-   * ID UPLOAD
-   * ------------------------------------------------------------
-   */
+  // ============================================================
+  // ID UPLOAD
+  // ============================================================
   const handleIDUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -336,17 +405,13 @@ const HostSettings: React.FC = () => {
     const validationError = validateFile(file);
     if (validationError) {
       setIdError(validationError);
-      if (idInputRef.current) {
-        idInputRef.current.value = "";
-      }
+      if (idInputRef.current) idInputRef.current.value = "";
       return;
     }
 
     if (!user?.id) {
       setIdError(
-        isArabic
-          ? "لم يتم العثور على معرف المستخدم."
-          : "User ID was not found.",
+        isArabic ? "لم يتم العثور على معرف المستخدم." : "User ID was not found.",
       );
       return;
     }
@@ -393,30 +458,24 @@ const HostSettings: React.FC = () => {
       );
 
       await fetchVerificationStatus();
-      setIdUploadDone(true);
-      await fetchVerificationStatus();
     } catch (error: any) {
       console.error("ID upload failed:", error);
-      const message =
+      setIdError(
         error?.response?.data?.message ||
-        error?.message ||
-        (isArabic
-          ? "فشل رفع وثيقة الهوية."
-          : "Failed to upload identity document.");
-      setIdError(message);
+          error?.message ||
+          (isArabic
+            ? "فشل رفع وثيقة الهوية."
+            : "Failed to upload identity document."),
+      );
     } finally {
       setUploadingID(false);
-      if (idInputRef.current) {
-        idInputRef.current.value = "";
-      }
+      if (idInputRef.current) idInputRef.current.value = "";
     }
   };
 
-  /*
-   * ------------------------------------------------------------
-   * PAYMENT UPLOAD
-   * ------------------------------------------------------------
-   */
+  // ============================================================
+  // PAYMENT UPLOAD
+  // ============================================================
   const handlePaymentUpload = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -429,17 +488,13 @@ const HostSettings: React.FC = () => {
     const validationError = validateFile(file);
     if (validationError) {
       setPaymentError(validationError);
-      if (paymentInputRef.current) {
-        paymentInputRef.current.value = "";
-      }
+      if (paymentInputRef.current) paymentInputRef.current.value = "";
       return;
     }
 
     if (!user?.id) {
       setPaymentError(
-        isArabic
-          ? "لم يتم العثور على معرف المستخدم."
-          : "User ID was not found.",
+        isArabic ? "لم يتم العثور على معرف المستخدم." : "User ID was not found.",
       );
       return;
     }
@@ -483,47 +538,170 @@ const HostSettings: React.FC = () => {
       );
 
       await fetchVerificationStatus();
-      setPaymentUploadDone(true);
-      await fetchVerificationStatus();
     } catch (error: any) {
       console.error("Payment upload failed:", error);
-      const message =
+      setPaymentError(
         error?.response?.data?.message ||
-        error?.message ||
-        (isArabic
-          ? "فشل رفع إيصال الدفع."
-          : "Failed to upload payment receipt.");
-      setPaymentError(message);
+          error?.message ||
+          (isArabic
+            ? "فشل رفع إيصال الدفع."
+            : "Failed to upload payment receipt."),
+      );
     } finally {
       setUploadingPayment(false);
-      if (paymentInputRef.current) {
-        paymentInputRef.current.value = "";
-      }
+      if (paymentInputRef.current) paymentInputRef.current.value = "";
     }
   };
 
-  /*
-   * ------------------------------------------------------------
-   * OPEN FILE PICKERS
-   * ------------------------------------------------------------
-   */
-  const openIDPicker = () => {
-    if (!uploadingID) {
-      idInputRef.current?.click();
+  // ============================================================
+  // MOAMALAT PAYMENT
+  // ============================================================
+  const handleMoamalatPayment = async () => {
+    setMoamalatError("");
+    setPaymentError("");
+    setSuccessMessage("");
+
+    if (!user?.id) {
+      setMoamalatError(
+        isArabic ? "لم يتم العثور على معرف المستخدم." : "User ID was not found.",
+      );
+      return;
     }
+
+    if (!moamalatReady || !window.Lightbox) {
+      setMoamalatError(
+        isArabic
+          ? "بوابة الدفع غير جاهزة بعد. يرجى المحاولة مرة أخرى."
+          : "Payment gateway is not ready yet. Please try again.",
+      );
+      return;
+    }
+
+    try {
+      setMoamalatLoading(true);
+
+      const configResponse = await apiService.postProtectedData<{
+        merchantCode: string;
+        terminalId: string;
+        amountTrxn: string;
+        merchantReference: string;
+        trxDateTime: string;
+        secureHash: string;
+      }>("/api/v1/payments/moamalat/initiate", {
+        user_id: user.id,
+        amount: SUBSCRIPTION_AMOUNT_LYD,
+      });
+
+      if (!configResponse.success || !configResponse.data) {
+        throw new Error(
+          configResponse.message ||
+            (isArabic ? "فشل بدء عملية الدفع." : "Failed to initiate payment."),
+        );
+      }
+
+      const config = configResponse.data;
+
+      window.Lightbox.Checkout.configure = {
+        MID: config.merchantCode,
+        TID: config.terminalId,
+        AmountTrxn: config.amountTrxn,
+        MerchantReference: config.merchantReference,
+        TrxDateTime: config.trxDateTime,
+        SecureHash: config.secureHash,
+
+        completeCallback: async (data: any) => {
+          console.log("✅ Moamalat payment completed:", data);
+          await handleMoamalatCallback(data, "completed");
+        },
+
+        cancelCallback: (data: any) => {
+          console.log("⚠️ Moamalat payment cancelled:", data);
+          setMoamalatError(
+            isArabic ? "تم إلغاء عملية الدفع." : "Payment was cancelled.",
+          );
+          setMoamalatLoading(false);
+        },
+
+        errorCallback: (error: any) => {
+          console.error("❌ Moamalat payment error:", error);
+          setMoamalatError(
+            isArabic
+              ? "حدث خطأ أثناء عملية الدفع."
+              : "An error occurred during payment.",
+          );
+          setMoamalatLoading(false);
+        },
+      };
+
+      window.Lightbox.Checkout.showLightbox();
+    } catch (error: any) {
+      console.error("Moamalat initiation failed:", error);
+      setMoamalatError(
+        error?.response?.data?.message ||
+          error?.message ||
+          (isArabic ? "فشل بدء عملية الدفع." : "Failed to initiate payment."),
+      );
+      setMoamalatLoading(false);
+    }
+  };
+
+  const handleMoamalatCallback = async (
+    data: any,
+    outcome: "completed" | "cancelled" | "failed",
+  ) => {
+    try {
+      const verifyResponse = await apiService.postProtectedData<{
+        status: string;
+        amount: number;
+        reference: string;
+      }>("/api/v1/payments/moamalat/verify", {
+        ...data,
+        user_id: user?.id,
+        outcome,
+      });
+
+      if (!verifyResponse.success) {
+        throw new Error(
+          verifyResponse.message ||
+            (isArabic
+              ? "فشل التحقق من الدفع."
+              : "Payment verification failed."),
+        );
+      }
+
+      setSuccessMessage(
+        isArabic
+          ? "تمت عملية الدفع بنجاح! سيتم تحديث اشتراكك قريباً."
+          : "Payment successful! Your subscription will be updated shortly.",
+      );
+
+      await fetchVerificationStatus();
+    } catch (error: any) {
+      console.error("Moamalat verification failed:", error);
+      setMoamalatError(
+        error?.response?.data?.message ||
+          error?.message ||
+          (isArabic ? "فشل التحقق من الدفع." : "Payment verification failed."),
+      );
+    } finally {
+      setMoamalatLoading(false);
+    }
+  };
+
+  // ============================================================
+  // FILE PICKERS
+  // ============================================================
+  const openIDPicker = () => {
+    if (!uploadingID) idInputRef.current?.click();
   };
 
   const openPaymentPicker = () => {
-    if (!uploadingPayment) {
-      paymentInputRef.current?.click();
-    }
+    if (!uploadingPayment) paymentInputRef.current?.click();
   };
 
-  /*
-   * ------------------------------------------------------------
-   * FORMAT DATE
-   * ------------------------------------------------------------
-   */
+  // ============================================================
+  // FORMATTERS
+  // ============================================================
   const formatDate = (date: string | null | undefined) => {
     if (!date) return "";
 
@@ -538,13 +716,14 @@ const HostSettings: React.FC = () => {
     }
   };
 
-  /*
-   * ------------------------------------------------------------
-   * FORMAT CURRENCY
-   * ------------------------------------------------------------
-   */
-  const formatCurrency = (amount: number | null | undefined) => {
+  const formatCurrency = (amount: number | string | null | undefined) => {
     if (amount === null || amount === undefined) {
+      return isArabic ? "غير محدد" : "Not specified";
+    }
+
+    const num = typeof amount === "string" ? parseFloat(amount) : amount;
+
+    if (Number.isNaN(num)) {
       return isArabic ? "غير محدد" : "Not specified";
     }
 
@@ -552,24 +731,17 @@ const HostSettings: React.FC = () => {
       style: "currency",
       currency: "LYD",
       maximumFractionDigits: 2,
-    }).format(amount);
+    }).format(num);
   };
 
-  /*
-   * ------------------------------------------------------------
-   * CHECK IF URL IS AN IMAGE
-   * ------------------------------------------------------------
-   */
   const isImageFile = (url: string, fileType?: string | null) => {
     if (fileType?.startsWith("image/")) return true;
     return /\.(jpg|jpeg|png|webp|gif|bmp|heic|heif)$/i.test(url);
   };
 
-  /*
-   * ------------------------------------------------------------
-   * RENDER DOCUMENT PREVIEW
-   * ------------------------------------------------------------
-   */
+  // ============================================================
+  // RENDER: DOCUMENT PREVIEW
+  // ============================================================
   const renderDocumentPreview = (
     fileUrl: string | null | undefined,
     fileName: string | null | undefined,
@@ -615,85 +787,199 @@ const HostSettings: React.FC = () => {
     );
   };
 
-  /*
-   * ------------------------------------------------------------
-   * RENDER PAYMENT RECEIPT IMAGES
-   * ------------------------------------------------------------
-   */
-  const renderPaymentReceipts = () => {
-    const payment = verificationStatus?.payment?.payment;
-    if (
-      !payment ||
-      !payment.receipt_images ||
-      payment.receipt_images.length === 0
-    ) {
-      return null;
-    }
-
-    const isRejected = payment.status === "rejected";
+  // ============================================================
+  // RENDER: MOAMALAT PAYMENT CARD
+  // ============================================================
+  const renderMoamalatPayment = () => {
+    const isApproved = verificationStatus?.payment?.status === "approved";
 
     return (
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-gray-700">
-            {isArabic ? "صور الإيصال" : "Receipt Images"}
+      <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50 p-5">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+            💳
+          </div>
+          <div className="flex-1">
+            <h4 className="font-bold text-[#1a1a2e]">
+              {isApproved
+                ? isArabic
+                  ? "تجديد الاشتراك عبر معاملات"
+                  : "Renew Subscription via Moamalat"
+                : isArabic
+                  ? "الدفع الإلكتروني عبر معاملات"
+                  : "Pay Online via Moamalat"}
+            </h4>
+            <p className="mt-1 text-sm text-gray-600">
+              {isApproved
+                ? isArabic
+                  ? "اشتراكك نشط حالياً. يمكنك التجديد مسبقاً لتمديد الفترة."
+                  : "Your subscription is active. You can renew early to extend your period."
+                : isArabic
+                  ? "ادفع رسوم الاشتراك مباشرة باستخدام بطاقتك المصرفية."
+                  : "Pay your subscription fee directly using your bank card."}
+            </p>
+          </div>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-blue-200 bg-white px-4 py-3">
+          <span className="text-sm font-medium text-gray-600">
+            {isArabic ? "المبلغ المطلوب" : "Amount Due"}
           </span>
-          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-            {payment.receipt_images.length}
+          <span className="text-lg font-bold text-[#1a1a2e]">
+            {formatCurrency(SUBSCRIPTION_AMOUNT_LYD)}
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {payment.receipt_images.map((imageUrl, index) => (
-            <div
-              key={index}
-              className={`overflow-hidden rounded-xl border ${
-                isRejected
-                  ? "border-red-200 bg-red-50"
-                  : "border-gray-200 bg-white"
-              } p-3 transition hover:shadow-md`}
-            >
-              {/* Image Preview */}
-              <div className="overflow-hidden rounded-lg">
-                <img
-                  src={imageUrl}
-                  alt={`Receipt ${index + 1}`}
-                  className={`h-48 w-full object-cover transition hover:scale-105 ${
-                    isRejected ? "opacity-75" : ""
-                  }`}
-                  onError={(e) => {
-                    e.currentTarget.src =
-                      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='%239ca3af' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
-                  }}
-                />
-              </div>
-
-              {/* Image Info */}
-              <div className="mt-2 space-y-1">
-                <p className="text-sm font-medium text-gray-800">
-                  {isArabic ? `صورة ${index + 1}` : `Image ${index + 1}`}
-                </p>
-                <a
-                  href={imageUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-[#1a1a2e] hover:underline"
-                >
-                  🔗 {isArabic ? "فتح الصورة" : "Open image"}
-                </a>
-              </div>
+        {isApproved && (
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+            <div className="flex items-start gap-2">
+              <span className="text-base">✓</span>
+              <span>
+                {isArabic
+                  ? "تمت الموافقة على اشتراكك الحالي. الدفع الآن سيمدد الاشتراك لسنة إضافية."
+                  : "Your current subscription is approved. Paying now will extend it for another year."}
+              </span>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleMoamalatPayment}
+          disabled={moamalatLoading || !moamalatReady}
+          className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3 font-bold text-white transition ${
+            moamalatLoading || !moamalatReady
+              ? "cursor-not-allowed bg-gray-400"
+              : isApproved
+                ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg"
+                : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg"
+          }`}
+        >
+          {moamalatLoading ? (
+            <>
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <span>{isArabic ? "جاري المعالجة..." : "Processing..."}</span>
+            </>
+          ) : !moamalatReady ? (
+            <>
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <span>{isArabic ? "جاري التحميل..." : "Loading..."}</span>
+            </>
+          ) : (
+            <>
+              <span>💳</span>
+              <span>
+                {isApproved
+                  ? isArabic
+                    ? "تجديد الاشتراك عبر معاملات"
+                    : "Renew with Moamalat"
+                  : isArabic
+                    ? "الدفع الآن عبر معاملات"
+                    : "Pay Now with Moamalat"}
+              </span>
+            </>
+          )}
+        </button>
+
+        {moamalatError && (
+          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            {moamalatError}
+          </div>
+        )}
       </div>
     );
   };
 
-  /*
-   * ------------------------------------------------------------
-   * LOADING
-   * ------------------------------------------------------------
-   */
+  // ============================================================
+  // RENDER: PAYMENT STATUS MESSAGE (latest overall)
+  // ============================================================
+  const renderPaymentStatusMessage = () => {
+    const status = verificationStatus?.payment?.status;
+
+    if (status === "approved") {
+      return (
+        <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              ✓
+            </div>
+            <div>
+              <h4 className="font-bold text-emerald-800">
+                {isArabic ? "تمت الموافقة على الدفع" : "Payment approved"}
+              </h4>
+              {verificationStatus?.payment?.approved_at && (
+                <p className="mt-1 text-sm text-emerald-700">
+                  {isArabic
+                    ? `تمت الموافقة في ${formatDate(
+                        verificationStatus.payment.approved_at,
+                      )}`
+                    : `Approved on ${formatDate(
+                        verificationStatus.payment.approved_at,
+                      )}`}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (status === "rejected") {
+      return (
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">
+              !
+            </div>
+            <div>
+              <h4 className="font-bold text-red-800">
+                {isArabic ? "تم رفض الدفع" : "Payment rejected"}
+              </h4>
+              {verificationStatus?.payment?.rejection_reason && (
+                <p className="mt-2 text-sm leading-6 text-red-700">
+                  {verificationStatus.payment.rejection_reason}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (verificationStatus?.payment?.uploaded && status === "pending") {
+      return (
+        <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
+              ⏳
+            </div>
+            <div>
+              <h4 className="font-bold text-yellow-800">
+                {isArabic ? "قيد المراجعة" : "Under Review"}
+              </h4>
+              {verificationStatus.payment.submitted_at && (
+                <p className="mt-1 text-sm text-yellow-700">
+                  {isArabic
+                    ? `تم الإرسال في ${formatDate(
+                        verificationStatus.payment.submitted_at,
+                      )}`
+                    : `Submitted on ${formatDate(
+                        verificationStatus.payment.submitted_at,
+                      )}`}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  // ============================================================
+  // LOADING / AUTH GUARD
+  // ============================================================
   if (authLoading || loadingVerification) {
     return <LoadingScreen />;
   }
@@ -702,6 +988,9 @@ const HostSettings: React.FC = () => {
     return null;
   }
 
+  // ============================================================
+  // RENDER
+  // ============================================================
   return (
     <div
       className={`min-h-screen bg-[#f8f9fb] text-gray-900 ${
@@ -709,9 +998,6 @@ const HostSettings: React.FC = () => {
       }`}
       dir={isArabic ? "rtl" : "ltr"}
     >
-      {/* ========================================================
-          NAVBAR
-      ======================================================== */}
       <Navbar
         NAV_LINKS={NAV_LINKS}
         user={user}
@@ -719,11 +1005,11 @@ const HostSettings: React.FC = () => {
         toggleLanguage={toggleLanguage}
         defaultActiveId="settings"
       />
-      {/* ========================================================
-          MAIN
-      ======================================================== */}
+
       <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        {/* Header */}
+        {/* =====================================================
+            HEADER
+        ===================================================== */}
         <div className="mb-8">
           <div className="mb-2 flex items-center gap-3">
             <Link
@@ -747,9 +1033,9 @@ const HostSettings: React.FC = () => {
           </p>
         </div>
 
-        {/* ========================================================
+        {/* =====================================================
             SUCCESS MESSAGE
-        ======================================================== */}
+        ===================================================== */}
         {successMessage && (
           <div className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-700">
             <div className="flex items-center gap-3">
@@ -761,9 +1047,9 @@ const HostSettings: React.FC = () => {
           </div>
         )}
 
-        {/* ========================================================
-            ACCOUNT INFORMATION
-        ======================================================== */}
+        {/* =====================================================
+            1. ACCOUNT INFORMATION
+        ===================================================== */}
         <section className="mb-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-bold text-[#1a1a2e]">
@@ -812,9 +1098,9 @@ const HostSettings: React.FC = () => {
           </div>
         </section>
 
-        {/* ========================================================
-            VERIFICATION DOCUMENTS
-        ======================================================== */}
+        {/* =====================================================
+            2. VERIFICATION DOCUMENTS
+        ===================================================== */}
         <section className="mb-8 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-bold text-[#1a1a2e]">
@@ -828,9 +1114,9 @@ const HostSettings: React.FC = () => {
           </div>
 
           <div className="space-y-8 p-6">
-            {/* ====================================================
-                SECTION 1: ALL ID DOCUMENTS
-            ==================================================== */}
+            {/* ---------------------------------------------
+                2.1 IDENTITY DOCUMENTS
+            --------------------------------------------- */}
             <div>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -856,7 +1142,8 @@ const HostSettings: React.FC = () => {
                   {verificationStatus.id.documents.map((doc, index) => {
                     const isRejected = doc.status?.toLowerCase() === "rejected";
                     const isPending = doc.status?.toLowerCase() === "pending";
-                    const isVerified = doc.status?.toLowerCase() === "verified";
+                    const isVerified =
+                      doc.status?.toLowerCase() === "verified";
                     const isLatest =
                       index === verificationStatus.id.documents!.length - 1;
 
@@ -1048,19 +1335,19 @@ const HostSettings: React.FC = () => {
             {/* Divider */}
             <div className="h-px bg-gray-100" />
 
-            {/* ====================================================
-                SECTION 2: PAYMENT RECEIPT WITH MULTIPLE IMAGES
-            ==================================================== */}
+            {/* ---------------------------------------------
+                2.2 SUBSCRIPTION PAYMENT
+            --------------------------------------------- */}
             <div>
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-gray-900">
-                    {isArabic ? "إيصال الدفع" : "Payment Receipt"}
+                    {isArabic ? "دفع الاشتراك" : "Subscription Payment"}
                   </h3>
                   <p className="mt-1 text-sm text-gray-500">
                     {isArabic
-                      ? "إيصال الدفع الخاص بالاشتراك مع الصور."
-                      : "Subscription payment receipt with images."}
+                      ? "ادفع عبر معاملات مباشرة أو ارفع إيصال التحويل."
+                      : "Pay via Moamalat online or upload a bank transfer receipt."}
                   </p>
                 </div>
                 <span
@@ -1070,240 +1357,258 @@ const HostSettings: React.FC = () => {
                 </span>
               </div>
 
-              {/* ==================================================
-                  PAYMENT DETAILS
-              ================================================== */}
-              {verificationStatus?.payment?.payment && (
-                <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4">
-                  {/* Payment Info Grid */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        {isArabic ? "المبلغ" : "Amount"}
-                      </p>
-                      <p className="font-bold text-gray-900">
-                        {formatCurrency(verificationStatus.payment.amount)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">
-                        {isArabic ? "الحالة" : "Status"}
-                      </p>
-                      <span
-                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${
-                          verificationStatus.payment.status === "approved"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : verificationStatus.payment.status === "rejected"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-yellow-100 text-yellow-700"
-                        }`}
-                      >
-                        {verificationStatus.payment.status}
-                      </span>
-                    </div>
-                    {verificationStatus.payment.payment.paid_at && (
-                      <div>
-                        <p className="text-xs text-gray-500">
-                          {isArabic ? "تاريخ الدفع" : "Paid At"}
-                        </p>
-                        <p className="text-sm text-gray-900">
-                          {formatDate(
-                            verificationStatus.payment.payment.paid_at,
-                          )}
-                        </p>
-                      </div>
-                    )}
-                    {verificationStatus.payment.payment.period_start && (
-                      <div>
-                        <p className="text-xs text-gray-500">
-                          {isArabic ? "بداية الفترة" : "Period Start"}
-                        </p>
-                        <p className="text-sm text-gray-900">
-                          {formatDate(
-                            verificationStatus.payment.payment.period_start,
-                          )}
-                        </p>
-                      </div>
-                    )}
-                    {verificationStatus.payment.payment.period_end && (
-                      <div>
-                        <p className="text-xs text-gray-500">
-                          {isArabic ? "نهاية الفترة" : "Period End"}
-                        </p>
-                        <p className="text-sm text-gray-900">
-                          {formatDate(
-                            verificationStatus.payment.payment.period_end,
-                          )}
-                        </p>
-                      </div>
-                    )}
-                    {verificationStatus.payment.payment.reference && (
-                      <div className="col-span-2">
-                        <p className="text-xs text-gray-500">
-                          {isArabic ? "المرجع" : "Reference"}
-                        </p>
-                        <p className="text-sm font-mono text-gray-900">
-                          {verificationStatus.payment.payment.reference}
-                        </p>
-                      </div>
-                    )}
-                    {verificationStatus.payment.payment.notes && (
-                      <div className="col-span-2">
-                        <p className="text-xs text-gray-500">
-                          {isArabic ? "ملاحظات" : "Notes"}
-                        </p>
-                        <p className="text-sm text-gray-900">
-                          {verificationStatus.payment.payment.notes}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+              {/* ============================================
+                  A. PAY ONLINE VIA MOAMALAT
+              ============================================ */}
+              <div className="mb-6">
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                    {isArabic ? "أ) الدفع الإلكتروني" : "A) Online Payment"}
+                  </span>
                 </div>
-              )}
 
-              {/* ==================================================
-                  PAYMENT RECEIPT IMAGES (MULTIPLE)
-              ================================================== */}
-              {renderPaymentReceipts()}
+                {renderMoamalatPayment()}
 
-              {/* ==================================================
-                  PAYMENT STATUS MESSAGE
-              ================================================== */}
-              {verificationStatus?.payment?.status === "approved" && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                      ✓
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-emerald-800">
-                        {isArabic
-                          ? "تمت الموافقة على الدفع"
-                          : "Payment approved"}
-                      </h4>
-                      {verificationStatus.payment.approved_at && (
-                        <p className="mt-1 text-sm text-emerald-700">
-                          {isArabic
-                            ? `تمت الموافقة في ${formatDate(
-                                verificationStatus.payment.approved_at,
-                              )}`
-                            : `Approved on ${formatDate(
-                                verificationStatus.payment.approved_at,
-                              )}`}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+                {/* Existing Moamalat payments list */}
+                {moamalatPayments.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-sm font-semibold text-gray-700">
+                      {isArabic
+                        ? "مدفوعات معاملات السابقة"
+                        : "Previous Moamalat Payments"}
+                    </p>
 
-              {verificationStatus?.payment?.status === "rejected" && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 font-bold text-red-600">
-                      !
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-red-800">
-                        {isArabic ? "تم رفض الدفع" : "Payment rejected"}
-                      </h4>
-                      {verificationStatus.payment.rejection_reason && (
-                        <p className="mt-2 text-sm leading-6 text-red-700">
-                          {verificationStatus.payment.rejection_reason}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+                    {moamalatPayments.map((p) => {
+                      const badge = getStatusBadge(p.status);
+                      return (
+                        <div
+                          key={p.id}
+                          className="rounded-xl border border-blue-100 bg-blue-50/40 p-4"
+                        >
+                          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-[#1a1a2e]">
+                              💳 {getPaymentTypeLabel(p)}
+                            </span>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}
+                            >
+                              {badge.text}
+                            </span>
+                          </div>
 
-              {verificationStatus?.payment?.uploaded &&
-                verificationStatus.payment.status === "pending" && (
-                  <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100 text-yellow-700">
-                        ⏳
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-yellow-800">
-                          {isArabic ? "قيد المراجعة" : "Under Review"}
-                        </h4>
-                        {verificationStatus.payment.submitted_at && (
-                          <p className="mt-1 text-sm text-yellow-700">
-                            {isArabic
-                              ? `تم الإرسال في ${formatDate(
-                                  verificationStatus.payment.submitted_at,
-                                )}`
-                              : `Submitted on ${formatDate(
-                                  verificationStatus.payment.submitted_at,
-                                )}`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <p className="text-xs text-gray-500">
+                                {isArabic ? "المبلغ" : "Amount"}
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {formatCurrency(p.amount)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">
+                                {isArabic ? "التاريخ" : "Date"}
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {formatDate(p.created_at)}
+                              </p>
+                            </div>
+                            {p.reference && (
+                              <div className="col-span-2">
+                                <p className="text-xs text-gray-500">
+                                  {isArabic ? "المرجع" : "Reference"}
+                                </p>
+                                <p className="truncate font-mono text-xs text-gray-700">
+                                  {p.reference}
+                                </p>
+                              </div>
+                            )}
+                            {p.notes && (
+                              <div className="col-span-2">
+                                <p className="text-xs text-gray-500">
+                                  {isArabic ? "ملاحظات" : "Notes"}
+                                </p>
+                                <p className="text-xs text-gray-700">
+                                  {p.notes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+              </div>
 
-              {/* ==================================================
-                  PAYMENT UPLOAD BUTTON
-              ================================================== */}
-              {verificationStatus?.payment?.status !== "approved" && (
-                <div className="mt-4">
-                  <input
-                    ref={paymentInputRef}
-                    type="file"
-                    accept=".jpg,.jpeg,.png,.webp,.pdf,.heic,.heif,image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif"
-                    onChange={handlePaymentUpload}
-                    className="hidden"
-                  />
+              {/* Divider between online payment and bank transfer */}
+              <div className="my-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-gray-300" />
+                <span className="text-xs font-semibold text-gray-500">
+                  {isArabic ? "أو" : "OR"}
+                </span>
+                <div className="h-px flex-1 bg-gray-300" />
+              </div>
 
-                  <button
-                    type="button"
-                    onClick={openPaymentPicker}
-                    disabled={uploadingPayment}
-                    className="w-full rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center transition hover:border-[#1a1a2e] hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {uploadingPayment ? (
-                      <>
-                        <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#1a1a2e]" />
-                        <p className="font-semibold text-gray-700">
-                          {isArabic ? "جاري الرفع..." : "Uploading..."}
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="font-semibold text-gray-800">
-                          {verificationStatus?.payment?.status === "rejected"
-                            ? isArabic
-                              ? "📤 رفع إيصال جديد"
-                              : "📤 Upload a new receipt"
-                            : isArabic
-                              ? "📤 رفع إيصال الدفع"
-                              : "📤 Upload payment receipt"}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {isArabic
-                            ? "JPG, PNG, WEBP, PDF — حتى 10 ميجابايت"
-                            : "JPG, PNG, WEBP, PDF — up to 10 MB"}
-                        </p>
-                      </>
-                    )}
-                  </button>
-
-                  {paymentError && (
-                    <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                      {paymentError}
-                    </div>
-                  )}
+              {/* ============================================
+                  B. UPLOAD BANK TRANSFER RECEIPT
+              ============================================ */}
+              <div>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-700">
+                    {isArabic ? "ب) التحويل المصرفي" : "B) Bank Transfer"}
+                  </span>
                 </div>
-              )}
+
+                {verificationStatus?.payment?.status !== "approved" && (
+                  <>
+                    <input
+                      ref={paymentInputRef}
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,.pdf,.heic,.heif,image/jpeg,image/png,image/webp,application/pdf,image/heic,image/heif"
+                      onChange={handlePaymentUpload}
+                      className="hidden"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={openPaymentPicker}
+                      disabled={uploadingPayment}
+                      className="w-full rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-6 text-center transition hover:border-[#1a1a2e] hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {uploadingPayment ? (
+                        <>
+                          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#1a1a2e]" />
+                          <p className="font-semibold text-gray-700">
+                            {isArabic ? "جاري الرفع..." : "Uploading..."}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-semibold text-gray-800">
+                            📤{" "}
+                            {isArabic
+                              ? "رفع إيصال التحويل المصرفي"
+                              : "Upload bank transfer receipt"}
+                          </p>
+                          <p className="mt-1 text-xs text-gray-500">
+                            {isArabic
+                              ? "JPG, PNG, WEBP, PDF — حتى 10 ميجابايت"
+                              : "JPG, PNG, WEBP, PDF — up to 10 MB"}
+                          </p>
+                        </>
+                      )}
+                    </button>
+
+                    {paymentError && (
+                      <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                        {paymentError}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Bank transfer receipts list */}
+                {bankTransferPayments.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-sm font-semibold text-gray-700">
+                      {isArabic
+                        ? "إيصالات التحويل المرفوعة"
+                        : "Uploaded Bank Receipts"}
+                    </p>
+
+                    {bankTransferPayments.map((p) => {
+                      const badge = getStatusBadge(p.status);
+                      return (
+                        <div
+                          key={p.id}
+                          className={`rounded-xl border p-4 ${
+                            p.status === "rejected"
+                              ? "border-red-200 bg-red-50"
+                              : p.status === "approved"
+                                ? "border-emerald-200 bg-emerald-50"
+                                : "border-gray-200 bg-white"
+                          }`}
+                        >
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-sm font-semibold text-[#1a1a2e]">
+                              🏦 {getPaymentTypeLabel(p)}
+                            </span>
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-bold ${badge.className}`}
+                            >
+                              {badge.text}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <p className="text-xs text-gray-500">
+                                {isArabic ? "المبلغ" : "Amount"}
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {formatCurrency(p.amount)}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500">
+                                {isArabic ? "التاريخ" : "Date"}
+                              </p>
+                              <p className="font-medium text-gray-900">
+                                {formatDate(p.created_at)}
+                              </p>
+                            </div>
+                            {p.notes && (
+                              <div className="col-span-2">
+                                <p className="text-xs text-gray-500">
+                                  {isArabic ? "ملاحظات" : "Notes"}
+                                </p>
+                                <p className="text-xs text-gray-700">
+                                  {p.notes}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {p.receipt_images && p.receipt_images.length > 0 && (
+                            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                              {p.receipt_images.map((url, idx) => (
+                                <a
+                                  key={idx}
+                                  href={url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="group overflow-hidden rounded-lg border border-gray-200"
+                                >
+                                  <img
+                                    src={url}
+                                    alt={`Receipt ${idx + 1}`}
+                                    className="h-24 w-full object-cover transition group-hover:scale-105"
+                                    onError={(e) => {
+                                      e.currentTarget.src =
+                                        "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Crect width='200' height='200' fill='%23f3f4f6'/%3E%3Ctext x='50%25' y='50%25' font-family='Arial' font-size='14' fill='%239ca3af' text-anchor='middle' dy='.3em'%3ENo Image%3C/text%3E%3C/svg%3E";
+                                    }}
+                                  />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Latest payment status message */}
+              {renderPaymentStatusMessage()}
             </div>
           </div>
         </section>
 
-        {/* ========================================================
-            HOST STATUS
-        ======================================================== */}
+        {/* =====================================================
+            3. ACCOUNT STATUS
+        ===================================================== */}
         <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 px-6 py-5">
             <h2 className="text-lg font-bold text-[#1a1a2e]">
@@ -1333,7 +1638,6 @@ const HostSettings: React.FC = () => {
               )}
             </div>
 
-            {/* Overall Status Summary */}
             <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
               <p className="text-sm font-semibold text-gray-700">
                 {isArabic ? "ملخص التحقق" : "Verification Summary"}
