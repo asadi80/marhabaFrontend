@@ -104,10 +104,13 @@ const ACCEPTED_FILE_TYPES = [
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-const MOAMALAT_SCRIPT_URL =
-  import.meta.env.MODE === "test"
-    ? "https://npg.moamalat.net:6006/js/lightbox.js"
-    : "https://tnpg.moamalat.net:6006/js/lightbox.js";
+// const MOAMALAT_SCRIPT_URL =
+//   import.meta.env.MODE === "production"
+//     ? "https://npg.moamalat.net:6006/js/lightbox.js"
+//     : "https://tnpg.moamalat.net:6006/js/lightbox.js";
+
+const MOAMALAT_SCRIPT_URL = "https://tnpg.moamalat.net:6006/js/lightbox.js";
+
 
 
 
