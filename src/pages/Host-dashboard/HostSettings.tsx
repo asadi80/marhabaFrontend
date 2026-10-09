@@ -216,6 +216,10 @@ const HostSettings: React.FC = () => {
   const [moamalatLoading, setMoamalatLoading] = useState(false);
   const [moamalatError, setMoamalatError] = useState("");
 
+  // Tracks whether the current Moamalat attempt has completed, so a
+  // cancelCallback fired when the Lightbox closes is ignored.
+  const paymentCompletedRef = useRef(false);
+
   const isArabic = lang === "ar";
 
   const NAV_LINKS = [
@@ -634,6 +638,9 @@ const HostSettings: React.FC = () => {
     setPaymentError("");
     setSuccessMessage("");
 
+    // Reset for this new attempt
+    paymentCompletedRef.current = false;
+
     if (!user?.id) {
       setMoamalatError(
         isArabic
@@ -687,7 +694,6 @@ const HostSettings: React.FC = () => {
         completeCallback: async (data: any) => {
           console.log("✅ Moamalat payment completed:", data);
 
-          // Moamalat sometimes returns the code directly in the callback
           const inlineCode = data?.ResponseCode || data?.Response?.Code || null;
           const inlineMessage =
             data?.ResponseMessage || data?.Response?.Message || null;
@@ -703,19 +709,33 @@ const HostSettings: React.FC = () => {
             return;
           }
 
+          paymentCompletedRef.current = true; // mark success
+          setMoamalatError(""); // clear any stale error
           await handleMoamalatCallback(data, "completed");
         },
 
+        // Single cancelCallback (the old duplicate was removed).
+        // The Lightbox can fire cancel when it closes after a successful
+        // payment, so we ignore it once the payment has completed. The short
+        // delay also covers the case where cancel fires just before complete.
         cancelCallback: (data: any) => {
-          console.log("⚠️ Moamalat payment cancelled:", data);
-          setMoamalatError(
-            isArabic ? "تم إلغاء عملية الدفع." : "Payment was cancelled.",
-          );
-          setMoamalatLoading(false);
+          console.log("⚠️ Moamalat cancelCallback:", data);
+
+          setTimeout(() => {
+            if (paymentCompletedRef.current) return;
+
+            setMoamalatError(
+              isArabic ? "تم إلغاء عملية الدفع." : "Payment was cancelled.",
+            );
+            setMoamalatLoading(false);
+          }, 800);
         },
 
         errorCallback: (error: any) => {
           console.error("❌ Moamalat payment error:", error);
+
+          if (paymentCompletedRef.current) return;
+
           setMoamalatError(
             isArabic
               ? "حدث خطأ أثناء عملية الدفع."
@@ -764,7 +784,9 @@ const HostSettings: React.FC = () => {
       const friendlyMessage = getMoamalatMessage(code, isArabic);
 
       if (!verifyResponse.success) {
-        // Show the specific decline reason if we have one
+        // Verification failed, so this is not a completed payment
+        paymentCompletedRef.current = false;
+
         const fallback =
           verifyResponse.message ||
           (isArabic ? "فشل التحقق من الدفع." : "Payment verification failed.");
@@ -782,6 +804,8 @@ const HostSettings: React.FC = () => {
       await fetchVerificationStatus();
     } catch (error: any) {
       console.error("Moamalat verification failed:", error);
+
+      paymentCompletedRef.current = false;
 
       const code =
         error?.response?.data?.responseCode ||
@@ -949,8 +973,8 @@ const HostSettings: React.FC = () => {
               <span className="text-base">✓</span>
               <span>
                 {isArabic
-                  ? "تمت الموافقة على اشتراكك الحالي. الدفع الآن سيمدد الاشتراك لسنة إضافية."
-                  : "Your current subscription is approved. Paying now will extend it for another year."}
+                  ? "تمت الموافقة على اشتراكك الحالي. الدفع الآن سيمدد الاشتراك لفترة إضافية."
+                  : "Your current subscription is approved. Paying now will extend it for another period."}
               </span>
             </div>
           </div>

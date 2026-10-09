@@ -1,7 +1,6 @@
 // components/HostCalendar.tsx
 import React, { useState } from "react";
 
-
 // ============================================================
 // TYPES
 // ============================================================
@@ -206,21 +205,21 @@ const HostCalendar: React.FC<HostCalendarProps> = ({
     { bg: "#FEF9C3", color: "#713F12" },
   ];
 
- const getUserColor = (userId?: string) => {
-  // Non-empty string → hash the whole id for a stable color index.
-  // undefined / "" → fall back to slot 0.
-  if (typeof userId !== "string" || userId.length === 0) {
-    return userColors[0];
-  }
+  const getUserColor = (userId?: string) => {
+    // Non-empty string → hash the whole id for a stable color index.
+    // undefined / "" → fall back to slot 0.
+    if (typeof userId !== "string" || userId.length === 0) {
+      return userColors[0];
+    }
 
-  let hash = 0;
-  for (let i = 0; i < userId.length; i++) {
-    hash = (hash * 31 + userId.charCodeAt(i)) | 0;
-  }
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      hash = (hash * 31 + userId.charCodeAt(i)) | 0;
+    }
 
-  const index = Math.abs(hash) % userColors.length;
-  return userColors[index] ?? userColors[0];
-};
+    const index = Math.abs(hash) % userColors.length;
+    return userColors[index] ?? userColors[0];
+  };
 
   const getStatusText = (status: Booking["status"]) => {
     if (status === "confirmed") return t.confirmed;
@@ -402,23 +401,60 @@ const HostCalendar: React.FC<HostCalendarProps> = ({
                 {isBlocked && !isToday && (
                   <span className="text-[8px] leading-none">🚫</span>
                 )}
+
                 {dayBookings.length > 0 && (
-                  <span
-                    className="text-[9px] font-normal px-1 py-0.5 rounded whitespace-nowrap overflow-hidden text-ellipsis max-w-[calc(100%-20px)]"
-                    style={{
-                      color: getStatusColors(firstBooking.status).line,
-                      background: "rgba(0,0,0,0.05)",
-                    }}
-                    title={dayBookings
-                      .map(
-                        (b) => `${b.user?.name} (${getStatusText(b.status)})`,
-                      )
-                      .join(", ")}
-                  >
-                    {hasMultiple
-                      ? `${firstBooking?.user?.name || "Guest"} +${dayBookings.length - 1}`
-                      : firstBooking?.user?.name || "Guest"}
-                  </span>
+                  <div className="mt-1 flex flex-col gap-1">
+                    {dayBookings.slice(0, 2).map((booking) => {
+                      const dateStr = toDateStr(day);
+                      const checkInDate = booking.check_in.slice(0, 10);
+                      const checkOutDate = booking.check_out.slice(0, 10);
+
+                      const isCheckIn = dateStr === checkInDate;
+                      const isCheckOut = dateStr === checkOutDate;
+
+                      const dateLabel = isCheckIn
+                        ? isRTL
+                          ? "وصول"
+                          : "IN"
+                        : isCheckOut
+                          ? isRTL
+                            ? "مغادرة"
+                            : "OUT"
+                          : null;
+
+                      const colors = getStatusColors(booking.status);
+
+                      return (
+                        <div
+                          key={booking.id}
+                          title={`${booking.user?.name || "Guest"} | Check-in: ${checkInDate} | Check-out: ${checkOutDate}`}
+                          className="flex flex-col rounded px-1 py-0.5 text-[9px] leading-tight overflow-hidden"
+                          style={{
+                            background: colors.background,
+                            color: colors.color,
+                            borderInlineStart: `2px solid ${colors.line}`,
+                          }}
+                        >
+                          <span className="font-semibold truncate">
+                            {booking.user?.name || "Guest"}
+                          </span>
+
+                          {dateLabel && (
+                            <span className="font-bold">
+                              {dateLabel}:{" "}
+                              {isCheckIn ? checkInDate : checkOutDate}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {dayBookings.length > 2 && (
+                      <div className="text-[9px] text-gray-500">
+                        +{dayBookings.length - 2}
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
