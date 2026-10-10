@@ -23,9 +23,7 @@ const readStoredAccessToken = (): string | null => {
 
     const parsed = JSON.parse(raw);
 
-    return typeof parsed?.accessToken === "string"
-      ? parsed.accessToken
-      : null;
+    return typeof parsed?.accessToken === "string" ? parsed.accessToken : null;
   } catch {
     return null;
   }
@@ -40,9 +38,7 @@ const isJwtExpired = (token: string): boolean => {
     const payloadB64 = parts[1];
 
     const payload = JSON.parse(
-      atob(
-        payloadB64.replace(/-/g, "+").replace(/_/g, "/"),
-      ),
+      atob(payloadB64.replace(/-/g, "+").replace(/_/g, "/")),
     );
 
     if (!payload?.exp) return false;
@@ -59,8 +55,7 @@ const hasValidStoredToken = (): boolean => {
   return !!token && !isJwtExpired(token);
 };
 
-const toRole = (role?: string) =>
-  String(role || "").toLowerCase();
+const toRole = (role?: string) => String(role || "").toLowerCase();
 
 // ============================================================
 // TYPES
@@ -261,8 +256,7 @@ const LISTING_IMAGE_UPLOAD_ENDPOINT =
 // MAPBOX
 // ============================================================
 
-const MAPBOX_TOKEN =
-  import.meta.env.VITE_MAPBOX_TOKEN || "";
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
 // ============================================================
 // COMPONENT
@@ -273,18 +267,12 @@ const HostListings: React.FC = () => {
 
   const { lang, toggleLanguage } = useLanguage();
 
-  const {
-    user,
-    isAuthenticated,
-    isLoading: authLoading,
-  } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   const isAr = lang === "ar";
 
   const isAuthorizedHost =
-    isAuthenticated &&
-    !!user &&
-    toRole(user.role) === HOST_ROLE;
+    isAuthenticated && !!user && toRole(user.role) === HOST_ROLE;
 
   // ============================================================
   // LISTING STATE
@@ -297,61 +285,53 @@ const HostListings: React.FC = () => {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  const [editingId, setEditingId] =
-    useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   // ============================================================
   // LOCATION STATE
   // ============================================================
 
-  const [markerPosition, setMarkerPosition] =
-    useState<Coordinates | null>(null);
+  const [markerPosition, setMarkerPosition] = useState<Coordinates | null>(
+    null,
+  );
 
-  const [mapCenter, setMapCenter] =
-    useState<Coordinates | null>(null);
+  const [mapCenter, setMapCenter] = useState<Coordinates | null>(null);
 
-  const [selectedLocation, setSelectedLocation] =
-    useState<{
-      lat: number;
-      lng: number;
-      address: string;
-    } | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    lat: number;
+    lng: number;
+    address: string;
+  } | null>(null);
 
-  const [isGettingLocation, setIsGettingLocation] =
-    useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
-  const [locationError, setLocationError] =
-    useState<string | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // ============================================================
   // FORM STATE
   // ============================================================
 
-  const [formData, setFormData] =
-    useState<FormData>(EMPTY_FORM);
+  const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
 
   // ============================================================
   // LISTING ACTION STATE
   // ============================================================
 
-  const [togglingId, setTogglingId] =
-    useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  const [savingListing, setSavingListing] =
-    useState(false);
+  const [savingListing, setSavingListing] = useState(false);
 
   // ============================================================
   // IMAGE UPLOAD STATE
   // ============================================================
 
-  const [uploadingImages, setUploadingImages] =
-    useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
-  const [uploadProgress, setUploadProgress] =
-    useState(0);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
-  const [uploadingFileName, setUploadingFileName] =
-    useState<string | null>(null);
+  const [uploadingFileName, setUploadingFileName] = useState<string | null>(
+    null,
+  );
 
   /*
    * IMPORTANT:
@@ -360,56 +340,48 @@ const HostListings: React.FC = () => {
    *
    * Invalid hook call
    */
-  const [uploadedImageInfo, setUploadedImageInfo] =
-    useState<UploadedImageInfo[]>([]);
+  const [uploadedImageInfo, setUploadedImageInfo] = useState<
+    UploadedImageInfo[]
+  >([]);
 
-  const imageInputRef =
-    useRef<HTMLInputElement | null>(null);
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
   // ============================================================
   // ADDRESS SEARCH STATE
   // ============================================================
 
-  const [addressQuery, setAddressQuery] =
-    useState("");
+  const [addressQuery, setAddressQuery] = useState("");
 
-  const [addressSuggestions, setAddressSuggestions] =
-    useState<
-      {
-        id: string;
-        place_name: string;
-        lat: number;
-        lng: number;
-      }[]
-    >([]);
+  const [addressSuggestions, setAddressSuggestions] = useState<
+    {
+      id: string;
+      place_name: string;
+      lat: number;
+      lng: number;
+    }[]
+  >([]);
 
-  const [showSuggestions, setShowSuggestions] =
-    useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
-  const [searchingAddress, setSearchingAddress] =
-    useState(false);
+  const [searchingAddress, setSearchingAddress] = useState(false);
 
-  const addressSearchTimeout =
-    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const addressSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
 
   // ============================================================
   // MAP REFS
   // ============================================================
 
-  const mapContainerRef =
-    useRef<HTMLDivElement | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
 
-  const mapInstanceRef =
-    useRef<mapboxgl.Map | null>(null);
+  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
 
-  const markerRef =
-    useRef<mapboxgl.Marker | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
 
-  const mapboxglLibRef =
-    useRef<typeof mapboxgl | null>(null);
+  const mapboxglLibRef = useRef<typeof mapboxgl | null>(null);
 
-  const [mapReady, setMapReady] =
-    useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   // ============================================================
   // TRANSLATIONS
@@ -428,25 +400,15 @@ const HostListings: React.FC = () => {
 
     listings1: isAr ? "الإعلانات" : "Listings",
 
-    listingsActive: isAr
-      ? "إعلان نشط"
-      : "Active Listings",
+    listingsActive: isAr ? "إعلان نشط" : "Active Listings",
 
-    listingActive: isAr
-      ? "إعلان نشط"
-      : "Active Listing",
+    listingActive: isAr ? "إعلان نشط" : "Active Listing",
 
-    addNewListing: isAr
-      ? "إضافة إعلان جديد"
-      : "Add New Listing",
+    addNewListing: isAr ? "إضافة إعلان جديد" : "Add New Listing",
 
-    editListing: isAr
-      ? "تعديل الإعلان"
-      : "Edit Listing",
+    editListing: isAr ? "تعديل الإعلان" : "Edit Listing",
 
-    newListing: isAr
-      ? "إعلان جديد"
-      : "New Listing",
+    newListing: isAr ? "إعلان جديد" : "New Listing",
 
     edit: isAr ? "تعديل" : "Edit",
 
@@ -456,49 +418,29 @@ const HostListings: React.FC = () => {
 
     title: isAr ? "العنوان" : "Title",
 
-    titlePlaceholder: isAr
-      ? "أدخل عنوان الإعلان"
-      : "Enter listing title",
+    titlePlaceholder: isAr ? "أدخل عنوان الإعلان" : "Enter listing title",
 
-    description: isAr
-      ? "الوصف"
-      : "Description",
+    description: isAr ? "الوصف" : "Description",
 
-    descriptionPlaceholder: isAr
-      ? "صف إعلانك"
-      : "Describe your listing",
+    descriptionPlaceholder: isAr ? "صف إعلانك" : "Describe your listing",
 
-    pricePerNight: isAr
-      ? "السعر لكل ليلة"
-      : "Price per night",
+    pricePerNight: isAr ? "السعر لكل ليلة" : "Price per night",
 
     night: isAr ? "ليلة" : "night",
 
     location: isAr ? "الموقع" : "Location",
 
-    addressWillAppear: isAr
-      ? "العنوان سيظهر هنا"
-      : "Address will appear here",
+    addressWillAppear: isAr ? "العنوان سيظهر هنا" : "Address will appear here",
 
-    myLocation: isAr
-      ? "موقعي"
-      : "My Location",
+    myLocation: isAr ? "موقعي" : "My Location",
 
-    gettingLocation: isAr
-      ? "جاري الحصول على الموقع..."
-      : "Getting location...",
+    gettingLocation: isAr ? "جاري الحصول على الموقع..." : "Getting location...",
 
-    imagesRequired: isAr
-      ? "الصور (مطلوب)"
-      : "Images (Required)",
+    imagesRequired: isAr ? "الصور (مطلوب)" : "Images (Required)",
 
-    addImage: isAr
-      ? "إضافة صورة"
-      : "Add Image",
+    addImage: isAr ? "إضافة صورة" : "Add Image",
 
-    imageUploading: isAr
-      ? "جاري رفع الصورة..."
-      : "Uploading image...",
+    imageUploading: isAr ? "جاري رفع الصورة..." : "Uploading image...",
 
     imageSizeError: isAr
       ? "حجم الصورة يجب ألا يتجاوز 10 ميجابايت"
@@ -512,93 +454,51 @@ const HostListings: React.FC = () => {
       ? "يمكنك رفع 6 صور كحد أقصى"
       : "You can upload a maximum of 6 images",
 
-    imageUploadFailed: isAr
-      ? "فشل رفع الصورة"
-      : "Image upload failed",
+    imageUploadFailed: isAr ? "فشل رفع الصورة" : "Image upload failed",
 
-    amenities: isAr
-      ? "المرافق"
-      : "Amenities",
+    amenities: isAr ? "المرافق" : "Amenities",
 
-    amenityPlaceholder: isAr
-      ? "مرفق (مثل: Wi-Fi)"
-      : "Amenity (e.g., Wi-Fi)",
+    amenityPlaceholder: isAr ? "مرفق (مثل: Wi-Fi)" : "Amenity (e.g., Wi-Fi)",
 
-    remove: isAr
-      ? "إزالة"
-      : "Remove",
+    remove: isAr ? "إزالة" : "Remove",
 
-    addAmenity: isAr
-      ? "إضافة مرفق"
-      : "Add Amenity",
+    addAmenity: isAr ? "إضافة مرفق" : "Add Amenity",
 
-    houseRules: isAr
-      ? "قواعد المنزل"
-      : "House Rules",
+    houseRules: isAr ? "قواعد المنزل" : "House Rules",
 
-    quickAdd: isAr
-      ? "إضافة سريعة"
-      : "Quick Add",
+    quickAdd: isAr ? "إضافة سريعة" : "Quick Add",
 
-    ruleNoSmoking: isAr
-      ? "ممنوع التدخين"
-      : "No Smoking",
+    ruleNoSmoking: isAr ? "ممنوع التدخين" : "No Smoking",
 
-    ruleNoParties: isAr
-      ? "ممنوع الحفلات"
-      : "No Parties",
+    ruleNoParties: isAr ? "ممنوع الحفلات" : "No Parties",
 
-    ruleNoPets: isAr
-      ? "ممنوع الحيوانات"
-      : "No Pets",
+    ruleNoPets: isAr ? "ممنوع الحيوانات" : "No Pets",
 
-    ruleQuietHours: isAr
-      ? "ساعات الهدوء"
-      : "Quiet Hours",
+    ruleQuietHours: isAr ? "ساعات الهدوء" : "Quiet Hours",
 
-    ruleSelfCheckIn: isAr
-      ? "تسجيل وصول ذاتي"
-      : "Self Check-in",
+    ruleSelfCheckIn: isAr ? "تسجيل وصول ذاتي" : "Self Check-in",
 
-    ruleNoShoes: isAr
-      ? "ممنوع الأحذية"
-      : "No Shoes",
+    ruleNoShoes: isAr ? "ممنوع الأحذية" : "No Shoes",
 
     rulePlaceholder: isAr
       ? "قاعدة (مثل: لا طعام في الغرف)"
       : "Rule (e.g., No food in rooms)",
 
-    addCustomRule: isAr
-      ? "+ إضافة قاعدة مخصصة"
-      : "+ Add Custom Rule",
+    addCustomRule: isAr ? "+ إضافة قاعدة مخصصة" : "+ Add Custom Rule",
 
-    cancel: isAr
-      ? "إلغاء"
-      : "Cancel",
+    cancel: isAr ? "إلغاء" : "Cancel",
 
-    createListing: isAr
-      ? "إنشاء الإعلان"
-      : "Create Listing",
+    createListing: isAr ? "إنشاء الإعلان" : "Create Listing",
 
-    updateListing: isAr
-      ? "تحديث الإعلان"
-      : "Update Listing",
+    updateListing: isAr ? "تحديث الإعلان" : "Update Listing",
 
-    noListingsYet: isAr
-      ? "لا توجد إعلانات بعد"
-      : "No listings yet",
+    noListingsYet: isAr ? "لا توجد إعلانات بعد" : "No listings yet",
 
-    createFirstListing: isAr
-      ? "إنشاء أول إعلان"
-      : "Create your first listing",
+    createFirstListing: isAr ? "إنشاء أول إعلان" : "Create your first listing",
 
-    viewDetails: isAr
-      ? "عرض التفاصيل"
-      : "View Details",
+    viewDetails: isAr ? "عرض التفاصيل" : "View Details",
 
-    delete: isAr
-      ? "حذف"
-      : "Delete",
+    delete: isAr ? "حذف" : "Delete",
 
     pleaseSelectLocation: isAr
       ? "الرجاء تحديد الموقع على الخريطة"
@@ -624,9 +524,7 @@ const HostListings: React.FC = () => {
       ? "هل أنت متأكد من حذف هذا الإعلان؟"
       : "Are you sure you want to delete this listing?",
 
-    saving: isAr
-      ? "جاري الحفظ..."
-      : "Saving...",
+    saving: isAr ? "جاري الحفظ..." : "Saving...",
   };
 
   // ============================================================
@@ -638,34 +536,19 @@ const HostListings: React.FC = () => {
       ? `${Math.round(n).toLocaleString()} دينار`
       : `${Math.round(n).toLocaleString()} LYD`;
 
-  const formatFileSize = (
-    bytes: number,
-  ): string => {
-    if (
-      !Number.isFinite(bytes) ||
-      bytes <= 0
-    ) {
+  const formatFileSize = (bytes: number): string => {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
       return "0 KB";
     }
 
-    const units = [
-      "B",
-      "KB",
-      "MB",
-      "GB",
-    ];
+    const units = ["B", "KB", "MB", "GB"];
 
     const index = Math.min(
-      Math.floor(
-        Math.log(bytes) / Math.log(1024),
-      ),
+      Math.floor(Math.log(bytes) / Math.log(1024)),
       units.length - 1,
     );
 
-    return `${(
-      bytes /
-      Math.pow(1024, index)
-    ).toFixed(index === 0 ? 0 : 2)} ${
+    return `${(bytes / Math.pow(1024, index)).toFixed(index === 0 ? 0 : 2)} ${
       units[index]
     }`;
   };
@@ -674,46 +557,33 @@ const HostListings: React.FC = () => {
   // API URL
   // ============================================================
 
-  const getApiUrl = useCallback(
-    (endpoint: string) => {
-      const rawBase =
-        import.meta.env.VITE_API_URL || "";
+  const getApiUrl = useCallback((endpoint: string) => {
+    const rawBase = import.meta.env.VITE_API_URL || "";
 
-      const baseUrl = rawBase.replace(/\/+$/, "");
+    const baseUrl = rawBase.replace(/\/+$/, "");
 
-      let cleanEndpoint =
-        endpoint.startsWith("/")
-          ? endpoint
-          : `/${endpoint}`;
+    let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-      /*
-       * Supports BOTH:
-       *
-       * VITE_API_URL=https://api.mar-haba.ly
-       *
-       * and:
-       *
-       * VITE_API_URL=https://api.mar-haba.ly/api/v1
-       *
-       * without creating:
-       *
-       * /api/v1/api/v1/...
-       */
+    /*
+     * Supports BOTH:
+     *
+     * VITE_API_URL=https://api.mar-haba.ly
+     *
+     * and:
+     *
+     * VITE_API_URL=https://api.mar-haba.ly/api/v1
+     *
+     * without creating:
+     *
+     * /api/v1/api/v1/...
+     */
 
-      if (
-        baseUrl.endsWith("/api/v1") &&
-        cleanEndpoint.startsWith("/api/v1/")
-      ) {
-        cleanEndpoint =
-          cleanEndpoint.substring("/api/v1".length);
-      }
+    if (baseUrl.endsWith("/api/v1") && cleanEndpoint.startsWith("/api/v1/")) {
+      cleanEndpoint = cleanEndpoint.substring("/api/v1".length);
+    }
 
-      return baseUrl
-        ? `${baseUrl}${cleanEndpoint}`
-        : cleanEndpoint;
-    },
-    [],
-  );
+    return baseUrl ? `${baseUrl}${cleanEndpoint}` : cleanEndpoint;
+  }, []);
 
   // ============================================================
   // ABSOLUTE IMAGE URL
@@ -723,9 +593,7 @@ const HostListings: React.FC = () => {
     (imageUrl: string): string => {
       if (!imageUrl) return "";
 
-      if (
-        /^https?:\/\//i.test(imageUrl)
-      ) {
+      if (/^https?:\/\//i.test(imageUrl)) {
         return imageUrl;
       }
 
@@ -740,16 +608,12 @@ const HostListings: React.FC = () => {
 
   const getAuthToken = (): string => {
     try {
-      const raw =
-        localStorage.getItem("tokens");
+      const raw = localStorage.getItem("tokens");
 
       if (raw) {
         const parsed = JSON.parse(raw);
 
-        if (
-          typeof parsed?.accessToken ===
-          "string"
-        ) {
+        if (typeof parsed?.accessToken === "string") {
           return parsed.accessToken;
         }
       }
@@ -770,43 +634,33 @@ const HostListings: React.FC = () => {
   // FETCH HOST LISTINGS
   // ============================================================
 
-  const fetchListings = useCallback(
-    async () => {
-      if (!user?.id) {
+  const fetchListings = useCallback(async () => {
+    if (!user?.id) {
+      setListings([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await apiService.getProtectedData<Listing[]>(
+        `/api/v1/listings/host/${user.id}`,
+      );
+
+      if (response.success && Array.isArray(response.data)) {
+        setListings(response.data);
+      } else {
         setListings([]);
-        setLoading(false);
-        return;
       }
+    } catch (error) {
+      console.error("Failed to fetch host listings:", error);
 
-      setLoading(true);
-
-      try {
-        const response =
-          await apiService.getProtectedData<Listing[]>(
-            `/api/v1/listings/host/${user.id}`,
-          );
-
-        if (
-          response.success &&
-          Array.isArray(response.data)
-        ) {
-          setListings(response.data);
-        } else {
-          setListings([]);
-        }
-      } catch (error) {
-        console.error(
-          "Failed to fetch host listings:",
-          error,
-        );
-
-        setListings([]);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [user?.id],
-  );
+      setListings([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
 
   // ============================================================
   // AUTH + ROLE GUARD
@@ -815,11 +669,7 @@ const HostListings: React.FC = () => {
   useEffect(() => {
     if (authLoading) return;
 
-    if (
-      !isAuthenticated ||
-      !user ||
-      !hasValidStoredToken()
-    ) {
+    if (!isAuthenticated || !user || !hasValidStoredToken()) {
       navigate("/login", {
         replace: true,
       });
@@ -827,9 +677,7 @@ const HostListings: React.FC = () => {
       return;
     }
 
-    if (
-      toRole(user.role) !== HOST_ROLE
-    ) {
+    if (toRole(user.role) !== HOST_ROLE) {
       navigate("/user-dashboard", {
         replace: true,
       });
@@ -837,23 +685,16 @@ const HostListings: React.FC = () => {
       return;
     }
 
-    const intervalId =
-      window.setInterval(() => {
-        if (!hasValidStoredToken()) {
-          navigate("/login", {
-            replace: true,
-          });
-        }
-      }, 60_000);
+    const intervalId = window.setInterval(() => {
+      if (!hasValidStoredToken()) {
+        navigate("/login", {
+          replace: true,
+        });
+      }
+    }, 60_000);
 
-    return () =>
-      window.clearInterval(intervalId);
-  }, [
-    authLoading,
-    isAuthenticated,
-    user,
-    navigate,
-  ]);
+    return () => window.clearInterval(intervalId);
+  }, [authLoading, isAuthenticated, user, navigate]);
 
   // ============================================================
   // LOAD LISTINGS
@@ -863,43 +704,30 @@ const HostListings: React.FC = () => {
     if (!isAuthorizedHost) return;
 
     fetchListings();
-  }, [
-    isAuthorizedHost,
-    fetchListings,
-  ]);
+  }, [isAuthorizedHost, fetchListings]);
 
   // ============================================================
   // REVERSE GEOCODING
   // ============================================================
 
-  const reverseGeocode = async (
-    lat: number,
-    lng: number,
-  ): Promise<string> => {
+  const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
         {
           headers: {
-            Accept:
-              "application/json",
+            Accept: "application/json",
           },
         },
       );
 
       if (!res.ok) {
-        throw new Error(
-          "Reverse geocoding failed",
-        );
+        throw new Error("Reverse geocoding failed");
       }
 
-      const data =
-        await res.json();
+      const data = await res.json();
 
-      return (
-        data.display_name ||
-        `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-      );
+      return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     } catch {
       return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     }
@@ -909,20 +737,13 @@ const HostListings: React.FC = () => {
   // APPLY COORDINATES
   // ============================================================
 
-  const applyCoordinates = async (
-    lat: number,
-    lng: number,
-  ) => {
+  const applyCoordinates = async (lat: number, lng: number) => {
     setMarkerPosition({
       lat,
       lng,
     });
 
-    const address =
-      await reverseGeocode(
-        lat,
-        lng,
-      );
+    const address = await reverseGeocode(lat, lng);
 
     setSelectedLocation({
       lat,
@@ -944,392 +765,241 @@ const HostListings: React.FC = () => {
   // MAP CLICK
   // ============================================================
 
-  const handleMapClick =
-    useCallback(
-      async (
-        lat: number,
-        lng: number,
-      ) => {
-        await applyCoordinates(
-          lat,
-          lng,
-        );
+  const handleMapClick = useCallback(async (lat: number, lng: number) => {
+    await applyCoordinates(lat, lng);
 
-        mapInstanceRef.current?.flyTo(
-          {
-            center: [lng, lat],
-            zoom: 14,
-          },
-        );
-      },
-      [],
-    );
+    mapInstanceRef.current?.flyTo({
+      center: [lng, lat],
+      zoom: 14,
+    });
+  }, []);
 
   // ============================================================
   // IP GEOLOCATION
   // ============================================================
 
-  const getIPGeolocation =
-    async () => {
-      try {
-        const res = await fetch(
-          "https://ipapi.co/json/",
-        );
+  const getIPGeolocation = async () => {
+    try {
+      const res = await fetch("https://ipapi.co/json/");
 
-        if (!res.ok) return null;
+      if (!res.ok) return null;
 
-        const data =
-          await res.json();
+      const data = await res.json();
 
-        if (
-          data?.latitude !==
-            undefined &&
-          data?.longitude !==
-            undefined
-        ) {
-          return {
-            lat: Number(
-              data.latitude,
-            ),
-            lng: Number(
-              data.longitude,
-            ),
-          };
-        }
-      } catch {
-        // Ignore.
+      if (data?.latitude !== undefined && data?.longitude !== undefined) {
+        return {
+          lat: Number(data.latitude),
+          lng: Number(data.longitude),
+        };
       }
+    } catch {
+      // Ignore.
+    }
 
-      return null;
-    };
+    return null;
+  };
 
   // ============================================================
   // CURRENT LOCATION
   // ============================================================
 
-  const useCurrentLocation =
-    useCallback(
-      async () => {
-        setIsGettingLocation(
-          true,
-        );
+  const useCurrentLocation = useCallback(async () => {
+    setIsGettingLocation(true);
 
-        setLocationError(null);
+    setLocationError(null);
 
-        let success = false;
+    let success = false;
 
-        if (
-          "geolocation" in
-          navigator
-        ) {
-          const options = [
-            {
-              enableHighAccuracy:
-                true,
-              timeout: 10000,
-              maximumAge: 0,
+    if ("geolocation" in navigator) {
+      const options = [
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 8000,
+          maximumAge: 30000,
+        },
+      ];
+
+      for (const opts of options) {
+        if (success) break;
+
+        try {
+          const position = await new Promise<GeolocationPosition>(
+            (resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, opts);
             },
-            {
-              enableHighAccuracy:
-                false,
-              timeout: 8000,
-              maximumAge: 30000,
-            },
-          ];
-
-          for (const opts of options) {
-            if (success) break;
-
-            try {
-              const position =
-                await new Promise<GeolocationPosition>(
-                  (
-                    resolve,
-                    reject,
-                  ) => {
-                    navigator.geolocation.getCurrentPosition(
-                      resolve,
-                      reject,
-                      opts,
-                    );
-                  },
-                );
-
-              const lat =
-                position.coords
-                  .latitude;
-
-              const lng =
-                position.coords
-                  .longitude;
-
-              setMapCenter({
-                lat,
-                lng,
-              });
-
-              await applyCoordinates(
-                lat,
-                lng,
-              );
-
-              mapInstanceRef.current?.flyTo(
-                {
-                  center: [
-                    lng,
-                    lat,
-                  ],
-                  zoom:
-                    opts.enableHighAccuracy
-                      ? 15
-                      : 13,
-                },
-              );
-
-              success = true;
-            } catch {
-              // Try next option.
-            }
-          }
-        }
-
-        if (!success) {
-          const ip =
-            await getIPGeolocation();
-
-          if (ip) {
-            setMapCenter({
-              lat: ip.lat,
-              lng: ip.lng,
-            });
-
-            await applyCoordinates(
-              ip.lat,
-              ip.lng,
-            );
-
-            mapInstanceRef.current?.flyTo(
-              {
-                center: [
-                  ip.lng,
-                  ip.lat,
-                ],
-                zoom: 10,
-              },
-            );
-
-            success = true;
-          }
-        }
-
-        setIsGettingLocation(
-          false,
-        );
-
-        if (!success) {
-          setLocationError(
-            isAr
-              ? "تعذر تحديد موقعك تلقائياً. حرك الخريطة أو ابحث عن عنوان يدوياً."
-              : "Could not detect your location automatically. Move the map or search for an address manually.",
           );
+
+          const lat = position.coords.latitude;
+
+          const lng = position.coords.longitude;
+
+          setMapCenter({
+            lat,
+            lng,
+          });
+
+          await applyCoordinates(lat, lng);
+
+          mapInstanceRef.current?.flyTo({
+            center: [lng, lat],
+            zoom: opts.enableHighAccuracy ? 15 : 13,
+          });
+
+          success = true;
+        } catch {
+          // Try next option.
         }
-      },
-      [isAr],
-    );
+      }
+    }
+
+    if (!success) {
+      const ip = await getIPGeolocation();
+
+      if (ip) {
+        setMapCenter({
+          lat: ip.lat,
+          lng: ip.lng,
+        });
+
+        await applyCoordinates(ip.lat, ip.lng);
+
+        mapInstanceRef.current?.flyTo({
+          center: [ip.lng, ip.lat],
+          zoom: 10,
+        });
+
+        success = true;
+      }
+    }
+
+    setIsGettingLocation(false);
+
+    if (!success) {
+      setLocationError(
+        isAr
+          ? "تعذر تحديد موقعك تلقائياً. حرك الخريطة أو ابحث عن عنوان يدوياً."
+          : "Could not detect your location automatically. Move the map or search for an address manually.",
+      );
+    }
+  }, [isAr]);
 
   // ============================================================
   // ADDRESS SEARCH
   // ============================================================
 
-  const searchAddress =
-    useCallback(
-      (query: string) => {
-        setAddressQuery(
-          query,
-        );
+  const searchAddress = useCallback((query: string) => {
+    setAddressQuery(query);
 
-        if (
-          addressSearchTimeout.current
-        ) {
-          clearTimeout(
-            addressSearchTimeout.current,
-          );
+    if (addressSearchTimeout.current) {
+      clearTimeout(addressSearchTimeout.current);
+    }
+
+    if (!query.trim() || !MAPBOX_TOKEN) {
+      setAddressSuggestions([]);
+
+      setShowSuggestions(false);
+
+      return;
+    }
+
+    addressSearchTimeout.current = setTimeout(async () => {
+      setSearchingAddress(true);
+
+      try {
+        const url =
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/` +
+          `${encodeURIComponent(query)}.json` +
+          `?access_token=${MAPBOX_TOKEN}` +
+          `&autocomplete=true&limit=5`;
+
+        const res = await fetch(url);
+
+        if (!res.ok) {
+          throw new Error("Address search failed");
         }
 
-        if (
-          !query.trim() ||
-          !MAPBOX_TOKEN
-        ) {
-          setAddressSuggestions(
-            [],
+        const data = await res.json();
+
+        const results = (data?.features || [])
+          .map((feature: any) => ({
+            id: String(feature.id),
+            place_name: String(feature.place_name || ""),
+            lat: Number(feature.center?.[1]),
+            lng: Number(feature.center?.[0]),
+          }))
+          .filter(
+            (item: any) =>
+              Number.isFinite(item.lat) && Number.isFinite(item.lng),
           );
 
-          setShowSuggestions(
-            false,
-          );
+        setAddressSuggestions(results);
 
-          return;
-        }
-
-        addressSearchTimeout.current =
-          setTimeout(
-            async () => {
-              setSearchingAddress(
-                true,
-              );
-
-              try {
-                const url =
-                  `https://api.mapbox.com/geocoding/v5/mapbox.places/` +
-                  `${encodeURIComponent(
-                    query,
-                  )}.json` +
-                  `?access_token=${MAPBOX_TOKEN}` +
-                  `&autocomplete=true&limit=5`;
-
-                const res =
-                  await fetch(url);
-
-                if (!res.ok) {
-                  throw new Error(
-                    "Address search failed",
-                  );
-                }
-
-                const data =
-                  await res.json();
-
-                const results =
-                  (
-                    data?.features ||
-                    []
-                  )
-                    .map(
-                      (
-                        feature: any,
-                      ) => ({
-                        id: String(
-                          feature.id,
-                        ),
-                        place_name:
-                          String(
-                            feature.place_name ||
-                              "",
-                          ),
-                        lat: Number(
-                          feature.center?.[1],
-                        ),
-                        lng: Number(
-                          feature.center?.[0],
-                        ),
-                      }),
-                    )
-                    .filter(
-                      (
-                        item: any,
-                      ) =>
-                        Number.isFinite(
-                          item.lat,
-                        ) &&
-                        Number.isFinite(
-                          item.lng,
-                        ),
-                    );
-
-                setAddressSuggestions(
-                  results,
-                );
-
-                setShowSuggestions(
-                  results.length >
-                    0,
-                );
-              } catch {
-                setAddressSuggestions(
-                  [],
-                );
-              } finally {
-                setSearchingAddress(
-                  false,
-                );
-              }
-            },
-            350,
-          );
-      },
-      [],
-    );
+        setShowSuggestions(results.length > 0);
+      } catch {
+        setAddressSuggestions([]);
+      } finally {
+        setSearchingAddress(false);
+      }
+    }, 350);
+  }, []);
 
   // ============================================================
   // SELECT ADDRESS
   // ============================================================
 
-  const handleSuggestionSelect =
-    (suggestion: {
-      place_name: string;
-      lat: number;
-      lng: number;
-    }) => {
-      setMarkerPosition({
+  const handleSuggestionSelect = (suggestion: {
+    place_name: string;
+    lat: number;
+    lng: number;
+  }) => {
+    setMarkerPosition({
+      lat: suggestion.lat,
+      lng: suggestion.lng,
+    });
+
+    setSelectedLocation({
+      lat: suggestion.lat,
+      lng: suggestion.lng,
+      address: suggestion.place_name,
+    });
+
+    setFormData((prev) => ({
+      ...prev,
+      location: suggestion.place_name,
+      coordinates: {
         lat: suggestion.lat,
         lng: suggestion.lng,
-      });
+      },
+    }));
 
-      setSelectedLocation({
-        lat: suggestion.lat,
-        lng: suggestion.lng,
-        address:
-          suggestion.place_name,
-      });
+    setMapCenter({
+      lat: suggestion.lat,
+      lng: suggestion.lng,
+    });
 
-      setFormData((prev) => ({
-        ...prev,
-        location:
-          suggestion.place_name,
-        coordinates: {
-          lat: suggestion.lat,
-          lng: suggestion.lng,
-        },
-      }));
+    mapInstanceRef.current?.flyTo({
+      center: [suggestion.lng, suggestion.lat],
+      zoom: 14,
+    });
 
-      setMapCenter({
-        lat: suggestion.lat,
-        lng: suggestion.lng,
-      });
+    setAddressQuery(suggestion.place_name);
 
-      mapInstanceRef.current?.flyTo(
-        {
-          center: [
-            suggestion.lng,
-            suggestion.lat,
-          ],
-          zoom: 14,
-        },
-      );
-
-      setAddressQuery(
-        suggestion.place_name,
-      );
-
-      setShowSuggestions(
-        false,
-      );
-    };
+    setShowSuggestions(false);
+  };
 
   // ============================================================
   // CREATE MAP
   // ============================================================
 
   useEffect(() => {
-    const showMap =
-      !!mapCenter &&
-      !isGettingLocation;
+    const showMap = !!mapCenter && !isGettingLocation;
 
-    if (
-      !showMap ||
-      !mapContainerRef.current ||
-      mapInstanceRef.current
-    ) {
+    if (!showMap || !mapContainerRef.current || mapInstanceRef.current) {
       return;
     }
 
@@ -1339,73 +1009,42 @@ const HostListings: React.FC = () => {
 
     (async () => {
       try {
-        const [
-          { default: mapboxglLib },
-        ] = await Promise.all([
+        const [{ default: mapboxglLib }] = await Promise.all([
           import("mapbox-gl"),
-          import(
-            "mapbox-gl/dist/mapbox-gl.css"
-          ),
+          import("mapbox-gl/dist/mapbox-gl.css"),
         ]);
 
-        if (
-          cancelled ||
-          !mapContainerRef.current ||
-          mapInstanceRef.current
-        ) {
+        if (cancelled || !mapContainerRef.current || mapInstanceRef.current) {
           return;
         }
 
-        mapboxglLib.accessToken =
-          MAPBOX_TOKEN;
+        mapboxglLib.accessToken = MAPBOX_TOKEN;
 
-        mapboxglLibRef.current =
-          mapboxglLib;
+        mapboxglLibRef.current = mapboxglLib;
 
-        const map =
-          new mapboxglLib.Map({
-            container:
-              mapContainerRef.current,
-            style:
-              "mapbox://styles/mapbox/streets-v12",
-            center: [
-              mapCenter!.lng,
-              mapCenter!.lat,
-            ],
-            zoom:
-              markerPosition
-                ? 14
-                : 2,
-          });
+        const map = new mapboxglLib.Map({
+          container: mapContainerRef.current,
+          style: "mapbox://styles/mapbox/streets-v12",
+          center: [mapCenter!.lng, mapCenter!.lat],
+          zoom: markerPosition ? 14 : 2,
+        });
 
         map.addControl(
-          new mapboxglLib.NavigationControl(
-            {
-              showCompass: false,
-            },
-          ),
+          new mapboxglLib.NavigationControl({
+            showCompass: false,
+          }),
           "top-right",
         );
 
-        map.on(
-          "click",
-          (event) => {
-            handleMapClick(
-              event.lngLat.lat,
-              event.lngLat.lng,
-            );
-          },
-        );
+        map.on("click", (event) => {
+          handleMapClick(event.lngLat.lat, event.lngLat.lng);
+        });
 
-        mapInstanceRef.current =
-          map;
+        mapInstanceRef.current = map;
 
         setMapReady(true);
       } catch (error) {
-        console.error(
-          "Mapbox failed to load:",
-          error,
-        );
+        console.error("Mapbox failed to load:", error);
       }
     })();
 
@@ -1414,28 +1053,22 @@ const HostListings: React.FC = () => {
 
       mapInstanceRef.current?.remove();
 
-      mapInstanceRef.current =
-        null;
+      mapInstanceRef.current = null;
 
       markerRef.current = null;
 
       setMapReady(false);
     };
-  }, [
-    !!mapCenter &&
-      !isGettingLocation,
-  ]);
+  }, [!!mapCenter && !isGettingLocation]);
 
   // ============================================================
   // MAP MARKER
   // ============================================================
 
   useEffect(() => {
-    const map =
-      mapInstanceRef.current;
+    const map = mapInstanceRef.current;
 
-    const mapboxglLib =
-      mapboxglLibRef.current;
+    const mapboxglLib = mapboxglLibRef.current;
 
     if (!map || !mapboxglLib) {
       return;
@@ -1444,56 +1077,35 @@ const HostListings: React.FC = () => {
     if (!markerPosition) {
       markerRef.current?.remove();
 
-      markerRef.current =
-        null;
+      markerRef.current = null;
 
       return;
     }
 
     if (!markerRef.current) {
-      const marker =
-        new mapboxglLib.Marker({
-          color: "#e8c547",
-          draggable: true,
-        })
-          .setLngLat([
-            markerPosition.lng,
-            markerPosition.lat,
-          ])
-          .addTo(map);
+      const marker = new mapboxglLib.Marker({
+        color: "#e8c547",
+        draggable: true,
+      })
+        .setLngLat([markerPosition.lng, markerPosition.lat])
+        .addTo(map);
 
-      marker.on(
-        "dragend",
-        () => {
-          const lngLat =
-            marker.getLngLat();
+      marker.on("dragend", () => {
+        const lngLat = marker.getLngLat();
 
-          setMarkerPosition({
-            lat: lngLat.lat,
-            lng: lngLat.lng,
-          });
+        setMarkerPosition({
+          lat: lngLat.lat,
+          lng: lngLat.lng,
+        });
 
-          applyCoordinates(
-            lngLat.lat,
-            lngLat.lng,
-          );
-        },
-      );
+        applyCoordinates(lngLat.lat, lngLat.lng);
+      });
 
-      markerRef.current =
-        marker;
+      markerRef.current = marker;
     } else {
-      markerRef.current.setLngLat(
-        [
-          markerPosition.lng,
-          markerPosition.lat,
-        ],
-      );
+      markerRef.current.setLngLat([markerPosition.lng, markerPosition.lat]);
     }
-  }, [
-    markerPosition,
-    mapReady,
-  ]);
+  }, [markerPosition, mapReady]);
 
   // ============================================================
   // FORM INPUT
@@ -1501,15 +1113,10 @@ const HostListings: React.FC = () => {
 
   const handleInputChange = (
     e: React.ChangeEvent<
-      | HTMLInputElement
-      | HTMLTextAreaElement
-      | HTMLSelectElement
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
     >,
   ) => {
-    const {
-      name,
-      value,
-    } = e.target;
+    const { name, value } = e.target;
 
     setFormData((prev) => ({
       ...prev,
@@ -1523,15 +1130,11 @@ const HostListings: React.FC = () => {
 
   const handleArrayChange = (
     index: number,
-    field:
-      | "amenities"
-      | "rules",
+    field: "amenities" | "rules",
     value: string,
   ) => {
     setFormData((prev) => {
-      const array = [
-        ...prev[field],
-      ];
+      const array = [...prev[field]];
 
       array[index] = value;
 
@@ -1542,32 +1145,17 @@ const HostListings: React.FC = () => {
     });
   };
 
-  const addArrayField = (
-    field:
-      | "amenities"
-      | "rules",
-  ) => {
+  const addArrayField = (field: "amenities" | "rules") => {
     setFormData((prev) => ({
       ...prev,
-      [field]: [
-        ...prev[field],
-        "",
-      ],
+      [field]: [...prev[field], ""],
     }));
   };
 
-  const removeArrayField = (
-    field:
-      | "amenities"
-      | "rules",
-    index: number,
-  ) => {
+  const removeArrayField = (field: "amenities" | "rules", index: number) => {
     setFormData((prev) => ({
       ...prev,
-      [field]: prev[field].filter(
-        (_, i) =>
-          i !== index,
-      ),
+      [field]: prev[field].filter((_, i) => i !== index),
     }));
   };
 
@@ -1575,671 +1163,425 @@ const HostListings: React.FC = () => {
   // UPLOAD SINGLE IMAGE
   // ============================================================
 
-  const uploadSingleImage =
-    async (
-      file: File,
-    ): Promise<string> => {
-      const extension =
-        file.name
-          .split(".")
-          .pop()
-          ?.toLowerCase() ||
-        "";
+  const uploadSingleImage = async (file: File): Promise<string> => {
+    const extension = file.name.split(".").pop()?.toLowerCase() || "";
 
-      const fileType =
-        file.type.toLowerCase();
+    const fileType = file.type.toLowerCase();
 
-      const isValidType =
-        ACCEPTED_IMAGE_TYPES.includes(
-          fileType,
-        ) ||
-        ACCEPTED_IMAGE_EXTENSIONS.includes(
-          extension,
-        );
+    const isValidType =
+      ACCEPTED_IMAGE_TYPES.includes(fileType) ||
+      ACCEPTED_IMAGE_EXTENSIONS.includes(extension);
 
-      if (!isValidType) {
-        throw new Error(
-          t.imageTypeError,
-        );
-      }
+    if (!isValidType) {
+      throw new Error(t.imageTypeError);
+    }
 
-      if (
-        file.size >
-        MAX_IMAGE_SIZE
-      ) {
-        throw new Error(
-          t.imageSizeError,
-        );
-      }
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new Error(t.imageSizeError);
+    }
 
-      const token =
-        getAuthToken();
+    const token = getAuthToken();
 
-      if (!token) {
-        throw new Error(
-          isAr
-            ? "انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى."
-            : "Your login session has expired. Please log in again.",
-        );
-      }
-
-      const uploadFormData =
-        new FormData();
-
-      /*
-       * Backend:
-       * upload.single("image")
-       *
-       * Therefore this MUST be "image".
-       */
-      uploadFormData.append(
-        "image",
-        file,
+    if (!token) {
+      throw new Error(
+        isAr
+          ? "انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى."
+          : "Your login session has expired. Please log in again.",
       );
+    }
 
-      const url =
-        getApiUrl(
-          LISTING_IMAGE_UPLOAD_ENDPOINT,
-        );
+    const uploadFormData = new FormData();
 
-      console.log(
-        "================================================",
+    /*
+     * Backend:
+     * upload.single("image")
+     *
+     * Therefore this MUST be "image".
+     */
+    uploadFormData.append("image", file);
+
+    const url = getApiUrl(LISTING_IMAGE_UPLOAD_ENDPOINT);
+
+    console.log("================================================");
+
+    console.log("📤 IMAGE UPLOAD START");
+
+    console.log("Upload endpoint:", url);
+
+    console.log("File name:", file.name);
+
+    console.log("File type:", file.type);
+
+    console.log("File size:", formatFileSize(file.size));
+
+    console.log("================================================");
+
+    const headers: HeadersInit = {
+      Accept: "application/json",
+    };
+
+    headers.Authorization = `Bearer ${token}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: uploadFormData,
+      credentials: "include",
+    });
+
+    const responseText = await response.text();
+
+    console.log("📥 Upload HTTP status:", response.status);
+
+    console.log("📥 Upload response:", responseText);
+
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      data = {
+        message: responseText,
+      };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+          data?.error ||
+          data?.data?.message ||
+          `Upload failed (${response.status})`,
       );
+    }
 
-      console.log(
-        "📤 IMAGE UPLOAD START",
-      );
+    /*
+     * Support several possible backend response shapes.
+     */
+    const imageUrl =
+      // Top-level URL fields returned by your backend
+      data?.url ||
+      data?.imageUrl ||
+      data?.file?.url ||
+      // Nested inside data.data (alternate shape)
+      data?.data?.url ||
+      data?.data?.imageUrl ||
+      data?.data?.fileUrl ||
+      data?.data?.path ||
+      data?.data?.file?.url ||
+      data?.data?.file?.imageUrl ||
+      data?.data?.file?.path ||
+      // Fallback fields
+      data?.fileUrl ||
+      data?.path ||
+      data?.file?.imageUrl ||
+      data?.file?.path;
 
-      console.log(
-        "Upload endpoint:",
-        url,
-      );
+    console.log("🔎 Extracted server image URL:", imageUrl);
 
-      console.log(
-        "File name:",
-        file.name,
-      );
-
-      console.log(
-        "File type:",
-        file.type,
-      );
-
-      console.log(
-        "File size:",
-        formatFileSize(
-          file.size,
-        ),
-      );
-
-      console.log(
-        "================================================",
-      );
-
-      const headers: HeadersInit =
-        {
-          Accept:
-            "application/json",
-        };
-
-      headers.Authorization =
-        `Bearer ${token}`;
-
-      const response =
-        await fetch(url, {
-          method: "POST",
-          headers,
-          body: uploadFormData,
-          credentials:
-            "include",
-        });
-
-      const responseText =
-        await response.text();
-
-      console.log(
-        "📥 Upload HTTP status:",
-        response.status,
-      );
-
-      console.log(
-        "📥 Upload response:",
+    if (!imageUrl || typeof imageUrl !== "string") {
+      console.error(
+        "❌ Server did not return an image URL.",
+        "Full response:",
+        data,
+        "Raw text:",
         responseText,
       );
 
-      let data: any = {};
-
-      try {
-        data = responseText
-          ? JSON.parse(
-              responseText,
-            )
-          : {};
-      } catch {
-        data = {
-          message:
-            responseText,
-        };
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            data?.error ||
-            data?.data?.message ||
-            `Upload failed (${response.status})`,
-        );
-      }
-
-      /*
-       * Support several possible backend response shapes.
-       */
-      const imageUrl =
-        data?.data?.url ||
-        data?.data?.imageUrl ||
-        data?.data?.fileUrl ||
-        data?.data?.path ||
-        data?.data?.file?.url ||
-        data?.data?.file?.imageUrl ||
-        data?.data?.file?.path ||
-        data?.url ||
-        data?.imageUrl ||
-        data?.fileUrl ||
-        data?.path ||
-        data?.file?.url ||
-        data?.file?.imageUrl ||
-        data?.file?.path;
-
-      console.log(
-        "🔎 Extracted server image URL:",
-        imageUrl,
+      throw new Error(
+        isAr
+          ? "تم رفع الصورة ولكن الخادم لم يُرجع رابط الصورة."
+          : "Image was uploaded, but the server did not return an image URL.",
       );
+    }
 
-      if (
-        !imageUrl ||
-        typeof imageUrl !==
-          "string"
-      ) {
-        console.error(
-          "❌ Server did not return an image URL.",
-          {
-            response: data,
-            responseText,
-          },
-        );
+    /*
+     * If backend returns:
+     *
+     * /uploads/listings/file.jpg
+     *
+     * convert it to:
+     *
+     * https://api.mar-haba.ly/uploads/listings/file.jpg
+     *
+     * so the browser does not try:
+     *
+     * https://mar-haba.ly/uploads/...
+     */
+    const absoluteUrl = getAbsoluteImageUrl(imageUrl);
 
-        throw new Error(
-          isAr
-            ? "تم رفع الصورة ولكن الخادم لم يُرجع رابط الصورة."
-            : "Image was uploaded, but the server did not return an image URL.",
-        );
-      }
+    console.log("✅ FINAL IMAGE URL:", absoluteUrl);
 
-      /*
-       * If backend returns:
-       *
-       * /uploads/listings/file.jpg
-       *
-       * convert it to:
-       *
-       * https://api.mar-haba.ly/uploads/listings/file.jpg
-       *
-       * so the browser does not try:
-       *
-       * https://mar-haba.ly/uploads/...
-       */
-      const absoluteUrl =
-        getAbsoluteImageUrl(
-          imageUrl,
-        );
+    console.log("================================================");
 
-      console.log(
-        "✅ FINAL IMAGE URL:",
-        absoluteUrl,
-      );
-
-      console.log(
-        "================================================",
-      );
-
-      return absoluteUrl;
-    };
+    return absoluteUrl;
+  };
 
   // ============================================================
   // IMAGE FILE SELECT
   // ============================================================
 
-  const handleImageFilesSelected =
-    async (
-      event: React.ChangeEvent<HTMLInputElement>,
-    ) => {
-      const files =
-        Array.from(
-          event.target.files ||
-            [],
-        );
+  const handleImageFilesSelected = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(event.target.files || []);
 
-      /*
-       * Reset input so selecting the same
-       * image again works.
-       */
-      event.target.value = "";
+    /*
+     * Reset input so selecting the same
+     * image again works.
+     */
+    event.target.value = "";
 
-      if (!files.length) {
-        return;
-      }
+    if (!files.length) {
+      return;
+    }
 
-      const currentImageCount =
-        formData.images.filter(
-          Boolean,
-        ).length;
+    const currentImageCount = formData.images.filter(Boolean).length;
 
-      const remainingSlots =
-        MAX_IMAGES -
-        currentImageCount;
+    const remainingSlots = MAX_IMAGES - currentImageCount;
 
-      if (
-        remainingSlots <= 0
-      ) {
-        alert(
-          t.maxImagesError,
-        );
+    if (remainingSlots <= 0) {
+      alert(t.maxImagesError);
 
-        return;
-      }
+      return;
+    }
 
-      if (
-        files.length >
-        remainingSlots
-      ) {
-        alert(
-          isAr
-            ? `يمكنك إضافة ${remainingSlots} صورة فقط`
-            : `You can add only ${remainingSlots} more image(s)`,
-        );
-      }
-
-      const filesToUpload =
-        files.slice(
-          0,
-          remainingSlots,
-        );
-
-      setUploadingImages(
-        true,
+    if (files.length > remainingSlots) {
+      alert(
+        isAr
+          ? `يمكنك إضافة ${remainingSlots} صورة فقط`
+          : `You can add only ${remainingSlots} more image(s)`,
       );
+    }
 
-      setUploadProgress(
-        0,
-      );
+    const filesToUpload = files.slice(0, remainingSlots);
 
-      const failedFiles: {
-        name: string;
-        reason: string;
-      }[] = [];
+    setUploadingImages(true);
 
-      try {
-        for (
-          let index = 0;
-          index <
-          filesToUpload.length;
-          index++
-        ) {
-          const file =
-            filesToUpload[
-              index
-            ];
+    setUploadProgress(0);
 
-          try {
-            // ==================================================
-            // FILE INFORMATION BEFORE UPLOAD
-            // ==================================================
+    const failedFiles: {
+      name: string;
+      reason: string;
+    }[] = [];
 
-            console.log(
-              "📁 Selected image:",
-              {
-                name:
-                  file.name,
-                type:
-                  file.type,
-                size:
-                  formatFileSize(
-                    file.size,
-                  ),
-              },
-            );
+    try {
+      for (let index = 0; index < filesToUpload.length; index++) {
+        const file = filesToUpload[index];
 
-            setUploadingFileName(
+        try {
+          // ==================================================
+          // FILE INFORMATION BEFORE UPLOAD
+          // ==================================================
+
+          console.log("📁 Selected image:", {
+            name: file.name,
+            type: file.type,
+            size: formatFileSize(file.size),
+          });
+
+          setUploadingFileName(
+            isAr ? `فحص ${file.name}...` : `Checking ${file.name}...`,
+          );
+
+          // ==================================================
+          // VALIDATE ORIGINAL
+          // ==================================================
+
+          const extension = file.name.split(".").pop()?.toLowerCase() || "";
+
+          const isValidType =
+            ACCEPTED_IMAGE_TYPES.includes(file.type.toLowerCase()) ||
+            ACCEPTED_IMAGE_EXTENSIONS.includes(extension);
+
+          if (!isValidType) {
+            throw new Error(t.imageTypeError);
+          }
+
+          if (file.size > MAX_IMAGE_SIZE) {
+            throw new Error(t.imageSizeError);
+          }
+
+          // ==================================================
+          // COMPRESS
+          // ==================================================
+
+          setUploadingFileName(
+            isAr ? `ضغط ${file.name}...` : `Compressing ${file.name}...`,
+          );
+
+          console.log("🗜️ Compressing image:", file.name);
+
+          const compressedFile = await compressImage(file);
+
+          console.log("🗜️ Compression complete:", {
+            originalName: file.name,
+
+            originalSize: formatFileSize(file.size),
+
+            compressedName: compressedFile.name,
+
+            compressedSize: formatFileSize(compressedFile.size),
+
+            compressedType: compressedFile.type,
+          });
+
+          // ==================================================
+          // UPLOAD
+          // ==================================================
+
+          setUploadingFileName(
+            isAr ? `رفع ${file.name}...` : `Uploading ${file.name}...`,
+          );
+
+          const url = await uploadSingleImage(compressedFile);
+
+          // ==================================================
+          // SERVER URL VALIDATION
+          // ==================================================
+
+          if (!url || typeof url !== "string") {
+            throw new Error(
               isAr
-                ? `فحص ${file.name}...`
-                : `Checking ${file.name}...`,
-            );
-
-            // ==================================================
-            // VALIDATE ORIGINAL
-            // ==================================================
-
-            const extension =
-              file.name
-                .split(".")
-                .pop()
-                ?.toLowerCase() ||
-              "";
-
-            const isValidType =
-              ACCEPTED_IMAGE_TYPES.includes(
-                file.type.toLowerCase(),
-              ) ||
-              ACCEPTED_IMAGE_EXTENSIONS.includes(
-                extension,
-              );
-
-            if (!isValidType) {
-              throw new Error(
-                t.imageTypeError,
-              );
-            }
-
-            if (
-              file.size >
-              MAX_IMAGE_SIZE
-            ) {
-              throw new Error(
-                t.imageSizeError,
-              );
-            }
-
-            // ==================================================
-            // COMPRESS
-            // ==================================================
-
-            setUploadingFileName(
-              isAr
-                ? `ضغط ${file.name}...`
-                : `Compressing ${file.name}...`,
-            );
-
-            console.log(
-              "🗜️ Compressing image:",
-              file.name,
-            );
-
-            const compressedFile =
-              await compressImage(
-                file,
-              );
-
-            console.log(
-              "🗜️ Compression complete:",
-              {
-                originalName:
-                  file.name,
-
-                originalSize:
-                  formatFileSize(
-                    file.size,
-                  ),
-
-                compressedName:
-                  compressedFile.name,
-
-                compressedSize:
-                  formatFileSize(
-                    compressedFile.size,
-                  ),
-
-                compressedType:
-                  compressedFile.type,
-              },
-            );
-
-            // ==================================================
-            // UPLOAD
-            // ==================================================
-
-            setUploadingFileName(
-              isAr
-                ? `رفع ${file.name}...`
-                : `Uploading ${file.name}...`,
-            );
-
-            const url =
-              await uploadSingleImage(
-                compressedFile,
-              );
-
-            // ==================================================
-            // SERVER URL VALIDATION
-            // ==================================================
-
-            if (
-              !url ||
-              typeof url !==
-                "string"
-            ) {
-              throw new Error(
-                isAr
-                  ? "لم يُرجع الخادم رابط الصورة"
-                  : "Server did not return an image URL",
-              );
-            }
-
-            // ==================================================
-            // SUCCESS LOG
-            // ==================================================
-
-            console.log(
-              "✅ IMAGE UPLOADED SUCCESSFULLY",
-              {
-                originalFile:
-                  file.name,
-
-                originalSize:
-                  formatFileSize(
-                    file.size,
-                  ),
-
-                compressedSize:
-                  formatFileSize(
-                    compressedFile.size,
-                  ),
-
-                serverUrl:
-                  url,
-              },
-            );
-
-            // ==================================================
-            // ADD IMAGE IMMEDIATELY TO FORM
-            // ==================================================
-
-            setFormData(
-              (prev) => ({
-                ...prev,
-
-                images: [
-                  ...prev.images.filter(
-                    Boolean,
-                  ),
-
-                  url,
-                ],
-              }),
-            );
-
-            // ==================================================
-            // SAVE UPLOAD INFO
-            // ==================================================
-
-            setUploadedImageInfo(
-              (prev) => [
-                ...prev,
-
-                {
-                  id: `${Date.now()}-${index}-${file.name}`,
-
-                  fileName:
-                    file.name,
-
-                  originalSize:
-                    file.size,
-
-                  compressedSize:
-                    compressedFile.size,
-
-                  url,
-
-                  uploadedAt:
-                    new Date().toLocaleTimeString(),
-                },
-              ],
-            );
-          } catch (
-            err: any
-          ) {
-            const rawMessage =
-              err?.message ||
-              t.imageUploadFailed;
-
-            const message =
-              rawMessage
-                .toLowerCase()
-                .includes(
-                  "heic",
-                )
-                ? isAr
-                  ? "تعذر تحويل صورة HEIC. الرجاء تحويلها إلى JPG أولاً."
-                  : "Could not convert this HEIC image. Please convert it to JPG first."
-                : rawMessage;
-
-            console.error(
-              "❌ IMAGE UPLOAD FAILED",
-              {
-                file:
-                  file.name,
-                error:
-                  err,
-              },
-            );
-
-            failedFiles.push({
-              name:
-                file.name,
-              reason:
-                message,
-            });
-          } finally {
-            setUploadProgress(
-              Math.round(
-                ((index + 1) /
-                  filesToUpload.length) *
-                  100,
-              ),
+                ? "لم يُرجع الخادم رابط الصورة"
+                : "Server did not return an image URL",
             );
           }
-        }
-      } finally {
-        setUploadingImages(
-          false,
-        );
 
-        setUploadingFileName(
-          null,
-        );
+          // ==================================================
+          // SUCCESS LOG
+          // ==================================================
 
-        /*
-         * Keep the progress at 100 for a moment
-         * visually, then reset.
-         */
-        setTimeout(() => {
+          console.log("✅ IMAGE UPLOADED SUCCESSFULLY", {
+            originalFile: file.name,
+
+            originalSize: formatFileSize(file.size),
+
+            compressedSize: formatFileSize(compressedFile.size),
+
+            serverUrl: url,
+          });
+
+          // ==================================================
+          // ADD IMAGE IMMEDIATELY TO FORM
+          // ==================================================
+
+          setFormData((prev) => ({
+            ...prev,
+
+            images: [...prev.images.filter(Boolean), url],
+          }));
+
+          // ==================================================
+          // SAVE UPLOAD INFO
+          // ==================================================
+
+          setUploadedImageInfo((prev) => [
+            ...prev,
+
+            {
+              id: `${Date.now()}-${index}-${file.name}`,
+
+              fileName: file.name,
+
+              originalSize: file.size,
+
+              compressedSize: compressedFile.size,
+
+              url,
+
+              uploadedAt: new Date().toLocaleTimeString(),
+            },
+          ]);
+        } catch (err: any) {
+          const rawMessage = err?.message || t.imageUploadFailed;
+
+          const message = rawMessage.toLowerCase().includes("heic")
+            ? isAr
+              ? "تعذر تحويل صورة HEIC. الرجاء تحويلها إلى JPG أولاً."
+              : "Could not convert this HEIC image. Please convert it to JPG first."
+            : rawMessage;
+
+          console.error("❌ IMAGE UPLOAD FAILED", {
+            file: file.name,
+            error: err,
+          });
+
+          failedFiles.push({
+            name: file.name,
+            reason: message,
+          });
+        } finally {
           setUploadProgress(
-            0,
+            Math.round(((index + 1) / filesToUpload.length) * 100),
           );
-        }, 300);
+        }
       }
+    } finally {
+      setUploadingImages(false);
 
-      // ============================================================
-      // REPORT FAILURES
-      // ============================================================
+      setUploadingFileName(null);
 
-      if (
-        failedFiles.length >
-        0
-      ) {
-        const summary =
-          failedFiles
-            .map(
-              (f) =>
-                `• ${f.name}\n  ${f.reason}`,
-            )
-            .join("\n\n");
+      /*
+       * Keep the progress at 100 for a moment
+       * visually, then reset.
+       */
+      setTimeout(() => {
+        setUploadProgress(0);
+      }, 300);
+    }
 
-        alert(
-          isAr
-            ? `فشل رفع ${failedFiles.length} صورة:\n\n${summary}`
-            : `Failed to upload ${failedFiles.length} image(s):\n\n${summary}`,
-        );
-      }
-    };
+    // ============================================================
+    // REPORT FAILURES
+    // ============================================================
+
+    if (failedFiles.length > 0) {
+      const summary = failedFiles
+        .map((f) => `• ${f.name}\n  ${f.reason}`)
+        .join("\n\n");
+
+      alert(
+        isAr
+          ? `فشل رفع ${failedFiles.length} صورة:\n\n${summary}`
+          : `Failed to upload ${failedFiles.length} image(s):\n\n${summary}`,
+      );
+    }
+  };
 
   // ============================================================
   // OPEN IMAGE PICKER
   // ============================================================
 
-  const openImagePicker =
-    () => {
-      if (
-        uploadingImages
-      ) {
-        return;
-      }
+  const openImagePicker = () => {
+    if (uploadingImages) {
+      return;
+    }
 
-      if (
-        formData.images.filter(
-          Boolean,
-        ).length >=
-        MAX_IMAGES
-      ) {
-        alert(
-          t.maxImagesError,
-        );
+    if (formData.images.filter(Boolean).length >= MAX_IMAGES) {
+      alert(t.maxImagesError);
 
-        return;
-      }
+      return;
+    }
 
-      imageInputRef.current?.click();
-    };
+    imageInputRef.current?.click();
+  };
 
   // ============================================================
   // REMOVE IMAGE
   // ============================================================
 
-  const handleImageRemove =
-    (index: number) => {
-      const imageToRemove =
-        formData.images[
-          index
-        ];
+  const handleImageRemove = (index: number) => {
+    const imageToRemove = formData.images[index];
 
-      setFormData((prev) => ({
-        ...prev,
+    setFormData((prev) => ({
+      ...prev,
 
-        images:
-          prev.images.filter(
-            (_, i) =>
-              i !== index,
-          ),
-      }));
+      images: prev.images.filter((_, i) => i !== index),
+    }));
 
-      setUploadedImageInfo(
-        (prev) =>
-          prev.filter(
-            (item) =>
-              item.url !==
-              imageToRemove,
-          ),
-      );
-    };
+    setUploadedImageInfo((prev) =>
+      prev.filter((item) => item.url !== imageToRemove),
+    );
+  };
 
   // ============================================================
   // RESET FORM
@@ -2256,49 +1598,31 @@ const HostListings: React.FC = () => {
       images: [],
     });
 
-    setUploadedImageInfo(
-      [],
-    );
+    setUploadedImageInfo([]);
 
-    setMarkerPosition(
-      null,
-    );
+    setMarkerPosition(null);
 
     setMapCenter(null);
 
-    setSelectedLocation(
-      null,
-    );
+    setSelectedLocation(null);
 
     setIsEditing(false);
 
     setEditingId(null);
 
-    setLocationError(
-      null,
-    );
+    setLocationError(null);
 
     setAddressQuery("");
 
-    setAddressSuggestions(
-      [],
-    );
+    setAddressSuggestions([]);
 
-    setShowSuggestions(
-      false,
-    );
+    setShowSuggestions(false);
 
-    setUploadingImages(
-      false,
-    );
+    setUploadingImages(false);
 
-    setUploadingFileName(
-      null,
-    );
+    setUploadingFileName(null);
 
-    setUploadProgress(
-      0,
-    );
+    setUploadProgress(0);
   };
 
   const cancelEdit = () => {
@@ -2311,42 +1635,22 @@ const HostListings: React.FC = () => {
   // EDIT LISTING
   // ============================================================
 
-  const handleEdit = (
-    listing: Listing,
-  ) => {
+  const handleEdit = (listing: Listing) => {
     const lat =
-      listing.latitude !==
-        null &&
-      listing.latitude !==
-        undefined
-        ? parseFloat(
-            String(
-              listing.latitude,
-            ),
-          )
+      listing.latitude !== null && listing.latitude !== undefined
+        ? parseFloat(String(listing.latitude))
         : null;
 
     const lng =
-      listing.longitude !==
-        null &&
-      listing.longitude !==
-        undefined
-        ? parseFloat(
-            String(
-              listing.longitude,
-            ),
-          )
+      listing.longitude !== null && listing.longitude !== undefined
+        ? parseFloat(String(listing.longitude))
         : null;
 
     const coords =
       lat !== null &&
       lng !== null &&
-      Number.isFinite(
-        lat,
-      ) &&
-      Number.isFinite(
-        lng,
-      )
+      Number.isFinite(lat) &&
+      Number.isFinite(lng)
         ? {
             lat,
             lng,
@@ -2355,99 +1659,58 @@ const HostListings: React.FC = () => {
 
     setIsEditing(true);
 
-    setEditingId(
-      listing.id,
-    );
+    setEditingId(listing.id);
 
     setFormData({
-      title:
-        listing.title || "",
+      title: listing.title || "",
 
-      description:
-        listing.description ||
-        "",
+      description: listing.description || "",
 
-      price: String(
-        listing.price ??
-          "",
-      ),
+      price: String(listing.price ?? ""),
 
-      location:
-        listing.location ||
-        "",
+      location: listing.location || "",
 
-      coordinates:
-        coords,
+      coordinates: coords,
 
-      images:
-        Array.isArray(
-          listing.images,
-        )
-          ? listing.images.filter(
-              Boolean,
-            )
-          : [],
+      images: Array.isArray(listing.images)
+        ? listing.images.filter(Boolean)
+        : [],
 
-      amenities:
-        listing.amenities
-          ?.length
-          ? listing.amenities
-          : [""],
+      amenities: listing.amenities?.length ? listing.amenities : [""],
 
-      rules:
-        listing.rules ||
-        [],
+      rules: listing.rules || [],
 
-      category:
-        listing.category ||
-        "city",
+      category: listing.category || "city",
 
-      cancellation_policy:
-        listing.cancellation_policy ||
-        {
-          type:
-            "flexible",
-          description:
-            "",
-          rules: [],
-        },
+      cancellation_policy: listing.cancellation_policy || {
+        type: "flexible",
+        description: "",
+        rules: [],
+      },
     });
 
     /*
      * Existing server images don't have
      * local upload metadata.
      */
-    setUploadedImageInfo(
-      [],
-    );
+    setUploadedImageInfo([]);
 
     if (coords) {
-      setMarkerPosition(
-        coords,
-      );
+      setMarkerPosition(coords);
 
       setMapCenter({
         lat: coords.lat,
         lng: coords.lng,
       });
 
-      setSelectedLocation(
-        {
-          ...coords,
-          address:
-            listing.location ||
-            "",
-        },
-      );
+      setSelectedLocation({
+        ...coords,
+        address: listing.location || "",
+      });
 
-      setAddressQuery(
-        listing.location ||
-          "",
-      );
+      setAddressQuery(listing.location || "");
     } else {
-      setMapCenter(
-        DEFAULT_CENTER,
-      );
+      setMapCenter(DEFAULT_CENTER);
     }
 
     setShowForm(true);
@@ -2457,490 +1720,271 @@ const HostListings: React.FC = () => {
   // TOGGLE ACTIVE
   // ============================================================
 
-  const handleToggleActive =
-    async (
-      listing: Listing,
-    ) => {
-      setTogglingId(
-        listing.id,
-      );
+  const handleToggleActive = async (listing: Listing) => {
+    setTogglingId(listing.id);
 
-      try {
-        const response =
-          await apiService.patchProtectedData<{
-            is_active: boolean;
-          }>(
-            `/api/v1/listings/${listing.id}/toggle-active`,
-          );
+    try {
+      const response = await apiService.patchProtectedData<{
+        is_active: boolean;
+      }>(`/api/v1/listings/${listing.id}/toggle-active`);
 
-        if (
-          response.success &&
-          response.data
-        ) {
-          setListings(
-            (prev) =>
-              prev.map(
-                (item) =>
-                  item.id ===
-                  listing.id
-                    ? {
-                        ...item,
+      if (response.success && response.data) {
+        setListings((prev) =>
+          prev.map((item) =>
+            item.id === listing.id
+              ? {
+                  ...item,
 
-                        is_active:
-                          response
-                            .data!
-                            .is_active,
-                      }
-                    : item,
-              ),
-          );
-        }
-      } catch (
-        error
-      ) {
-        console.error(
-          "Toggle listing failed:",
-          error,
-        );
-      } finally {
-        setTogglingId(
-          null,
+                  is_active: response.data!.is_active,
+                }
+              : item,
+          ),
         );
       }
-    };
+    } catch (error) {
+      console.error("Toggle listing failed:", error);
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   // ============================================================
   // VALIDATE FORM
   // ============================================================
 
-  const validateForm =
-    (): boolean => {
-      if (
-        !formData.location ||
-        !formData.coordinates
-      ) {
-        alert(
-          t.pleaseSelectLocation,
-        );
+  const validateForm = (): boolean => {
+    if (!formData.location || !formData.coordinates) {
+      alert(t.pleaseSelectLocation);
 
-        return false;
-      }
+      return false;
+    }
 
-      const images =
-        formData.images.filter(
-          Boolean,
-        );
+    const images = formData.images.filter(Boolean);
 
-      if (
-        images.length ===
-        0
-      ) {
-        alert(
-          t.pleaseUploadImage,
-        );
+    if (images.length === 0) {
+      alert(t.pleaseUploadImage);
 
-        return false;
-      }
+      return false;
+    }
 
-      if (
-        images.length >
-        MAX_IMAGES
-      ) {
-        alert(
-          t.maxImagesError,
-        );
+    if (images.length > MAX_IMAGES) {
+      alert(t.maxImagesError);
 
-        return false;
-      }
+      return false;
+    }
 
-      if (
-        !formData.title.trim()
-      ) {
-        alert(
-          isAr
-            ? "الرجاء إدخال عنوان الإعلان"
-            : "Please enter a listing title",
-        );
+    if (!formData.title.trim()) {
+      alert(
+        isAr ? "الرجاء إدخال عنوان الإعلان" : "Please enter a listing title",
+      );
 
-        return false;
-      }
+      return false;
+    }
 
-      if (
-        !formData.description.trim()
-      ) {
-        alert(
-          isAr
-            ? "الرجاء إدخال وصف الإعلان"
-            : "Please enter a listing description",
-        );
+    if (!formData.description.trim()) {
+      alert(
+        isAr
+          ? "الرجاء إدخال وصف الإعلان"
+          : "Please enter a listing description",
+      );
 
-        return false;
-      }
+      return false;
+    }
 
-      if (
-        !formData.price ||
-        Number(
-          formData.price,
-        ) < 0
-      ) {
-        alert(
-          isAr
-            ? "الرجاء إدخال سعر صحيح"
-            : "Please enter a valid price",
-        );
+    if (!formData.price || Number(formData.price) < 0) {
+      alert(isAr ? "الرجاء إدخال سعر صحيح" : "Please enter a valid price");
 
-        return false;
-      }
+      return false;
+    }
 
-      return true;
-    };
+    return true;
+  };
 
   // ============================================================
   // CREATE LISTING
   // ============================================================
 
-  const handleSubmit =
-    async (
-      e: React.FormEvent,
-    ) => {
-      e.preventDefault();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-      if (
-        !validateForm()
-      ) {
-        return;
+    if (!validateForm()) {
+      return;
+    }
+
+    setSavingListing(true);
+
+    try {
+      const payload = {
+        ...formData,
+
+        images: formData.images.filter(Boolean),
+
+        amenities: formData.amenities
+          .map((item) => item.trim())
+          .filter(Boolean),
+
+        rules: formData.rules.map((item) => item.trim()).filter(Boolean),
+
+        price: Number(formData.price),
+      };
+
+      console.log("Creating listing with images:", payload.images);
+
+      const response = await apiService.postProtectedData<{
+        success: boolean;
+        listing?: Listing;
+      }>("/api/v1/listings", payload);
+
+      if (response.success) {
+        setShowForm(false);
+
+        resetForm();
+
+        await fetchListings();
+
+        alert(t.listingCreatedSuccess);
       }
+    } catch (error: any) {
+      console.error("Create listing failed:", error);
 
-      setSavingListing(
-        true,
-      );
-
-      try {
-        const payload = {
-          ...formData,
-
-          images:
-            formData.images.filter(
-              Boolean,
-            ),
-
-          amenities:
-            formData.amenities
-              .map(
-                (item) =>
-                  item.trim(),
-              )
-              .filter(Boolean),
-
-          rules:
-            formData.rules
-              .map(
-                (item) =>
-                  item.trim(),
-              )
-              .filter(Boolean),
-
-          price: Number(
-            formData.price,
-          ),
-        };
-
-        console.log(
-          "Creating listing with images:",
-          payload.images,
-        );
-
-        const response =
-          await apiService.postProtectedData<{
-            success: boolean;
-            listing?: Listing;
-          }>(
-            "/api/v1/listings",
-            payload,
-          );
-
-        if (
-          response.success
-        ) {
-          setShowForm(false);
-
-          resetForm();
-
-          await fetchListings();
-
-          alert(
-            t.listingCreatedSuccess,
-          );
-        }
-      } catch (
-        error: any
-      ) {
-        console.error(
-          "Create listing failed:",
-          error,
-        );
-
-        alert(
-          error?.message ||
-            "Failed to create listing",
-        );
-      } finally {
-        setSavingListing(
-          false,
-        );
-      }
-    };
+      alert(error?.message || "Failed to create listing");
+    } finally {
+      setSavingListing(false);
+    }
+  };
 
   // ============================================================
   // UPDATE LISTING
   // ============================================================
 
-  const handleUpdate =
-    async (
-      e: React.FormEvent,
-    ) => {
-      e.preventDefault();
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-      if (
-        !validateForm() ||
-        !editingId
-      ) {
-        return;
+    if (!validateForm() || !editingId) {
+      return;
+    }
+
+    setSavingListing(true);
+
+    try {
+      const payload = {
+        title: formData.title.trim(),
+
+        description: formData.description.trim(),
+
+        price: Number(formData.price),
+
+        location: formData.location.trim(),
+
+        coordinates: formData.coordinates
+          ? {
+              lat: Number(formData.coordinates.lat),
+
+              lng: Number(formData.coordinates.lng),
+            }
+          : null,
+
+        images: formData.images.filter(Boolean),
+
+        amenities: formData.amenities
+          .map((item) => item.trim())
+          .filter(Boolean),
+
+        rules: formData.rules.map((item) => item.trim()).filter(Boolean),
+
+        category: formData.category || "city",
+
+        cancellation_policy: {
+          type: formData.cancellation_policy.type || "flexible",
+
+          description: formData.cancellation_policy.description?.trim() || "",
+
+          rules: formData.cancellation_policy.rules
+            .map((item) => item.trim())
+            .filter(Boolean),
+        },
+      };
+
+      console.log("Updating listing with images:", payload.images);
+
+      const response = await apiService.putProtectedData<{
+        success: boolean;
+        data?: Listing;
+        listing?: Listing;
+        message?: string;
+      }>(`/api/v1/listings/${editingId}`, payload);
+
+      if (!response.success) {
+        throw new Error(response.message || "Failed to update listing");
       }
 
-      setSavingListing(
-        true,
-      );
+      await fetchListings();
 
-      try {
-        const payload = {
-          title:
-            formData.title.trim(),
+      setShowForm(false);
 
-          description:
-            formData.description.trim(),
+      resetForm();
 
-          price: Number(
-            formData.price,
-          ),
+      alert(t.listingUpdatedSuccess);
+    } catch (error: any) {
+      console.error("Update listing failed:", error);
 
-          location:
-            formData.location.trim(),
-
-          coordinates:
-            formData.coordinates
-              ? {
-                  lat: Number(
-                    formData
-                      .coordinates
-                      .lat,
-                  ),
-
-                  lng: Number(
-                    formData
-                      .coordinates
-                      .lng,
-                  ),
-                }
-              : null,
-
-          images:
-            formData.images.filter(
-              Boolean,
-            ),
-
-          amenities:
-            formData.amenities
-              .map(
-                (item) =>
-                  item.trim(),
-              )
-              .filter(Boolean),
-
-          rules:
-            formData.rules
-              .map(
-                (item) =>
-                  item.trim(),
-              )
-              .filter(Boolean),
-
-          category:
-            formData.category ||
-            "city",
-
-          cancellation_policy:
-            {
-              type:
-                formData
-                  .cancellation_policy
-                  .type ||
-                "flexible",
-
-              description:
-                formData
-                  .cancellation_policy
-                  .description
-                  ?.trim() ||
-                "",
-
-              rules:
-                formData
-                  .cancellation_policy
-                  .rules
-                  .map(
-                    (item) =>
-                      item.trim(),
-                  )
-                  .filter(Boolean),
-            },
-        };
-
-        console.log(
-          "Updating listing with images:",
-          payload.images,
-        );
-
-        const response =
-          await apiService.putProtectedData<{
-            success: boolean;
-            data?: Listing;
-            listing?: Listing;
-            message?: string;
-          }>(
-            `/api/v1/listings/${editingId}`,
-            payload,
-          );
-
-        if (
-          !response.success
-        ) {
-          throw new Error(
-            response.message ||
-              "Failed to update listing",
-          );
-        }
-
-        await fetchListings();
-
-        setShowForm(false);
-
-        resetForm();
-
-        alert(
-          t.listingUpdatedSuccess,
-        );
-      } catch (
-        error: any
-      ) {
-        console.error(
-          "Update listing failed:",
-          error,
-        );
-
-        alert(
-          error?.message ||
-            "Failed to update listing",
-        );
-      } finally {
-        setSavingListing(
-          false,
-        );
-      }
-    };
+      alert(error?.message || "Failed to update listing");
+    } finally {
+      setSavingListing(false);
+    }
+  };
 
   // ============================================================
   // DELETE
   // ============================================================
 
-  const handleDelete =
-    async (
-      id: string,
-    ) => {
-      if (
-        !confirm(
-          t.confirmDeleteListing,
-        )
-      ) {
-        return;
+  const handleDelete = async (id: string) => {
+    if (!confirm(t.confirmDeleteListing)) {
+      return;
+    }
+
+    try {
+      const response = await apiService.deleteProtectedData<{
+        success: boolean;
+      }>(`/api/v1/listings/${id}?deleteListing=true`);
+
+      if (response.success) {
+        await fetchListings();
+
+        alert(t.listingDeletedSuccess);
       }
+    } catch (error: any) {
+      console.error("Delete listing failed:", error);
 
-      try {
-        const response =
-          await apiService.deleteProtectedData<{
-            success: boolean;
-          }>(
-            `/api/v1/listings/${id}?deleteListing=true`,
-          );
-
-        if (
-          response.success
-        ) {
-          await fetchListings();
-
-          alert(
-            t.listingDeletedSuccess,
-          );
-        }
-      } catch (
-        error: any
-      ) {
-        console.error(
-          "Delete listing failed:",
-          error,
-        );
-
-        alert(
-          error?.message ||
-            "Failed to delete listing",
-        );
-      }
-    };
+      alert(error?.message || "Failed to delete listing");
+    }
+  };
 
   // ============================================================
   // AUTO LOCATION
   // ============================================================
 
   useEffect(() => {
-    if (
-      !showForm ||
-      isEditing ||
-      mapCenter ||
-      isGettingLocation
-    ) {
+    if (!showForm || isEditing || mapCenter || isGettingLocation) {
       return;
     }
 
-    useCurrentLocation().then(
-      () => {
-        setMapCenter(
-          (current) =>
-            current ??
-            DEFAULT_CENTER,
-        );
-      },
-    );
-  }, [
-    showForm,
-    isEditing,
-    mapCenter,
-    isGettingLocation,
-    useCurrentLocation,
-  ]);
+    useCurrentLocation().then(() => {
+      setMapCenter((current) => current ?? DEFAULT_CENTER);
+    });
+  }, [showForm, isEditing, mapCenter, isGettingLocation, useCurrentLocation]);
 
   // ============================================================
   // FONTS
   // ============================================================
 
-  const bodyFontClass =
-    isAr
-      ? "font-['Cairo','Tajawal',sans-serif]"
-      : "font-['DM_Mono',monospace]";
+  const bodyFontClass = isAr
+    ? "font-['Cairo','Tajawal',sans-serif]"
+    : "font-['DM_Mono',monospace]";
 
-  const displayFontClass =
-    isAr
-      ? "font-['Cairo','Tajawal',sans-serif]"
-      : "font-['Fraunces',serif]";
+  const displayFontClass = isAr
+    ? "font-['Cairo','Tajawal',sans-serif]"
+    : "font-['Fraunces',serif]";
 
   const fieldInput = `
     w-full
@@ -2965,101 +2009,61 @@ const HostListings: React.FC = () => {
   // CANCELLATION POLICY
   // ============================================================
 
-  const handleCancellationPolicyChange =
-    (
-      field:
-        | "type"
-        | "description",
-      value: string,
-    ) => {
-      setFormData(
-        (prev) => ({
-          ...prev,
+  const handleCancellationPolicyChange = (
+    field: "type" | "description",
+    value: string,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
 
-          cancellation_policy:
-            {
-              ...prev.cancellation_policy,
+      cancellation_policy: {
+        ...prev.cancellation_policy,
 
-              [field]:
-                value,
-            },
-        }),
-      );
-    };
+        [field]: value,
+      },
+    }));
+  };
 
-  const handleCancellationRuleChange =
-    (
-      index: number,
-      value: string,
-    ) => {
-      setFormData(
-        (prev) => {
-          const rules = [
-            ...prev
-              .cancellation_policy
-              .rules,
-          ];
+  const handleCancellationRuleChange = (index: number, value: string) => {
+    setFormData((prev) => {
+      const rules = [...prev.cancellation_policy.rules];
 
-          rules[index] =
-            value;
+      rules[index] = value;
 
-          return {
-            ...prev,
+      return {
+        ...prev,
 
-            cancellation_policy:
-              {
-                ...prev.cancellation_policy,
-                rules,
-              },
-          };
+        cancellation_policy: {
+          ...prev.cancellation_policy,
+          rules,
         },
-      );
-    };
+      };
+    });
+  };
 
-  const addCancellationRule =
-    () => {
-      setFormData(
-        (prev) => ({
-          ...prev,
+  const addCancellationRule = () => {
+    setFormData((prev) => ({
+      ...prev,
 
-          cancellation_policy:
-            {
-              ...prev.cancellation_policy,
+      cancellation_policy: {
+        ...prev.cancellation_policy,
 
-              rules: [
-                ...prev
-                  .cancellation_policy
-                  .rules,
+        rules: [...prev.cancellation_policy.rules, ""],
+      },
+    }));
+  };
 
-                "",
-              ],
-            },
-        }),
-      );
-    };
+  const removeCancellationRule = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
 
-  const removeCancellationRule =
-    (
-      index: number,
-    ) => {
-      setFormData(
-        (prev) => ({
-          ...prev,
+      cancellation_policy: {
+        ...prev.cancellation_policy,
 
-          cancellation_policy:
-            {
-              ...prev.cancellation_policy,
-
-              rules:
-                prev.cancellation_policy.rules.filter(
-                  (_, i) =>
-                    i !==
-                    index,
-                ),
-            },
-        }),
-      );
-    };
+        rules: prev.cancellation_policy.rules.filter((_, i) => i !== index),
+      },
+    }));
+  };
 
   // ============================================================
   // NAV
@@ -3083,18 +2087,11 @@ const HostListings: React.FC = () => {
   // GUARDS
   // ============================================================
 
-  if (
-    authLoading ||
-    loading
-  ) {
-    return (
-      <LoadingScreen />
-    );
+  if (authLoading || loading) {
+    return <LoadingScreen />;
   }
 
-  if (
-    !isAuthorizedHost
-  ) {
+  if (!isAuthorizedHost) {
     return null;
   }
 
@@ -3105,24 +2102,16 @@ const HostListings: React.FC = () => {
   return (
     <div
       className={`min-h-screen bg-[#f7f6f2] ${bodyFontClass}`}
-      dir={
-        isAr
-          ? "rtl"
-          : "ltr"
-      }
+      dir={isAr ? "rtl" : "ltr"}
     >
       {/* ======================================================
           NAVBAR
       ====================================================== */}
 
       <Navbar
-        NAV_LINKS={
-          NAV_LINKS
-        }
+        NAV_LINKS={NAV_LINKS}
         lang={lang}
-        toggleLanguage={
-          toggleLanguage
-        }
+        toggleLanguage={toggleLanguage}
       />
 
       {/* ======================================================
@@ -3135,34 +2124,19 @@ const HostListings: React.FC = () => {
             <div
               className={`text-[10px] tracking-[0.12em] uppercase text-[#e8c547]/60 mb-2 ${bodyFontClass}`}
             >
-              {
-                t.hostPanel
-              }
+              {t.hostPanel}
             </div>
 
             <h1
               className={`${displayFontClass} italic font-light text-[clamp(28px,4vw,38px)] text-white`}
             >
-              {
-                t.myListingsTitle1
-              }{" "}
-              <span className="font-medium text-[#e8c547]">
-                {
-                  t.listings1
-                }
-              </span>
+              {t.myListingsTitle1}{" "}
+              <span className="font-medium text-[#e8c547]">{t.listings1}</span>
             </h1>
 
-            <p
-              className={`text-xs text-white/35 mt-1.5 ${bodyFontClass}`}
-            >
-              {
-                listings.length
-              }{" "}
-              {listings.length !==
-              1
-                ? t.listingsActive
-                : t.listingActive}
+            <p className={`text-xs text-white/35 mt-1.5 ${bodyFontClass}`}>
+              {listings.length}{" "}
+              {listings.length !== 1 ? t.listingsActive : t.listingActive}
             </p>
           </div>
 
@@ -3171,16 +2145,11 @@ const HostListings: React.FC = () => {
               onClick={() => {
                 resetForm();
 
-                setShowForm(
-                  true,
-                );
+                setShowForm(true);
               }}
               className={`bg-[#e8c547] text-[#1a1a2e] px-5 py-2.5 rounded-lg text-xs font-medium border-none cursor-pointer shrink-0 hover:opacity-88 hover:-translate-y-px transition-all ${bodyFontClass}`}
             >
-              +{" "}
-              {
-                t.addNewListing
-              }
+              + {t.addNewListing}
             </button>
           )}
         </div>
@@ -3191,52 +2160,31 @@ const HostListings: React.FC = () => {
       ====================================================== */}
 
       <main className="max-w-[1100px] mx-auto px-4 md:px-6 py-8">
-
         {/* ====================================================
             FORM
         ==================================================== */}
 
         {showForm && (
           <div className="bg-white rounded-2xl border border-black/7 p-8 mb-8">
-
             <div className="mb-7">
               <div
                 className={`text-[10px] tracking-[0.12em] uppercase text-[#999] mb-1.5 ${bodyFontClass}`}
               >
-                {
-                  isEditing
-                    ? t.editListing
-                    : t.newListing
-                }
+                {isEditing ? t.editListing : t.newListing}
               </div>
 
               <h2
                 className={`${displayFontClass} italic font-light text-[26px] text-[#111118]`}
               >
-                {
-                  isEditing
-                    ? t.edit
-                    : t.createA
-                }{" "}
-                <span className="font-medium">
-                  {
-                    t.listing
-                  }
-                </span>
+                {isEditing ? t.edit : t.createA}{" "}
+                <span className="font-medium">{t.listing}</span>
               </h2>
             </div>
 
             <form
-              onSubmit={
-                isEditing
-                  ? handleUpdate
-                  : handleSubmit
-              }
-              className={
-                bodyFontClass
-              }
+              onSubmit={isEditing ? handleUpdate : handleSubmit}
+              className={bodyFontClass}
             >
-
               {/* ==================================================
                   TITLE
               ================================================== */}
@@ -3245,28 +2193,17 @@ const HostListings: React.FC = () => {
                 <label
                   className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                 >
-                  {
-                    t.title
-                  }{" "}
-                  *
+                  {t.title} *
                 </label>
 
                 <input
                   type="text"
                   name="title"
                   required
-                  value={
-                    formData.title
-                  }
-                  onChange={
-                    handleInputChange
-                  }
-                  className={
-                    fieldInput
-                  }
-                  placeholder={
-                    t.titlePlaceholder
-                  }
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  className={fieldInput}
+                  placeholder={t.titlePlaceholder}
                 />
               </div>
 
@@ -3278,26 +2215,17 @@ const HostListings: React.FC = () => {
                 <label
                   className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                 >
-                  {
-                    t.description
-                  }{" "}
-                  *
+                  {t.description} *
                 </label>
 
                 <textarea
                   name="description"
                   required
                   rows={4}
-                  value={
-                    formData.description
-                  }
-                  onChange={
-                    handleInputChange
-                  }
+                  value={formData.description}
+                  onChange={handleInputChange}
                   className={`${fieldInput} resize-y`}
-                  placeholder={
-                    t.descriptionPlaceholder
-                  }
+                  placeholder={t.descriptionPlaceholder}
                 />
               </div>
 
@@ -3309,14 +2237,7 @@ const HostListings: React.FC = () => {
                 <label
                   className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                 >
-                  {
-                    t.pricePerNight
-                  }{" "}
-                  /{" "}
-                  {isAr
-                    ? "دينار"
-                    : "LYD"}{" "}
-                  *
+                  {t.pricePerNight} / {isAr ? "دينار" : "LYD"} *
                 </label>
 
                 <input
@@ -3325,15 +2246,9 @@ const HostListings: React.FC = () => {
                   required
                   min="0"
                   step="0.01"
-                  value={
-                    formData.price
-                  }
-                  onChange={
-                    handleInputChange
-                  }
-                  className={
-                    fieldInput
-                  }
+                  value={formData.price}
+                  onChange={handleInputChange}
+                  className={fieldInput}
                   placeholder="99"
                 />
               </div>
@@ -3346,50 +2261,26 @@ const HostListings: React.FC = () => {
                 <label
                   className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                 >
-                  {isAr
-                    ? "الفئة"
-                    : "Category"}{" "}
-                  *
+                  {isAr ? "الفئة" : "Category"} *
                 </label>
 
                 <select
                   name="category"
                   required
-                  value={
-                    formData.category
-                  }
-                  onChange={
-                    handleInputChange
-                  }
+                  value={formData.category}
+                  onChange={handleInputChange}
                   className={`${fieldInput} cursor-pointer`}
                 >
                   <option value="">
-                    {isAr
-                      ? "اختر فئة"
-                      : "Select a category"}
+                    {isAr ? "اختر فئة" : "Select a category"}
                   </option>
 
-                  {CATEGORIES.map(
-                    (
-                      category,
-                    ) => (
-                      <option
-                        key={
-                          category.id
-                        }
-                        value={
-                          category.id
-                        }
-                      >
-                        {
-                          category.icon
-                        }{" "}
-                        {isAr
-                          ? category.labelAr
-                          : category.labelEn}
-                      </option>
-                    ),
-                  )}
+                  {CATEGORIES.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.icon}{" "}
+                      {isAr ? category.labelAr : category.labelEn}
+                    </option>
+                  ))}
                 </select>
 
                 {formData.category && (
@@ -3397,17 +2288,9 @@ const HostListings: React.FC = () => {
                     className={`text-[11px] text-[#666] mt-1.5 ${bodyFontClass}`}
                   >
                     {isAr
-                      ? CATEGORIES.find(
-                          (c) =>
-                            c.id ===
-                            formData.category,
-                        )
+                      ? CATEGORIES.find((c) => c.id === formData.category)
                           ?.descriptionAr
-                      : CATEGORIES.find(
-                          (c) =>
-                            c.id ===
-                            formData.category,
-                        )
+                      : CATEGORIES.find((c) => c.id === formData.category)
                           ?.descriptionEn}
                   </div>
                 )}
@@ -3423,96 +2306,49 @@ const HostListings: React.FC = () => {
                 <label
                   className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                 >
-                  {
-                    t.location
-                  }{" "}
-                  *
+                  {t.location} *
                 </label>
 
                 <div className="flex gap-2 flex-wrap mb-2.5">
-
                   <div className="flex-1 min-w-[180px] relative">
                     <input
                       type="text"
-                      value={
-                        addressQuery
-                      }
-                      onChange={(
-                        e,
-                      ) =>
-                        searchAddress(
-                          e.target.value,
-                        )
-                      }
+                      value={addressQuery}
+                      onChange={(e) => searchAddress(e.target.value)}
                       onFocus={() => {
-                        if (
-                          addressSuggestions.length
-                        ) {
-                          setShowSuggestions(
-                            true,
-                          );
+                        if (addressSuggestions.length) {
+                          setShowSuggestions(true);
                         }
                       }}
                       onBlur={() => {
-                        setTimeout(
-                          () =>
-                            setShowSuggestions(
-                              false,
-                            ),
-                          150,
-                        );
+                        setTimeout(() => setShowSuggestions(false), 150);
                       }}
                       placeholder={
-                        isAr
-                          ? "ابحث عن عنوان"
-                          : "Search for an address"
+                        isAr ? "ابحث عن عنوان" : "Search for an address"
                       }
-                      className={
-                        fieldInput
-                      }
-                      disabled={
-                        !MAPBOX_TOKEN
-                      }
+                      className={fieldInput}
+                      disabled={!MAPBOX_TOKEN}
                     />
 
                     {searchingAddress && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border-2 border-[#e8c547] border-t-transparent rounded-full animate-spin" />
                     )}
 
-                    {showSuggestions &&
-                      addressSuggestions.length >
-                        0 && (
-                        <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-black/10 rounded-lg shadow-lg max-h-56 overflow-y-auto">
-                          {addressSuggestions.map(
-                            (
-                              suggestion,
-                            ) => (
-                              <button
-                                key={
-                                  suggestion.id
-                                }
-                                type="button"
-                                onMouseDown={(
-                                  e,
-                                ) =>
-                                  e.preventDefault()
-                                }
-                                onClick={() =>
-                                  handleSuggestionSelect(
-                                    suggestion,
-                                  )
-                                }
-                                className={`w-full text-left px-3.5 py-2.5 text-xs text-[#333] hover:bg-[#fafaf8] border-b border-black/5 last:border-b-0 ${bodyFontClass}`}
-                              >
-                                📍{" "}
-                                {
-                                  suggestion.place_name
-                                }
-                              </button>
-                            ),
-                          )}
-                        </div>
-                      )}
+                    {showSuggestions && addressSuggestions.length > 0 && (
+                      <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-black/10 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                        {addressSuggestions.map((suggestion) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => handleSuggestionSelect(suggestion)}
+                            className={`w-full text-left px-3.5 py-2.5 text-xs text-[#333] hover:bg-[#fafaf8] border-b border-black/5 last:border-b-0 ${bodyFontClass}`}
+                          >
+                            📍 {suggestion.place_name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     {!MAPBOX_TOKEN && (
                       <p
@@ -3527,12 +2363,8 @@ const HostListings: React.FC = () => {
 
                   <button
                     type="button"
-                    onClick={
-                      useCurrentLocation
-                    }
-                    disabled={
-                      isGettingLocation
-                    }
+                    onClick={useCurrentLocation}
+                    disabled={isGettingLocation}
                     className={`px-4 py-2.5 rounded-lg text-xs font-medium border-none cursor-pointer whitespace-nowrap transition-all hover:opacity-88 hover:-translate-y-px disabled:opacity-50 disabled:cursor-not-allowed ${
                       isGettingLocation
                         ? "bg-[#ccc] text-white"
@@ -3550,18 +2382,10 @@ const HostListings: React.FC = () => {
                     type="text"
                     name="location"
                     required
-                    value={
-                      formData.location
-                    }
-                    onChange={
-                      handleInputChange
-                    }
-                    className={
-                      fieldInput
-                    }
-                    placeholder={
-                      t.addressWillAppear
-                    }
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    className={fieldInput}
+                    placeholder={t.addressWillAppear}
                     readOnly
                   />
                 </div>
@@ -3580,25 +2404,18 @@ const HostListings: React.FC = () => {
                     </span>
                   </div>
 
-                  {(!mapCenter ||
-                    isGettingLocation) && (
+                  {(!mapCenter || isGettingLocation) && (
                     <div className="h-[400px] flex items-center justify-center bg-[#f7f6f2] flex-col gap-3">
                       {isGettingLocation ? (
                         <>
                           <div className="w-10 h-10 border-[3px] border-[#e8c547] border-t-transparent rounded-full animate-spin" />
 
-                          <p
-                            className={`text-xs text-[#999] ${bodyFontClass}`}
-                          >
-                            {
-                              t.gettingLocation
-                            }
+                          <p className={`text-xs text-[#999] ${bodyFontClass}`}>
+                            {t.gettingLocation}
                           </p>
                         </>
                       ) : (
-                        <p
-                          className={`text-xs text-[#999] ${bodyFontClass}`}
-                        >
+                        <p className={`text-xs text-[#999] ${bodyFontClass}`}>
                           {locationError ||
                             (isAr
                               ? "انقر على 'موقعي' أو ابحث عن عنوان"
@@ -3608,29 +2425,23 @@ const HostListings: React.FC = () => {
                     </div>
                   )}
 
-                  {mapCenter &&
-                    !isGettingLocation && (
-                      <div className="h-[400px] w-full relative">
-                        {MAPBOX_TOKEN ? (
-                          <div
-                            ref={
-                              mapContainerRef
-                            }
-                            className="h-full w-full"
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center bg-[#f7f6f2] px-6 text-center">
-                            <p
-                              className={`text-xs text-[#e05a5a] ${bodyFontClass}`}
-                            >
-                              {isAr
-                                ? "أضف VITE_MAPBOX_TOKEN في ملف البيئة لعرض الخريطة"
-                                : "Add VITE_MAPBOX_TOKEN to your env file to display the map"}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                  {mapCenter && !isGettingLocation && (
+                    <div className="h-[400px] w-full relative">
+                      {MAPBOX_TOKEN ? (
+                        <div ref={mapContainerRef} className="h-full w-full" />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center bg-[#f7f6f2] px-6 text-center">
+                          <p
+                            className={`text-xs text-[#e05a5a] ${bodyFontClass}`}
+                          >
+                            {isAr
+                              ? "أضف VITE_MAPBOX_TOKEN في ملف البيئة لعرض الخريطة"
+                              : "Add VITE_MAPBOX_TOKEN to your env file to display the map"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* LOCATION PILL */}
@@ -3650,13 +2461,8 @@ const HostListings: React.FC = () => {
                     <p
                       className={`text-[11px] text-[#a08020] mt-0.5 ${bodyFontClass}`}
                     >
-                      {selectedLocation.lat.toFixed(
-                        6,
-                      )}
-                      ,{" "}
-                      {selectedLocation.lng.toFixed(
-                        6,
-                      )}
+                      {selectedLocation.lat.toFixed(6)},{" "}
+                      {selectedLocation.lng.toFixed(6)}
                     </p>
                   )}
                 </div>
@@ -3669,145 +2475,81 @@ const HostListings: React.FC = () => {
               ================================================== */}
 
               <div className="mb-6">
-
                 <div className="flex items-center justify-between mb-2">
                   <label
                     className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] ${bodyFontClass}`}
                   >
-                    {
-                      t.imagesRequired
-                    }
+                    {t.imagesRequired}
                   </label>
 
-                  <span
-                    className={`text-[11px] text-[#999] ${bodyFontClass}`}
-                  >
-                    {
-                      formData.images.filter(
-                        Boolean,
-                      ).length
-                    }{" "}
-                    /{" "}
-                    {
-                      MAX_IMAGES
-                    }
+                  <span className={`text-[11px] text-[#999] ${bodyFontClass}`}>
+                    {formData.images.filter(Boolean).length} / {MAX_IMAGES}
                   </span>
                 </div>
 
                 <input
-                  ref={
-                    imageInputRef
-                  }
+                  ref={imageInputRef}
                   type="file"
                   accept="image/jpeg,image/jpg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif"
                   multiple
-                  onChange={
-                    handleImageFilesSelected
-                  }
+                  onChange={handleImageFilesSelected}
                   className="hidden"
                 />
 
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-
                   {/* ==================================================
                       UPLOADED IMAGES
                   ================================================== */}
 
-                  {formData.images.map(
-                    (
-                      image,
-                      index,
-                    ) => {
-                      const uploadInfo =
-                        uploadedImageInfo.find(
-                          (
-                            item,
-                          ) =>
-                            item.url ===
-                            image,
-                        );
+                  {formData.images.map((image, index) => {
+                    const uploadInfo = uploadedImageInfo.find(
+                      (item) => item.url === image,
+                    );
 
-                      return (
-                        <div
-                          key={`${image}-${index}`}
-                          className="relative group bg-white rounded-xl border border-black/10 overflow-hidden"
-                        >
+                    return (
+                      <div
+                        key={`${image}-${index}`}
+                        className="relative group bg-white rounded-xl border border-black/10 overflow-hidden"
+                      >
+                        <div className="relative">
+                          <img
+                            src={image}
+                            alt={`Listing image ${index + 1}`}
+                            className="w-full h-40 object-cover"
+                            onError={(event) => {
+                              console.error("❌ IMAGE PREVIEW FAILED:", image);
 
-                          <div className="relative">
+                              event.currentTarget.style.display = "none";
+                            }}
+                          />
 
-                            <img
-                              src={
-                                image
-                              }
-                              alt={`Listing image ${
-                                index +
-                                1
-                              }`}
-                              className="w-full h-40 object-cover"
-                              onError={(
-                                event,
-                              ) => {
-                                console.error(
-                                  "❌ IMAGE PREVIEW FAILED:",
-                                  image,
-                                );
-
-                                event.currentTarget.style.display =
-                                  "none";
-                              }}
-                            />
-
-                            <div className="absolute bottom-2 left-2 bg-[#1a1a2e]/90 text-[#e8c547] rounded-full px-2 py-1 text-[10px]">
-                              {
-                                index +
-                                1
-                              }
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleImageRemove(
-                                  index,
-                                )
-                              }
-                              disabled={
-                                uploadingImages
-                              }
-                              className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center text-sm shadow-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                              aria-label={
-                                t.remove
-                              }
-                            >
-                              ×
-                            </button>
-
+                          <div className="absolute bottom-2 left-2 bg-[#1a1a2e]/90 text-[#e8c547] rounded-full px-2 py-1 text-[10px]">
+                            {index + 1}
                           </div>
 
-                        
-                     
-
+                          <button
+                            type="button"
+                            onClick={() => handleImageRemove(index)}
+                            disabled={uploadingImages}
+                            className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center text-sm shadow-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                            aria-label={t.remove}
+                          >
+                            ×
+                          </button>
                         </div>
-                      );
-                    },
-                  )}
+                      </div>
+                    );
+                  })}
 
                   {/* ==================================================
                       ADD IMAGE BUTTON
                   ================================================== */}
 
-                  {formData.images.filter(
-                    Boolean,
-                  ).length <
-                    MAX_IMAGES && (
+                  {formData.images.filter(Boolean).length < MAX_IMAGES && (
                     <button
                       type="button"
-                      onClick={
-                        openImagePicker
-                      }
-                      disabled={
-                        uploadingImages
-                      }
+                      onClick={openImagePicker}
+                      disabled={uploadingImages}
                       className="min-h-[160px] border-2 border-dashed border-black/12 rounded-xl p-6 bg-[#fafaf8] cursor-pointer flex flex-col items-center justify-center gap-2 text-xs text-[#999] transition-all hover:border-[#e8c547] hover:text-[#e8c547] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <svg
@@ -3825,22 +2567,15 @@ const HostListings: React.FC = () => {
                         />
                       </svg>
 
-                      <span>
-                        {
-                          t.addImage
-                        }
-                      </span>
+                      <span>{t.addImage}</span>
 
                       <span className="text-[9px] text-[#bbb]">
                         JPG · JPEG · PNG · WEBP · HEIC · HEIF
                       </span>
 
-                      <span className="text-[9px] text-[#bbb]">
-                        Max 10 MB
-                      </span>
+                      <span className="text-[9px] text-[#bbb]">Max 10 MB</span>
                     </button>
                   )}
-
                 </div>
 
                 {/* ==================================================
@@ -3849,61 +2584,46 @@ const HostListings: React.FC = () => {
 
                 {uploadingImages && (
                   <div className="mt-4 bg-[#fdf8e7] border border-[#e8c547]/30 rounded-xl p-4">
-
                     <div className="flex items-center gap-3 mb-2">
-
                       <div className="w-5 h-5 border-2 border-[#e8c547] border-t-transparent rounded-full animate-spin" />
 
                       <span
                         className={`text-xs text-[#7a6012] font-medium ${bodyFontClass}`}
                       >
-                        {
-                          t.imageUploading
-                        }
+                        {t.imageUploading}
                       </span>
-
                     </div>
 
                     {uploadingFileName && (
                       <p
                         className={`text-[10px] text-[#a08020] mb-2 truncate ${bodyFontClass}`}
                       >
-                        {
-                          uploadingFileName
-                        }
+                        {uploadingFileName}
                       </p>
                     )}
 
                     <div className="w-full h-2 bg-black/5 rounded-full overflow-hidden">
-
                       <div
                         className="h-full bg-[#e8c547] transition-all duration-300"
                         style={{
                           width: `${uploadProgress}%`,
                         }}
                       />
-
                     </div>
 
                     <div
                       className={`text-[10px] text-[#a08020] mt-1 ${bodyFontClass}`}
                     >
-                      {
-                        uploadProgress
-                      }%
+                      {uploadProgress}%
                     </div>
-
                   </div>
                 )}
 
-                <p
-                  className={`text-[10px] text-[#aaa] mt-2 ${bodyFontClass}`}
-                >
+                <p className={`text-[10px] text-[#aaa] mt-2 ${bodyFontClass}`}>
                   {isAr
                     ? "يمكنك رفع حتى 6 صور. الحد الأقصى لكل صورة 10 ميجابايت."
                     : "Upload up to 6 images. Maximum 10 MB per image."}
                 </p>
-
               </div>
 
               <hr className="border-none border-t border-black/7 my-6" />
@@ -3913,84 +2633,43 @@ const HostListings: React.FC = () => {
               ================================================== */}
 
               <div className="mb-6">
-
                 <label
                   className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                 >
-                  {
-                    t.amenities
-                  }
+                  {t.amenities}
                 </label>
 
-                {formData.amenities.map(
-                  (
-                    amenity,
-                    index,
-                  ) => (
-                    <div
-                      key={
-                        index
+                {formData.amenities.map((amenity, index) => (
+                  <div key={index} className="flex gap-2 mb-2 items-center">
+                    <input
+                      type="text"
+                      value={amenity}
+                      onChange={(e) =>
+                        handleArrayChange(index, "amenities", e.target.value)
                       }
-                      className="flex gap-2 mb-2 items-center"
-                    >
+                      placeholder={t.amenityPlaceholder}
+                      className={`${fieldInput} flex-1`}
+                    />
 
-                      <input
-                        type="text"
-                        value={
-                          amenity
-                        }
-                        onChange={(
-                          e,
-                        ) =>
-                          handleArrayChange(
-                            index,
-                            "amenities",
-                            e.target.value,
-                          )
-                        }
-                        placeholder={
-                          t.amenityPlaceholder
-                        }
-                        className={`${fieldInput} flex-1`}
-                      />
-
-                      {index >
-                        0 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeArrayField(
-                              "amenities",
-                              index,
-                            )
-                          }
-                          className={`bg-red-100 text-red-800 border-none rounded-md px-3 py-1.5 text-[11px] cursor-pointer ${bodyFontClass}`}
-                        >
-                          {
-                            t.remove
-                          }
-                        </button>
-                      )}
-
-                    </div>
-                  ),
-                )}
+                    {index > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => removeArrayField("amenities", index)}
+                        className={`bg-red-100 text-red-800 border-none rounded-md px-3 py-1.5 text-[11px] cursor-pointer ${bodyFontClass}`}
+                      >
+                        {t.remove}
+                      </button>
+                    )}
+                  </div>
+                ))}
 
                 <button
                   type="button"
-                  onClick={() =>
-                    addArrayField(
-                      "amenities",
-                    )
-                  }
+                  onClick={() => addArrayField("amenities")}
                   className={`text-xs text-[#e8c547] bg-transparent border-none cursor-pointer py-1 mt-1 ${bodyFontClass}`}
                 >
-                  +{" "}
-                  {
-                    t.addAmenity
-                  }
+                  + {t.addAmenity}
                 </button>
-
               </div>
 
               {/* ==================================================
@@ -3998,109 +2677,70 @@ const HostListings: React.FC = () => {
               ================================================== */}
 
               <div className="mb-6">
-
                 <label
                   className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                 >
-                  {isAr
-                    ? "سياسة الإلغاء"
-                    : "Cancellation Policy"}
+                  {isAr ? "سياسة الإلغاء" : "Cancellation Policy"}
                 </label>
 
-                <p
-                  className={`text-[11px] text-[#999] mb-4 ${bodyFontClass}`}
-                >
+                <p className={`text-[11px] text-[#999] mb-4 ${bodyFontClass}`}>
                   {isAr
                     ? "اكتب سياسة الإلغاء الخاصة بهذا الإعلان"
                     : "Set your own cancellation policy for this listing"}
                 </p>
 
                 <div className="mb-4">
-
                   <label
                     className={`block text-[10px] tracking-[0.08em] uppercase text-[#999] mb-2 ${bodyFontClass}`}
                   >
-                    {isAr
-                      ? "نوع السياسة"
-                      : "Policy Type"}
+                    {isAr ? "نوع السياسة" : "Policy Type"}
                   </label>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-
                     {[
                       {
-                        value:
-                          "flexible",
-                        label:
-                          isAr
-                            ? "مرنة"
-                            : "Flexible",
+                        value: "flexible",
+                        label: isAr ? "مرنة" : "Flexible",
                       },
                       {
-                        value:
-                          "moderate",
-                        label:
-                          isAr
-                            ? "متوسطة"
-                            : "Moderate",
+                        value: "moderate",
+                        label: isAr ? "متوسطة" : "Moderate",
                       },
                       {
-                        value:
-                          "strict",
-                        label:
-                          isAr
-                            ? "صارمة"
-                            : "Strict",
+                        value: "strict",
+                        label: isAr ? "صارمة" : "Strict",
                       },
-                    ].map(
-                      (
-                        policy,
-                      ) => {
-                        const selected =
-                          formData
-                            .cancellation_policy
-                            .type ===
-                          policy.value;
+                    ].map((policy) => {
+                      const selected =
+                        formData.cancellation_policy.type === policy.value;
 
-                        return (
-                          <button
-                            key={
-                              policy.value
-                            }
-                            type="button"
-                            onClick={() =>
-                              handleCancellationPolicyChange(
-                                "type",
-                                policy.value,
-                              )
-                            }
-                            className={`text-left rounded-lg border px-3.5 py-3 cursor-pointer transition-all ${
-                              selected
-                                ? "border-[#e8c547] bg-[#fdf8e7]"
-                                : "border-black/10 bg-[#fafaf8] hover:border-[#e8c547]/50"
-                            } ${bodyFontClass}`}
+                      return (
+                        <button
+                          key={policy.value}
+                          type="button"
+                          onClick={() =>
+                            handleCancellationPolicyChange("type", policy.value)
+                          }
+                          className={`text-left rounded-lg border px-3.5 py-3 cursor-pointer transition-all ${
+                            selected
+                              ? "border-[#e8c547] bg-[#fdf8e7]"
+                              : "border-black/10 bg-[#fafaf8] hover:border-[#e8c547]/50"
+                          } ${bodyFontClass}`}
+                        >
+                          <div
+                            className={`text-xs font-medium ${
+                              selected ? "text-[#7a6012]" : "text-[#555]"
+                            }`}
                           >
-                            <div
-                              className={`text-xs font-medium ${
-                                selected
-                                  ? "text-[#7a6012]"
-                                  : "text-[#555]"
-                              }`}
-                            >
-                              {
-                                policy.label
-                              }
-                            </div>
-                          </button>
-                        );
-                      },
-                    )}
-
+                            {policy.label}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
                 <div className="mb-4">
-
                   <label
                     className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                   >
@@ -4111,14 +2751,8 @@ const HostListings: React.FC = () => {
 
                   <textarea
                     rows={5}
-                    value={
-                      formData
-                        .cancellation_policy
-                        .description
-                    }
-                    onChange={(
-                      e,
-                    ) =>
+                    value={formData.cancellation_policy.description}
+                    onChange={(e) =>
                       handleCancellationPolicyChange(
                         "description",
                         e.target.value,
@@ -4139,11 +2773,9 @@ const HostListings: React.FC = () => {
                       ? "سيتم عرض هذه السياسة للضيوف قبل الحجز."
                       : "This policy will be shown to guests before they book."}
                   </p>
-
                 </div>
 
                 <div>
-
                   <label
                     className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
                   >
@@ -4152,186 +2784,8 @@ const HostListings: React.FC = () => {
                       : "Additional Cancellation Rules"}
                   </label>
 
-                  {formData
-                    .cancellation_policy
-                    .rules.map(
-                      (
-                        rule,
-                        index,
-                      ) => (
-                        <div
-                          key={
-                            index
-                          }
-                          className="flex gap-2 mb-2 items-center"
-                        >
-
-                          <div className="w-5 h-5 rounded shrink-0 bg-[#e8c547] flex items-center justify-center">
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 12 12"
-                              fill="none"
-                            >
-                              <path
-                                d="M2 6l3 3 5-6"
-                                stroke="#1a1a2e"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </div>
-
-                          <input
-                            type="text"
-                            value={
-                              rule
-                            }
-                            onChange={(
-                              e,
-                            ) =>
-                              handleCancellationRuleChange(
-                                index,
-                                e.target.value,
-                              )
-                            }
-                            placeholder={
-                              isAr
-                                ? "اكتب شرط الإلغاء"
-                                : "Write a cancellation rule"
-                            }
-                            className={`${fieldInput} flex-1`}
-                          />
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeCancellationRule(
-                                index,
-                              )
-                            }
-                            className="bg-transparent border-none text-[#e05a5a] text-lg cursor-pointer px-2"
-                          >
-                            ✕
-                          </button>
-
-                        </div>
-                      ),
-                    )}
-
-                  <button
-                    type="button"
-                    onClick={
-                      addCancellationRule
-                    }
-                    className={`text-xs text-[#e8c547] bg-transparent border border-dashed border-[#e8c547]/50 rounded-lg cursor-pointer py-2 px-3 mt-2 w-full hover:border-[#e8c547] transition-colors ${bodyFontClass}`}
-                  >
-                    +{" "}
-                    {isAr
-                      ? "إضافة شرط"
-                      : "Add Cancellation Rule"}
-                  </button>
-
-                </div>
-
-              </div>
-
-              {/* ==================================================
-                  HOUSE RULES
-              ================================================== */}
-
-              <div className="mb-5">
-
-                <label
-                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
-                >
-                  {
-                    t.houseRules
-                  }
-                </label>
-
-                <div className="mb-3">
-
-                  <div
-                    className={`text-[10px] tracking-[0.08em] uppercase text-[#999] mb-2 ${bodyFontClass}`}
-                  >
-                    {
-                      t.quickAdd
-                    }
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-
-                    {[
-                      t.ruleNoSmoking,
-                      t.ruleNoParties,
-                      t.ruleNoPets,
-                      t.ruleQuietHours,
-                      t.ruleSelfCheckIn,
-                      t.ruleNoShoes,
-                    ].map(
-                      (
-                        suggestion,
-                      ) => (
-                        <button
-                          key={
-                            suggestion
-                          }
-                          type="button"
-                          onClick={() => {
-                            if (
-                              !formData.rules.includes(
-                                suggestion,
-                              )
-                            ) {
-                              setFormData(
-                                (
-                                  prev,
-                                ) => ({
-                                  ...prev,
-
-                                  rules:
-                                    [
-                                      ...prev.rules,
-                                      suggestion,
-                                    ],
-                                }),
-                              );
-                            }
-                          }}
-                          className={`border border-black/10 rounded-full px-3 py-1 text-[11px] cursor-pointer transition-colors ${bodyFontClass} ${
-                            formData.rules.includes(
-                              suggestion,
-                            )
-                              ? "bg-[#e8c547] text-[#1a1a2e]"
-                              : "bg-[#fafaf8] text-[#888]"
-                          }`}
-                        >
-                          +{" "}
-                          {
-                            suggestion
-                          }
-                        </button>
-                      ),
-                    )}
-
-                  </div>
-
-                </div>
-
-                {formData.rules.map(
-                  (
-                    rule,
-                    index,
-                  ) => (
-                    <div
-                      key={
-                        index
-                      }
-                      className="flex gap-2 mb-2 items-center"
-                    >
-
+                  {formData.cancellation_policy.rules.map((rule, index) => (
+                    <div key={index} className="flex gap-2 mb-2 items-center">
                       <div className="w-5 h-5 rounded shrink-0 bg-[#e8c547] flex items-center justify-center">
                         <svg
                           width="12"
@@ -4351,55 +2805,135 @@ const HostListings: React.FC = () => {
 
                       <input
                         type="text"
-                        value={
-                          rule
-                        }
-                        onChange={(
-                          e,
-                        ) =>
-                          handleArrayChange(
-                            index,
-                            "rules",
-                            e.target.value,
-                          )
+                        value={rule}
+                        onChange={(e) =>
+                          handleCancellationRuleChange(index, e.target.value)
                         }
                         placeholder={
-                          t.rulePlaceholder
+                          isAr
+                            ? "اكتب شرط الإلغاء"
+                            : "Write a cancellation rule"
                         }
                         className={`${fieldInput} flex-1`}
                       />
 
                       <button
                         type="button"
-                        onClick={() =>
-                          removeArrayField(
-                            "rules",
-                            index,
-                          )
-                        }
+                        onClick={() => removeCancellationRule(index)}
                         className="bg-transparent border-none text-[#e05a5a] text-lg cursor-pointer px-2"
                       >
                         ✕
                       </button>
-
                     </div>
-                  ),
-                )}
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={addCancellationRule}
+                    className={`text-xs text-[#e8c547] bg-transparent border border-dashed border-[#e8c547]/50 rounded-lg cursor-pointer py-2 px-3 mt-2 w-full hover:border-[#e8c547] transition-colors ${bodyFontClass}`}
+                  >
+                    + {isAr ? "إضافة شرط" : "Add Cancellation Rule"}
+                  </button>
+                </div>
+              </div>
+
+              {/* ==================================================
+                  HOUSE RULES
+              ================================================== */}
+
+              <div className="mb-5">
+                <label
+                  className={`block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5 ${bodyFontClass}`}
+                >
+                  {t.houseRules}
+                </label>
+
+                <div className="mb-3">
+                  <div
+                    className={`text-[10px] tracking-[0.08em] uppercase text-[#999] mb-2 ${bodyFontClass}`}
+                  >
+                    {t.quickAdd}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      t.ruleNoSmoking,
+                      t.ruleNoParties,
+                      t.ruleNoPets,
+                      t.ruleQuietHours,
+                      t.ruleSelfCheckIn,
+                      t.ruleNoShoes,
+                    ].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => {
+                          if (!formData.rules.includes(suggestion)) {
+                            setFormData((prev) => ({
+                              ...prev,
+
+                              rules: [...prev.rules, suggestion],
+                            }));
+                          }
+                        }}
+                        className={`border border-black/10 rounded-full px-3 py-1 text-[11px] cursor-pointer transition-colors ${bodyFontClass} ${
+                          formData.rules.includes(suggestion)
+                            ? "bg-[#e8c547] text-[#1a1a2e]"
+                            : "bg-[#fafaf8] text-[#888]"
+                        }`}
+                      >
+                        + {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {formData.rules.map((rule, index) => (
+                  <div key={index} className="flex gap-2 mb-2 items-center">
+                    <div className="w-5 h-5 rounded shrink-0 bg-[#e8c547] flex items-center justify-center">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                      >
+                        <path
+                          d="M2 6l3 3 5-6"
+                          stroke="#1a1a2e"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={rule}
+                      onChange={(e) =>
+                        handleArrayChange(index, "rules", e.target.value)
+                      }
+                      placeholder={t.rulePlaceholder}
+                      className={`${fieldInput} flex-1`}
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => removeArrayField("rules", index)}
+                      className="bg-transparent border-none text-[#e05a5a] text-lg cursor-pointer px-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
 
                 <button
                   type="button"
-                  onClick={() =>
-                    addArrayField(
-                      "rules",
-                    )
-                  }
+                  onClick={() => addArrayField("rules")}
                   className={`text-xs text-[#e8c547] bg-transparent border border-dashed border-[#e8c547]/50 rounded-lg cursor-pointer py-2 px-3 mt-2 w-full hover:border-[#e8c547] transition-colors ${bodyFontClass}`}
                 >
-                  {
-                    t.addCustomRule
-                  }
+                  {t.addCustomRule}
                 </button>
-
               </div>
 
               <hr className="border-none border-t border-black/7 my-6" />
@@ -4409,40 +2943,25 @@ const HostListings: React.FC = () => {
               ================================================== */}
 
               <div className="flex justify-end gap-2.5 pt-5 border-t border-black/7">
-
                 <button
                   type="button"
-                  onClick={
-                    cancelEdit
-                  }
-                  disabled={
-                    savingListing ||
-                    uploadingImages
-                  }
+                  onClick={cancelEdit}
+                  disabled={savingListing || uploadingImages}
                   className={`bg-transparent text-[#555] px-3.5 py-2 rounded-lg text-xs border border-black/12 cursor-pointer hover:border-black/30 hover:text-[#111118] transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${bodyFontClass}`}
                 >
-                  {
-                    t.cancel
-                  }
+                  {t.cancel}
                 </button>
 
                 <button
                   type="submit"
-                  disabled={
-                    savingListing ||
-                    uploadingImages
-                  }
+                  disabled={savingListing || uploadingImages}
                   className={`bg-[#1a1a2e] text-[#e8c547] px-5 py-2.5 rounded-lg text-xs font-medium border-none cursor-pointer hover:opacity-88 hover:-translate-y-px transition-all disabled:opacity-50 disabled:cursor-not-allowed ${bodyFontClass}`}
                 >
                   {savingListing ? (
                     <span className="flex items-center gap-2">
-
                       <span className="w-3 h-3 border-2 border-[#e8c547] border-t-transparent rounded-full animate-spin" />
 
-                      {
-                        t.saving
-                      }
-
+                      {t.saving}
                     </span>
                   ) : isEditing ? (
                     t.updateListing
@@ -4450,9 +2969,7 @@ const HostListings: React.FC = () => {
                     t.createListing
                   )}
                 </button>
-
               </div>
-
             </form>
           </div>
         )}
@@ -4462,281 +2979,174 @@ const HostListings: React.FC = () => {
         ====================================================== */}
 
         {!showForm &&
-          (listings.length ===
-          0 ? (
+          (listings.length === 0 ? (
             <div className="bg-white rounded-2xl border border-black/7 py-20 px-6 text-center">
+              <div className="text-5xl mb-3">🏠</div>
 
-              <div className="text-5xl mb-3">
-                🏠
-              </div>
-
-              <p
-                className={`text-[13px] text-[#999] mb-4 ${bodyFontClass}`}
-              >
-                {
-                  t.noListingsYet
-                }
+              <p className={`text-[13px] text-[#999] mb-4 ${bodyFontClass}`}>
+                {t.noListingsYet}
               </p>
 
               <button
                 onClick={() => {
                   resetForm();
 
-                  setShowForm(
-                    true,
-                  );
+                  setShowForm(true);
                 }}
                 className={`bg-transparent border-none text-[#e8c547] text-[13px] cursor-pointer ${bodyFontClass}`}
               >
-                {
-                  t.createFirstListing
-                }{" "}
-                →
+                {t.createFirstListing} →
               </button>
-
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {listings.map((listing) => {
+                const category = CATEGORIES.find(
+                  (category) => category.id === listing.category,
+                );
 
-              {listings.map(
-                (
-                  listing,
-                ) => {
-                  const category =
-                    CATEGORIES.find(
-                      (
-                        category,
-                      ) =>
-                        category.id ===
-                        listing.category,
-                    );
+                const isToggling = togglingId === listing.id;
 
-                  const isToggling =
-                    togglingId ===
-                    listing.id;
+                const firstImage =
+                  listing.images?.find(Boolean) || "/placeholder.jpg";
 
-                  const firstImage =
-                    listing.images?.find(
-                      Boolean,
-                    ) ||
-                    "/placeholder.jpg";
+                return (
+                  <div
+                    key={listing.id}
+                    className={`bg-white rounded-2xl border overflow-hidden transition-all duration-[220ms] hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.08)] ${
+                      listing.is_active
+                        ? "border-black/7"
+                        : "border-[#e05a5a]/30"
+                    }`}
+                  >
+                    <div className="h-[200px] overflow-hidden relative">
+                      <img
+                        src={getAbsoluteImageUrl(firstImage)}
+                        alt={listing.title}
+                        className={`w-full h-full object-cover transition-all ${
+                          !listing.is_active ? "opacity-60 grayscale" : ""
+                        }`}
+                        onError={(event) => {
+                          event.currentTarget.src = "/placeholder.jpg";
+                        }}
+                      />
 
-                  return (
-                    <div
-                      key={
-                        listing.id
-                      }
-                      className={`bg-white rounded-2xl border overflow-hidden transition-all duration-[220ms] hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(0,0,0,0.08)] ${
-                        listing.is_active
-                          ? "border-black/7"
-                          : "border-[#e05a5a]/30"
-                      }`}
-                    >
+                      <div className="absolute top-3 right-3 bg-[rgba(26,26,46,0.92)] text-[#e8c547] rounded-lg px-2.5 py-1 text-xs font-medium">
+                        {formatCurrency(Number(listing.price))}
 
-                      <div className="h-[200px] overflow-hidden relative">
-
-                        <img
-                          src={
-                            getAbsoluteImageUrl(
-                              firstImage,
-                            )
-                          }
-                          alt={
-                            listing.title
-                          }
-                          className={`w-full h-full object-cover transition-all ${
-                            !listing.is_active
-                              ? "opacity-60 grayscale"
-                              : ""
-                          }`}
-                          onError={(
-                            event,
-                          ) => {
-                            event.currentTarget.src =
-                              "/placeholder.jpg";
-                          }}
-                        />
-
-                        <div className="absolute top-3 right-3 bg-[rgba(26,26,46,0.92)] text-[#e8c547] rounded-lg px-2.5 py-1 text-xs font-medium">
-                          {formatCurrency(
-                            Number(
-                              listing.price,
-                            ),
-                          )}
-
-                          <span className="text-[10px] text-[#e8c547]/60">
-                            /
-                            {
-                              t.night
-                            }
-                          </span>
-                        </div>
-
-                        {category && (
-                          <div className="absolute bottom-3 left-3 bg-[rgba(26,26,46,0.9)] text-[#e8c547] rounded-full px-2.5 py-1 text-[11px] flex items-center gap-1">
-                            {
-                              category.icon
-                            }{" "}
-                            {isAr
-                              ? category.labelAr
-                              : category.labelEn}
-                          </div>
-                        )}
-
-                        <div
-                          className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-[10px] font-medium flex items-center gap-1 ${
-                            listing.is_active
-                              ? "bg-[#1D9E75] text-white"
-                              : "bg-[#e05a5a] text-white"
-                          }`}
-                        >
-
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full bg-white ${
-                              listing.is_active
-                                ? "opacity-100"
-                                : "opacity-70"
-                            }`}
-                          />
-
-                          {listing.is_active
-                            ? isAr
-                              ? "نشط"
-                              : "Active"
-                            : isAr
-                              ? "غير نشط"
-                              : "Inactive"}
-                        </div>
-
-                        {listing.images?.length >
-                          1 && (
-                          <div className="absolute bottom-3 right-3 bg-black/70 text-white rounded-full px-2 py-1 text-[10px]">
-                            📷{" "}
-                            {
-                              listing
-                                .images
-                                .length
-                            }
-                          </div>
-                        )}
-
+                        <span className="text-[10px] text-[#e8c547]/60">
+                          /{t.night}
+                        </span>
                       </div>
 
-                      <div className="p-5">
+                      {category && (
+                        <div className="absolute bottom-3 left-3 bg-[rgba(26,26,46,0.9)] text-[#e8c547] rounded-full px-2.5 py-1 text-[11px] flex items-center gap-1">
+                          {category.icon}{" "}
+                          {isAr ? category.labelAr : category.labelEn}
+                        </div>
+                      )}
 
-                        <h3
-                          className={`text-[15px] font-medium text-[#111118] mb-1.5 ${bodyFontClass}`}
+                      <div
+                        className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-[10px] font-medium flex items-center gap-1 ${
+                          listing.is_active
+                            ? "bg-[#1D9E75] text-white"
+                            : "bg-[#e05a5a] text-white"
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full bg-white ${
+                            listing.is_active ? "opacity-100" : "opacity-70"
+                          }`}
+                        />
+
+                        {listing.is_active
+                          ? isAr
+                            ? "نشط"
+                            : "Active"
+                          : isAr
+                            ? "غير نشط"
+                            : "Inactive"}
+                      </div>
+
+                      {listing.images?.length > 1 && (
+                        <div className="absolute bottom-3 right-3 bg-black/70 text-white rounded-full px-2 py-1 text-[10px]">
+                          📷 {listing.images.length}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="p-5">
+                      <h3
+                        className={`text-[15px] font-medium text-[#111118] mb-1.5 ${bodyFontClass}`}
+                      >
+                        {listing.title}
+                      </h3>
+
+                      <p
+                        className={`text-xs text-[#888] mb-3 ${bodyFontClass}`}
+                      >
+                        📍 {listing.location}
+                      </p>
+
+                      <div className="flex items-center justify-between bg-[#f7f6f2] rounded-lg px-3 py-2 mb-3 border border-black/5">
+                        <span
+                          className={`text-[11px] text-[#666] ${bodyFontClass}`}
                         >
-                          {
-                            listing.title
-                          }
-                        </h3>
+                          {listing.is_active
+                            ? isAr
+                              ? "مفتوح للحجز"
+                              : "Open for booking"
+                            : isAr
+                              ? "الحجز متوقف"
+                              : "Booking paused"}
+                        </span>
 
-                        <p
-                          className={`text-xs text-[#888] mb-3 ${bodyFontClass}`}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleActive(listing)}
+                          disabled={isToggling}
+                          className={`relative w-9 h-5 rounded-full border-none cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${
+                            listing.is_active ? "bg-[#1D9E75]" : "bg-[#ddd]"
+                          }`}
                         >
-                          📍{" "}
-                          {
-                            listing.location
-                          }
-                        </p>
-
-                        <div className="flex items-center justify-between bg-[#f7f6f2] rounded-lg px-3 py-2 mb-3 border border-black/5">
-
                           <span
-                            className={`text-[11px] text-[#666] ${bodyFontClass}`}
+                            className={`absolute top-[3px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-all duration-200 ${
+                              listing.is_active ? "left-[19px]" : "left-[3px]"
+                            }`}
+                          />
+                        </button>
+                      </div>
+
+                      <div className="flex justify-between items-center border-t border-black/[0.06] pt-3.5">
+                        <Link
+                          to={`/listings/${listing.id}`}
+                          className={`text-xs text-[#1a1a2e] no-underline ${bodyFontClass}`}
+                        >
+                          {t.viewDetails} →
+                        </Link>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(listing)}
+                            className={`text-xs text-[#185FA5] bg-transparent border-none cursor-pointer ${bodyFontClass}`}
                           >
-                            {listing.is_active
-                              ? isAr
-                                ? "مفتوح للحجز"
-                                : "Open for booking"
-                              : isAr
-                                ? "الحجز متوقف"
-                                : "Booking paused"}
-                          </span>
+                            {t.edit}
+                          </button>
 
                           <button
                             type="button"
-                            onClick={() =>
-                              handleToggleActive(
-                                listing,
-                              )
-                            }
-                            disabled={
-                              isToggling
-                            }
-                            className={`relative w-9 h-5 rounded-full border-none cursor-pointer transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 ${
-                              listing.is_active
-                                ? "bg-[#1D9E75]"
-                                : "bg-[#ddd]"
-                            }`}
+                            onClick={() => handleDelete(listing.id)}
+                            className={`text-xs text-[#e05a5a] bg-transparent border-none cursor-pointer ${bodyFontClass}`}
                           >
-
-                            <span
-                              className={`absolute top-[3px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-all duration-200 ${
-                                listing.is_active
-                                  ? "left-[19px]"
-                                  : "left-[3px]"
-                              }`}
-                            />
-
+                            {t.delete}
                           </button>
-
                         </div>
-
-                        <div className="flex justify-between items-center border-t border-black/[0.06] pt-3.5">
-
-                          <Link
-                            to={`/listings/${listing.id}`}
-                            className={`text-xs text-[#1a1a2e] no-underline ${bodyFontClass}`}
-                          >
-                            {
-                              t.viewDetails
-                            }{" "}
-                            →
-                          </Link>
-
-                          <div className="flex gap-2">
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleEdit(
-                                  listing,
-                                )
-                              }
-                              className={`text-xs text-[#185FA5] bg-transparent border-none cursor-pointer ${bodyFontClass}`}
-                            >
-                              {
-                                t.edit
-                              }
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                handleDelete(
-                                  listing.id,
-                                )
-                              }
-                              className={`text-xs text-[#e05a5a] bg-transparent border-none cursor-pointer ${bodyFontClass}`}
-                            >
-                              {
-                                t.delete
-                              }
-                            </button>
-
-                          </div>
-
-                        </div>
-
                       </div>
-
                     </div>
-                  );
-                },
-              )}
-
+                  </div>
+                );
+              })}
             </div>
           ))}
       </main>
