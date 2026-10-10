@@ -58,6 +58,67 @@ const hasValidStoredToken = (): boolean => {
 const toRole = (role?: string) => String(role || "").toLowerCase();
 
 // ============================================================
+// ERROR MESSAGE EXTRACTOR
+//
+// apiService may throw:
+//
+//   new Error("...")
+//   { message, response: { data: {...} } }
+//   { response: { data: { message, errors: [...] } } }
+//
+// This digs out the most useful message available.
+// ============================================================
+
+const extractApiErrorMessage = (error: any): string => {
+  if (!error) return "Something went wrong";
+
+  // 1. Nested response body (axios-style)
+  const body =
+    error?.response?.data || error?.data || error?.body || null;
+
+  if (body && typeof body === "object") {
+    // Validation errors array
+    if (Array.isArray(body.errors) && body.errors.length > 0) {
+      const fieldErrors = body.errors
+        .map((e: any) => {
+          if (typeof e === "string") return e;
+          if (e && typeof e === "object") {
+            const base = e.message || e.msg || e.error;
+            const val = e.value !== undefined ? `: ${e.value}` : "";
+            return base ? `${base}${val}` : null;
+          }
+          return null;
+        })
+        .filter(Boolean);
+
+      const main = body.message || "Validation failed";
+
+      return [main, ...fieldErrors].join("\n");
+    }
+
+    if (typeof body.message === "string" && body.message) {
+      return body.message;
+    }
+
+    if (typeof body.error === "string" && body.error) {
+      return body.error;
+    }
+  }
+
+  // 2. Plain Error.message
+  if (typeof error?.message === "string" && error.message) {
+    return error.message;
+  }
+
+  // 3. Last-resort stringify
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Something went wrong";
+  }
+};
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -1157,191 +1218,169 @@ const HostListings: React.FC = () => {
   // UPLOAD SINGLE IMAGE
   // ============================================================
 
-const uploadSingleImage = async (file: File): Promise<string> => {
-  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  const uploadSingleImage = async (file: File): Promise<string> => {
+    const extension = file.name.split(".").pop()?.toLowerCase() || "";
 
-  const fileType = file.type.toLowerCase();
+    const fileType = file.type.toLowerCase();
 
-  const isValidType =
-    ACCEPTED_IMAGE_TYPES.includes(fileType) ||
-    ACCEPTED_IMAGE_EXTENSIONS.includes(extension);
+    const isValidType =
+      ACCEPTED_IMAGE_TYPES.includes(fileType) ||
+      ACCEPTED_IMAGE_EXTENSIONS.includes(extension);
 
-  if (!isValidType) {
-    throw new Error(t.imageTypeError);
-  }
+    if (!isValidType) {
+      throw new Error(t.imageTypeError);
+    }
 
-  if (file.size > MAX_IMAGE_SIZE) {
-    throw new Error(t.imageSizeError);
-  }
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new Error(t.imageSizeError);
+    }
 
-  const token = getAuthToken();
+    const token = getAuthToken();
 
-  if (!token) {
-    throw new Error(
-      isAr
-        ? "انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى."
-        : "Your login session has expired. Please log in again.",
-    );
-  }
+    if (!token) {
+      throw new Error(
+        isAr
+          ? "انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى."
+          : "Your login session has expired. Please log in again.",
+      );
+    }
 
-  const uploadFormData = new FormData();
+    const uploadFormData = new FormData();
 
-  /*
-   * Backend:
-   * upload.single("image")
-   *
-   * Therefore this MUST be "image".
-   */
-  uploadFormData.append("image", file);
+    /*
+     * Backend:
+     * upload.single("image")
+     *
+     * Therefore this MUST be "image".
+     */
+    uploadFormData.append("image", file);
 
-  const url = getApiUrl(LISTING_IMAGE_UPLOAD_ENDPOINT);
+    const url = getApiUrl(LISTING_IMAGE_UPLOAD_ENDPOINT);
 
-  console.log("================================================");
+    console.log("================================================");
 
-  console.log("📤 IMAGE UPLOAD START");
+    console.log("📤 IMAGE UPLOAD START");
 
-  console.log("Upload endpoint:", url);
+    console.log("Upload endpoint:", url);
 
-  console.log("File name:", file.name);
+    console.log("File name:", file.name);
 
-  console.log("File type:", file.type);
+    console.log("File type:", file.type);
 
-  console.log("File size:", formatFileSize(file.size));
+    console.log("File size:", formatFileSize(file.size));
 
-  console.log("================================================");
+    console.log("================================================");
 
-  const headers: HeadersInit = {
-    Accept: "application/json",
-  };
-
-  headers.Authorization = `Bearer ${token}`;
-
-  const response = await fetch(url, {
-    method: "POST",
-    headers,
-    body: uploadFormData,
-    credentials: "include",
-  });
-
-  const responseText = await response.text();
-
-  console.log("📥 Upload HTTP status:", response.status);
-
-  console.log("📥 Upload response:", responseText);
-
-  // ==================================================
-  // GUARD: server must return JSON, not HTML
-  //
-  // If the URL is wrong, the request lands on the
-  // frontend SPA and returns index.html with status 200.
-  // Without this check, JSON.parse() silently swallows
-  // the HTML and you get a misleading
-  // "server did not return an image URL" error.
-  // ==================================================
-  const contentType = response.headers.get("content-type") || "";
-
-  if (!contentType.includes("application/json")) {
-    console.error(
-      "❌ Server returned non-JSON response. " +
-        "You are probably hitting the frontend server, not the API.",
-      {
-        url,
-        status: response.status,
-        contentType,
-        bodyPreview: responseText.slice(0, 200),
-      },
-    );
-
-    throw new Error(
-      isAr
-        ? "فشل رفع الصورة: استجابة الخادم غير صحيحة."
-        : "Image upload failed: server returned an unexpected response.",
-    );
-  }
-
-  // ==================================================
-  // Safe to parse JSON now
-  // ==================================================
-  let data: any = {};
-
-  try {
-    data = responseText ? JSON.parse(responseText) : {};
-  } catch {
-    data = {
-      message: responseText,
+    const headers: HeadersInit = {
+      Accept: "application/json",
     };
-  }
 
-  if (!response.ok) {
-    throw new Error(
-      data?.message ||
-        data?.error ||
-        data?.data?.message ||
-        `Upload failed (${response.status})`,
-    );
-  }
+    headers.Authorization = `Bearer ${token}`;
 
-  /*
-   * Support several possible backend response shapes.
-   */
-  const imageUrl =
-    // Top-level URL fields returned by your backend
-    data?.url ||
-    data?.imageUrl ||
-    data?.file?.url ||
-    // Nested inside data.data (alternate shape)
-    data?.data?.url ||
-    data?.data?.imageUrl ||
-    data?.data?.fileUrl ||
-    data?.data?.path ||
-    data?.data?.file?.url ||
-    data?.data?.file?.imageUrl ||
-    data?.data?.file?.path ||
-    // Fallback fields
-    data?.fileUrl ||
-    data?.path ||
-    data?.file?.imageUrl ||
-    data?.file?.path;
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body: uploadFormData,
+      credentials: "include",
+    });
 
-  console.log("🔎 Extracted server image URL:", imageUrl);
+    const responseText = await response.text();
 
-  if (!imageUrl || typeof imageUrl !== "string") {
-    console.error(
-      "❌ Server did not return an image URL.",
-      "Full response:",
-      data,
-      "Raw text:",
-      responseText,
-    );
+    console.log("📥 Upload HTTP status:", response.status);
 
-    throw new Error(
-      isAr
-        ? "تم رفع الصورة ولكن الخادم لم يُرجع رابط الصورة."
-        : "Image was uploaded, but the server did not return an image URL.",
-    );
-  }
+    console.log("📥 Upload response:", responseText);
 
-  /*
-   * If backend returns:
-   *
-   * /uploads/listings/file.jpg
-   *
-   * convert it to:
-   *
-   * https://api.mar-haba.ly/uploads/listings/file.jpg
-   *
-   * so the browser does not try:
-   *
-   * https://mar-haba.ly/uploads/...
-   */
-  const absoluteUrl = getAbsoluteImageUrl(imageUrl);
+    // ==================================================
+    // GUARD: server must return JSON, not HTML
+    // ==================================================
+    const contentType = response.headers.get("content-type") || "";
 
-  console.log("✅ FINAL IMAGE URL:", absoluteUrl);
+    if (!contentType.includes("application/json")) {
+      console.error(
+        "❌ Server returned non-JSON response. " +
+          "You are probably hitting the frontend server, not the API.",
+        {
+          url,
+          status: response.status,
+          contentType,
+          bodyPreview: responseText.slice(0, 200),
+        },
+      );
 
-  console.log("================================================");
+      throw new Error(
+        isAr
+          ? "فشل رفع الصورة: استجابة الخادم غير صحيحة."
+          : "Image upload failed: server returned an unexpected response.",
+      );
+    }
 
-  return absoluteUrl;
-};
+    // ==================================================
+    // Safe to parse JSON now
+    // ==================================================
+    let data: any = {};
+
+    try {
+      data = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      data = {
+        message: responseText,
+      };
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        data?.message ||
+          data?.error ||
+          data?.data?.message ||
+          `Upload failed (${response.status})`,
+      );
+    }
+
+    /*
+     * Support several possible backend response shapes.
+     */
+    const imageUrl =
+      data?.url ||
+      data?.imageUrl ||
+      data?.file?.url ||
+      data?.data?.url ||
+      data?.data?.imageUrl ||
+      data?.data?.fileUrl ||
+      data?.data?.path ||
+      data?.data?.file?.url ||
+      data?.data?.file?.imageUrl ||
+      data?.data?.file?.path ||
+      data?.fileUrl ||
+      data?.path ||
+      data?.file?.imageUrl ||
+      data?.file?.path;
+
+    console.log("🔎 Extracted server image URL:", imageUrl);
+
+    if (!imageUrl || typeof imageUrl !== "string") {
+      console.error(
+        "❌ Server did not return an image URL.",
+        "Full response:",
+        data,
+        "Raw text:",
+        responseText,
+      );
+
+      throw new Error(
+        isAr
+          ? "تم رفع الصورة ولكن الخادم لم يُرجع رابط الصورة."
+          : "Image was uploaded, but the server did not return an image URL.",
+      );
+    }
+
+    const absoluteUrl = getAbsoluteImageUrl(imageUrl);
+
+    console.log("✅ FINAL IMAGE URL:", absoluteUrl);
+
+    console.log("================================================");
+
+    return absoluteUrl;
+  };
 
   // ============================================================
   // IMAGE FILE SELECT
@@ -1352,10 +1391,6 @@ const uploadSingleImage = async (file: File): Promise<string> => {
   ) => {
     const files = Array.from(event.target.files || []);
 
-    /*
-     * Reset input so selecting the same
-     * image again works.
-     */
     event.target.value = "";
 
     if (!files.length) {
@@ -1396,10 +1431,6 @@ const uploadSingleImage = async (file: File): Promise<string> => {
         const file = filesToUpload[index];
 
         try {
-          // ==================================================
-          // FILE INFORMATION BEFORE UPLOAD
-          // ==================================================
-
           console.log("📁 Selected image:", {
             name: file.name,
             type: file.type,
@@ -1409,10 +1440,6 @@ const uploadSingleImage = async (file: File): Promise<string> => {
           setUploadingFileName(
             isAr ? `فحص ${file.name}...` : `Checking ${file.name}...`,
           );
-
-          // ==================================================
-          // VALIDATE ORIGINAL
-          // ==================================================
 
           const extension = file.name.split(".").pop()?.toLowerCase() || "";
 
@@ -1427,10 +1454,6 @@ const uploadSingleImage = async (file: File): Promise<string> => {
           if (file.size > MAX_IMAGE_SIZE) {
             throw new Error(t.imageSizeError);
           }
-
-          // ==================================================
-          // COMPRESS
-          // ==================================================
 
           setUploadingFileName(
             isAr ? `ضغط ${file.name}...` : `Compressing ${file.name}...`,
@@ -1452,19 +1475,11 @@ const uploadSingleImage = async (file: File): Promise<string> => {
             compressedType: compressedFile.type,
           });
 
-          // ==================================================
-          // UPLOAD
-          // ==================================================
-
           setUploadingFileName(
             isAr ? `رفع ${file.name}...` : `Uploading ${file.name}...`,
           );
 
           const url = await uploadSingleImage(compressedFile);
-
-          // ==================================================
-          // SERVER URL VALIDATION
-          // ==================================================
 
           if (!url || typeof url !== "string") {
             throw new Error(
@@ -1473,10 +1488,6 @@ const uploadSingleImage = async (file: File): Promise<string> => {
                 : "Server did not return an image URL",
             );
           }
-
-          // ==================================================
-          // SUCCESS LOG
-          // ==================================================
 
           console.log("✅ IMAGE UPLOADED SUCCESSFULLY", {
             originalFile: file.name,
@@ -1488,19 +1499,11 @@ const uploadSingleImage = async (file: File): Promise<string> => {
             serverUrl: url,
           });
 
-          // ==================================================
-          // ADD IMAGE IMMEDIATELY TO FORM
-          // ==================================================
-
           setFormData((prev) => ({
             ...prev,
 
             images: [...prev.images.filter(Boolean), url],
           }));
-
-          // ==================================================
-          // SAVE UPLOAD INFO
-          // ==================================================
 
           setUploadedImageInfo((prev) => [
             ...prev,
@@ -1548,18 +1551,10 @@ const uploadSingleImage = async (file: File): Promise<string> => {
 
       setUploadingFileName(null);
 
-      /*
-       * Keep the progress at 100 for a moment
-       * visually, then reset.
-       */
       setTimeout(() => {
         setUploadProgress(0);
       }, 300);
     }
-
-    // ============================================================
-    // REPORT FAILURES
-    // ============================================================
 
     if (failedFiles.length > 0) {
       const summary = failedFiles
@@ -1716,10 +1711,6 @@ const uploadSingleImage = async (file: File): Promise<string> => {
       },
     });
 
-    /*
-     * Existing server images don't have
-     * local upload metadata.
-     */
     setUploadedImageInfo([]);
 
     if (coords) {
@@ -1768,8 +1759,10 @@ const uploadSingleImage = async (file: File): Promise<string> => {
           ),
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Toggle listing failed:", error);
+
+      alert(extractApiErrorMessage(error));
     } finally {
       setTogglingId(null);
     }
@@ -1874,7 +1867,7 @@ const uploadSingleImage = async (file: File): Promise<string> => {
     } catch (error: any) {
       console.error("Create listing failed:", error);
 
-      alert(error?.message || "Failed to create listing");
+      alert(extractApiErrorMessage(error));
     } finally {
       setSavingListing(false);
     }
@@ -1955,7 +1948,7 @@ const uploadSingleImage = async (file: File): Promise<string> => {
     } catch (error: any) {
       console.error("Update listing failed:", error);
 
-      alert(error?.message || "Failed to update listing");
+      alert(extractApiErrorMessage(error));
     } finally {
       setSavingListing(false);
     }
@@ -1983,7 +1976,7 @@ const uploadSingleImage = async (file: File): Promise<string> => {
     } catch (error: any) {
       console.error("Delete listing failed:", error);
 
-      alert(error?.message || "Failed to delete listing");
+      alert(extractApiErrorMessage(error));
     }
   };
 
@@ -2529,10 +2522,6 @@ const uploadSingleImage = async (file: File): Promise<string> => {
                   ================================================== */}
 
                   {formData.images.map((image, index) => {
-                    const uploadInfo = uploadedImageInfo.find(
-                      (item) => item.url === image,
-                    );
-
                     return (
                       <div
                         key={`${image}-${index}`}
