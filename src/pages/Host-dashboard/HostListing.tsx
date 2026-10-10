@@ -251,7 +251,6 @@ const ACCEPTED_IMAGE_EXTENSIONS = [
 const LISTING_IMAGE_UPLOAD_ENDPOINT =
   import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT ||
   "/api/v1/uploads/listings";
-
 // ============================================================
 // MAPBOX
 // ============================================================
@@ -558,33 +557,28 @@ const HostListings: React.FC = () => {
   // ============================================================
 
   const getApiUrl = useCallback((endpoint: string) => {
-    const rawBase = import.meta.env.VITE_API_URL || "";
-
+    const rawBase = (import.meta.env.VITE_API_URL || "").trim();
     const baseUrl = rawBase.replace(/\/+$/, "");
 
-    let cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+    let cleanEndpoint = endpoint.trim();
 
-    /*
-     * Supports BOTH:
-     *
-     * VITE_API_URL=https://api.mar-haba.ly
-     *
-     * and:
-     *
-     * VITE_API_URL=https://api.mar-haba.ly/api/v1
-     *
-     * without creating:
-     *
-     * /api/v1/api/v1/...
-     */
+    // If the endpoint is already an absolute URL, return it as-is.
+    if (/^https?:\/\//i.test(cleanEndpoint)) {
+      return cleanEndpoint;
+    }
 
+    // Make sure the endpoint starts with a single slash.
+    if (!cleanEndpoint.startsWith("/")) {
+      cleanEndpoint = `/${cleanEndpoint}`;
+    }
+
+    // Avoid "/api/v1/api/v1/..." when base already ends with /api/v1.
     if (baseUrl.endsWith("/api/v1") && cleanEndpoint.startsWith("/api/v1/")) {
       cleanEndpoint = cleanEndpoint.substring("/api/v1".length);
     }
 
     return baseUrl ? `${baseUrl}${cleanEndpoint}` : cleanEndpoint;
   }, []);
-
   // ============================================================
   // ABSOLUTE IMAGE URL
   // ============================================================
@@ -1163,158 +1157,191 @@ const HostListings: React.FC = () => {
   // UPLOAD SINGLE IMAGE
   // ============================================================
 
-  const uploadSingleImage = async (file: File): Promise<string> => {
-    const extension = file.name.split(".").pop()?.toLowerCase() || "";
+const uploadSingleImage = async (file: File): Promise<string> => {
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
 
-    const fileType = file.type.toLowerCase();
+  const fileType = file.type.toLowerCase();
 
-    const isValidType =
-      ACCEPTED_IMAGE_TYPES.includes(fileType) ||
-      ACCEPTED_IMAGE_EXTENSIONS.includes(extension);
+  const isValidType =
+    ACCEPTED_IMAGE_TYPES.includes(fileType) ||
+    ACCEPTED_IMAGE_EXTENSIONS.includes(extension);
 
-    if (!isValidType) {
-      throw new Error(t.imageTypeError);
-    }
+  if (!isValidType) {
+    throw new Error(t.imageTypeError);
+  }
 
-    if (file.size > MAX_IMAGE_SIZE) {
-      throw new Error(t.imageSizeError);
-    }
+  if (file.size > MAX_IMAGE_SIZE) {
+    throw new Error(t.imageSizeError);
+  }
 
-    const token = getAuthToken();
+  const token = getAuthToken();
 
-    if (!token) {
-      throw new Error(
-        isAr
-          ? "انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى."
-          : "Your login session has expired. Please log in again.",
-      );
-    }
+  if (!token) {
+    throw new Error(
+      isAr
+        ? "انتهت جلسة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى."
+        : "Your login session has expired. Please log in again.",
+    );
+  }
 
-    const uploadFormData = new FormData();
+  const uploadFormData = new FormData();
 
-    /*
-     * Backend:
-     * upload.single("image")
-     *
-     * Therefore this MUST be "image".
-     */
-    uploadFormData.append("image", file);
+  /*
+   * Backend:
+   * upload.single("image")
+   *
+   * Therefore this MUST be "image".
+   */
+  uploadFormData.append("image", file);
 
-    const url = getApiUrl(LISTING_IMAGE_UPLOAD_ENDPOINT);
+  const url = getApiUrl(LISTING_IMAGE_UPLOAD_ENDPOINT);
 
-    console.log("================================================");
+  console.log("================================================");
 
-    console.log("📤 IMAGE UPLOAD START");
+  console.log("📤 IMAGE UPLOAD START");
 
-    console.log("Upload endpoint:", url);
+  console.log("Upload endpoint:", url);
 
-    console.log("File name:", file.name);
+  console.log("File name:", file.name);
 
-    console.log("File type:", file.type);
+  console.log("File type:", file.type);
 
-    console.log("File size:", formatFileSize(file.size));
+  console.log("File size:", formatFileSize(file.size));
 
-    console.log("================================================");
+  console.log("================================================");
 
-    const headers: HeadersInit = {
-      Accept: "application/json",
-    };
-
-    headers.Authorization = `Bearer ${token}`;
-
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: uploadFormData,
-      credentials: "include",
-    });
-
-    const responseText = await response.text();
-
-    console.log("📥 Upload HTTP status:", response.status);
-
-    console.log("📥 Upload response:", responseText);
-
-    let data: any = {};
-
-    try {
-      data = responseText ? JSON.parse(responseText) : {};
-    } catch {
-      data = {
-        message: responseText,
-      };
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        data?.message ||
-          data?.error ||
-          data?.data?.message ||
-          `Upload failed (${response.status})`,
-      );
-    }
-
-    /*
-     * Support several possible backend response shapes.
-     */
-    const imageUrl =
-      // Top-level URL fields returned by your backend
-      data?.url ||
-      data?.imageUrl ||
-      data?.file?.url ||
-      // Nested inside data.data (alternate shape)
-      data?.data?.url ||
-      data?.data?.imageUrl ||
-      data?.data?.fileUrl ||
-      data?.data?.path ||
-      data?.data?.file?.url ||
-      data?.data?.file?.imageUrl ||
-      data?.data?.file?.path ||
-      // Fallback fields
-      data?.fileUrl ||
-      data?.path ||
-      data?.file?.imageUrl ||
-      data?.file?.path;
-
-    console.log("🔎 Extracted server image URL:", imageUrl);
-
-    if (!imageUrl || typeof imageUrl !== "string") {
-      console.error(
-        "❌ Server did not return an image URL.",
-        "Full response:",
-        data,
-        "Raw text:",
-        responseText,
-      );
-
-      throw new Error(
-        isAr
-          ? "تم رفع الصورة ولكن الخادم لم يُرجع رابط الصورة."
-          : "Image was uploaded, but the server did not return an image URL.",
-      );
-    }
-
-    /*
-     * If backend returns:
-     *
-     * /uploads/listings/file.jpg
-     *
-     * convert it to:
-     *
-     * https://api.mar-haba.ly/uploads/listings/file.jpg
-     *
-     * so the browser does not try:
-     *
-     * https://mar-haba.ly/uploads/...
-     */
-    const absoluteUrl = getAbsoluteImageUrl(imageUrl);
-
-    console.log("✅ FINAL IMAGE URL:", absoluteUrl);
-
-    console.log("================================================");
-
-    return absoluteUrl;
+  const headers: HeadersInit = {
+    Accept: "application/json",
   };
+
+  headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: uploadFormData,
+    credentials: "include",
+  });
+
+  const responseText = await response.text();
+
+  console.log("📥 Upload HTTP status:", response.status);
+
+  console.log("📥 Upload response:", responseText);
+
+  // ==================================================
+  // GUARD: server must return JSON, not HTML
+  //
+  // If the URL is wrong, the request lands on the
+  // frontend SPA and returns index.html with status 200.
+  // Without this check, JSON.parse() silently swallows
+  // the HTML and you get a misleading
+  // "server did not return an image URL" error.
+  // ==================================================
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!contentType.includes("application/json")) {
+    console.error(
+      "❌ Server returned non-JSON response. " +
+        "You are probably hitting the frontend server, not the API.",
+      {
+        url,
+        status: response.status,
+        contentType,
+        bodyPreview: responseText.slice(0, 200),
+      },
+    );
+
+    throw new Error(
+      isAr
+        ? "فشل رفع الصورة: استجابة الخادم غير صحيحة."
+        : "Image upload failed: server returned an unexpected response.",
+    );
+  }
+
+  // ==================================================
+  // Safe to parse JSON now
+  // ==================================================
+  let data: any = {};
+
+  try {
+    data = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    data = {
+      message: responseText,
+    };
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        data?.error ||
+        data?.data?.message ||
+        `Upload failed (${response.status})`,
+    );
+  }
+
+  /*
+   * Support several possible backend response shapes.
+   */
+  const imageUrl =
+    // Top-level URL fields returned by your backend
+    data?.url ||
+    data?.imageUrl ||
+    data?.file?.url ||
+    // Nested inside data.data (alternate shape)
+    data?.data?.url ||
+    data?.data?.imageUrl ||
+    data?.data?.fileUrl ||
+    data?.data?.path ||
+    data?.data?.file?.url ||
+    data?.data?.file?.imageUrl ||
+    data?.data?.file?.path ||
+    // Fallback fields
+    data?.fileUrl ||
+    data?.path ||
+    data?.file?.imageUrl ||
+    data?.file?.path;
+
+  console.log("🔎 Extracted server image URL:", imageUrl);
+
+  if (!imageUrl || typeof imageUrl !== "string") {
+    console.error(
+      "❌ Server did not return an image URL.",
+      "Full response:",
+      data,
+      "Raw text:",
+      responseText,
+    );
+
+    throw new Error(
+      isAr
+        ? "تم رفع الصورة ولكن الخادم لم يُرجع رابط الصورة."
+        : "Image was uploaded, but the server did not return an image URL.",
+    );
+  }
+
+  /*
+   * If backend returns:
+   *
+   * /uploads/listings/file.jpg
+   *
+   * convert it to:
+   *
+   * https://api.mar-haba.ly/uploads/listings/file.jpg
+   *
+   * so the browser does not try:
+   *
+   * https://mar-haba.ly/uploads/...
+   */
+  const absoluteUrl = getAbsoluteImageUrl(imageUrl);
+
+  console.log("✅ FINAL IMAGE URL:", absoluteUrl);
+
+  console.log("================================================");
+
+  return absoluteUrl;
+};
 
   // ============================================================
   // IMAGE FILE SELECT
