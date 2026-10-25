@@ -1,20 +1,31 @@
 // src/pages/ListingDetail/index.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../hooks/useLanguage";
-import LoadingScreen from "../../components/LoadingScreen";
 import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
 import HostDateManager from "../../components/HostDateManager";
 import ListingQRCode from "../../components/ListingQRCode";
+import { log } from "console";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+/* ==========================================================================
+   CONSTANTS
+========================================================================== */
 
 const API_BASE =
   import.meta.env.VITE_API_URL || "https://api.mar-haba.ly/api/v1";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+/* ==========================================================================
+   TYPES
+========================================================================== */
+
+interface BlockedRange {
+  startDate: string;
+  endDate: string;
+  reason?: string;
+  id: string;
+}
 
 interface Listing {
   id: string;
@@ -45,35 +56,17 @@ interface Listing {
   created_at: string;
   updated_at: string;
 
-  blocked_dates?: {
-    startDate: string;
-    endDate: string;
-    reason?: string;
-    id: string;
-  }[];
+  blocked_dates?: BlockedRange[];
+  blockedDates?: BlockedRange[];
 
-  blockedDates?: {
-    startDate: string;
-    endDate: string;
-    reason?: string;
-    id: string;
-  }[];
-
-  bookings?: {
-    check_in: string;
-    check_out: string;
-    status: string;
-  }[];
+  bookings?: { check_in: string; check_out: string; status: string }[];
 
   host: {
     id: string;
     name: string;
     email: string;
     phone_number: string;
-    hostDetails?: {
-      totalListings: number;
-      joinedDate?: string;
-    };
+    hostDetails?: { totalListings: number; joinedDate?: string };
   };
 }
 
@@ -83,7 +76,9 @@ interface BookingData {
   guests: number;
 }
 
-// ─── Static config ────────────────────────────────────────────────────────────
+/* ==========================================================================
+   STATIC CONFIG
+========================================================================== */
 
 const CATEGORIES = [
   { id: "beachfront", icon: "🏖️", labelEn: "Beachfront", labelAr: "شاطئ" },
@@ -141,7 +136,6 @@ const AVATAR_PAL = [
 
 const translations = {
   en: {
-    dashboard: "Dashboard",
     browse: "Listings",
     backToListings: "Back to listings",
     about: "About",
@@ -149,7 +143,6 @@ const translations = {
     houseRules: "House Rules",
     hostedBy: "Hosted by",
     hostSince: "Host since",
-    locationMap: "Location Map",
     night: "night",
     nights: "nights",
     selectDates: "Select dates",
@@ -174,7 +167,6 @@ const translations = {
     bookingCreatedSuccess: "Booking created successfully!",
     pleaseSelectDates: "Please select check-in and check-out dates.",
     views: "views",
-    // Guest login prompt
     loginToBook: "Log in to book",
     loginToBookDesc:
       "You need an account to select dates and complete a booking.",
@@ -182,15 +174,13 @@ const translations = {
     createAccount: "Create account",
   },
   ar: {
-    dashboard: "لوحة التحكم",
-    browse: "قوايْم",
+    browse: "القوائم",
     backToListings: "العودة إلى القوائم",
     about: "الوصف",
     amenities: "وسائل الراحة",
     houseRules: "قواعد المنزل",
     hostedBy: "المضيف",
     hostSince: "مضيف منذ",
-    locationMap: "خريطة الموقع",
     night: "ليلة",
     nights: "ليالي",
     selectDates: "اختر التواريخ",
@@ -215,7 +205,6 @@ const translations = {
     bookingCreatedSuccess: "تم إنشاء الحجز بنجاح!",
     pleaseSelectDates: "يرجى تحديد تاريخي تسجيل الوصول والمغادرة.",
     views: "مشاهدة",
-    // Guest login prompt
     loginToBook: "سجّل الدخول للحجز",
     loginToBookDesc: "تحتاج إلى حساب لتحديد التواريخ وإتمام الحجز.",
     logIn: "تسجيل الدخول",
@@ -223,7 +212,9 @@ const translations = {
   },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+/* ==========================================================================
+   HELPERS
+========================================================================== */
 
 const fromDateString = (dateString: string): Date | null => {
   if (!dateString) return null;
@@ -231,17 +222,23 @@ const fromDateString = (dateString: string): Date | null => {
   return new Date(Date.UTC(year, month - 1, day));
 };
 
-const displayDate = (dateString: string): string => {
+const displayDate = (dateString: string, isAr = false): string => {
   if (!dateString) return "";
   const [year, month, day] = dateString.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(
+    isAr ? "ar-LY" : "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    },
+  );
 };
 
 const createLocalDate = fromDateString;
+
+const toKey = (d: Date) =>
+  `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
 
 const getAvatar = (name?: string) =>
   AVATAR_PAL[(name?.charCodeAt(0) ?? 0) % AVATAR_PAL.length];
@@ -254,10 +251,44 @@ const getInitials = (name?: string) =>
     .slice(0, 2)
     .toUpperCase() || "H";
 
-// ─── Booking Calendar ────────────────────────────────────────────────────────
+const Skeleton = ({ className = "" }: { className?: string }) => (
+  <div className={`animate-pulse rounded-lg bg-gray-200/80 ${className}`} />
+);
+
+const Spinner = () => (
+  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+);
+
+const SectionCard = ({
+  title,
+  id,
+  accent,
+  children,
+}: {
+  title: string;
+  id?: string;
+  accent?: string;
+  children: React.ReactNode;
+}) => (
+  <section
+    id={id}
+    className="scroll-mt-20 overflow-hidden rounded-2xl bg-white shadow-sm"
+  >
+    {accent && <div className="h-[3px]" style={{ background: accent }} />}
+    <div className="p-4">
+      <h2 className="mb-3 text-base font-bold text-gray-900">{title}</h2>
+      {children}
+    </div>
+  </section>
+);
+
+/* ==========================================================================
+   BOOKING CALENDAR
+========================================================================== */
 
 function BookingCalendar({
   unavailableDates,
+  pendingDates = [],
   onDateSelect,
   checkIn,
   checkOut,
@@ -265,6 +296,7 @@ function BookingCalendar({
   isAr = false,
 }: {
   unavailableDates: string[];
+  pendingDates?: string[];
   onDateSelect: (dates: { checkIn: string; checkOut: string }) => void;
   checkIn: string;
   checkOut: string;
@@ -293,17 +325,13 @@ function BookingCalendar({
   const [currentMonth, setCurrentMonth] = useState(
     new Date(initialDate.getFullYear(), initialDate.getMonth(), 1),
   );
-
   const [selectingCheckOut, setSelectingCheckOut] = useState(
     Boolean(checkIn && !checkOut),
   );
 
   useEffect(() => {
-    if (checkIn && !checkOut) {
-      setSelectingCheckOut(true);
-    } else if (!checkIn && !checkOut) {
-      setSelectingCheckOut(false);
-    }
+    if (checkIn && !checkOut) setSelectingCheckOut(true);
+    else if (!checkIn && !checkOut) setSelectingCheckOut(false);
   }, [checkIn, checkOut]);
 
   const monthNames = isAr
@@ -347,16 +375,12 @@ function BookingCalendar({
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const calendarDays: (Date | null)[] = [];
-
-  for (let i = 0; i < firstDay; i++) {
-    calendarDays.push(null);
-  }
-
-  for (let day = 1; day <= daysInMonth; day++) {
+  for (let i = 0; i < firstDay; i++) calendarDays.push(null);
+  for (let day = 1; day <= daysInMonth; day++)
     calendarDays.push(new Date(year, month, day));
-  }
 
   const unavailableSet = new Set(unavailableDates);
+  const pendingSet = new Set(pendingDates);
 
   const isPast = (date: Date) => {
     const d = new Date(date);
@@ -365,32 +389,24 @@ function BookingCalendar({
   };
 
   const isUnavailable = (date: Date) => unavailableSet.has(formatKey(date));
-
   const isAvailable = (date: Date) => !isPast(date) && !isUnavailable(date);
-
-  const isBeforeCheckIn = (date: Date) => {
-    if (!checkIn) return false;
-    return formatKey(date) < checkIn;
-  };
-
+  const isBeforeCheckIn = (date: Date) =>
+    checkIn ? formatKey(date) < checkIn : false;
   const isSelected = (date: Date) => {
     const key = formatKey(date);
     return key === checkIn || key === checkOut;
   };
-
   const isInRange = (date: Date) => {
     if (!checkIn || !checkOut) return false;
     const key = formatKey(date);
     return key > checkIn && key < checkOut;
   };
-
   const isToday = (date: Date) => formatKey(date) === formatKey(today);
 
-  const changeMonth = (amount: number) => {
+  const changeMonth = (amount: number) =>
     setCurrentMonth(
       new Date(currentMonth.getFullYear(), currentMonth.getMonth() + amount, 1),
     );
-  };
 
   const canGoPrevious = () => {
     const previousMonth = new Date(year, month - 1, 1);
@@ -408,7 +424,6 @@ function BookingCalendar({
     const key = formatKey(date);
 
     if (isPast(date)) return;
-
     if (!selectingCheckOut && isUnavailable(date)) return;
 
     if (!checkIn) {
@@ -451,65 +466,56 @@ function BookingCalendar({
     setSelectingCheckOut(true);
   };
 
-  const formatDisplayDate = (dateString: string) => {
-    if (!dateString) return "";
-    const date = parseDate(dateString);
-    return date.toLocaleDateString(isAr ? "ar-LY" : "en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
   return (
     <div
-      className="bg-white rounded-xl border border-black/8 overflow-hidden"
+      className="overflow-hidden rounded-xl border border-gray-200 bg-white"
       dir={isAr ? "rtl" : "ltr"}
     >
       {/* Header */}
-      <div className="px-4 pt-4 pb-3 border-b border-black/7">
+      <div className="border-b border-gray-100 px-4 pb-3 pt-4">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={() => changeMonth(-1)}
             disabled={!canGoPrevious()}
-            className="w-8 h-8 rounded-full flex items-center justify-center border border-black/8 bg-white text-[#555] hover:bg-[#f7f6f2] disabled:opacity-30 disabled:cursor-not-allowed transition"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-lg text-gray-600 transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-30"
             aria-label={isAr ? "الشهر السابق" : "Previous month"}
           >
             {isAr ? "›" : "‹"}
           </button>
 
-          <div className="text-[14px] font-semibold text-[#111118]">
+          <div className="text-[15px] font-semibold text-gray-900">
             {monthNames[month]} {year}
           </div>
 
           <button
             type="button"
             onClick={() => changeMonth(1)}
-            className="w-8 h-8 rounded-full flex items-center justify-center border border-black/8 bg-white text-[#555] hover:bg-[#f7f6f2] transition"
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-lg text-gray-600 transition active:scale-95"
             aria-label={isAr ? "الشهر التالي" : "Next month"}
           >
             {isAr ? "‹" : "›"}
           </button>
         </div>
 
+        {/* Hint only. The chosen dates are shown once, in the Check-in / Check-out boxes below. */}
         {!isHost && (
-          <div className="mt-3 text-center">
+          <div className="mt-3 text-center text-xs">
             {!checkIn && !checkOut ? (
-              <span className="text-[11px] text-[#888]">
-                {isAr
-                  ? "اختر تاريخ تسجيل الوصول"
-                  : "Select your check-in date"}
+              <span className="text-gray-500">
+                {isAr ? "اختر تاريخ تسجيل الوصول" : "Select your check-in date"}
               </span>
             ) : checkIn && !checkOut ? (
-              <span className="text-[11px] text-[#185FA5] font-medium">
+              <span className="font-medium text-blue-700">
                 {isAr
                   ? "الآن اختر تاريخ تسجيل المغادرة"
                   : "Now select your check-out date"}
               </span>
             ) : (
-              <span className="text-[11px] text-[#1D9E75] font-medium">
-                {formatDisplayDate(checkIn)} → {formatDisplayDate(checkOut)}
+              <span className="font-medium text-emerald-700">
+                {isAr
+                  ? "اضغط على تاريخ لتغيير اختيارك"
+                  : "Tap a date to change your selection"}
               </span>
             )}
           </div>
@@ -517,11 +523,11 @@ function BookingCalendar({
       </div>
 
       {/* Week days */}
-      <div className="grid grid-cols-7 px-3 pt-3">
+      <div className="grid grid-cols-7 px-2 pt-3">
         {weekDays.map((day) => (
           <div
             key={day}
-            className="text-center text-[9px] uppercase tracking-[0.05em] text-[#999] font-medium py-1"
+            className="py-1 text-center text-[10px] font-medium uppercase tracking-wide text-gray-400"
           >
             {day}
           </div>
@@ -529,16 +535,15 @@ function BookingCalendar({
       </div>
 
       {/* Grid */}
-      <div className="grid grid-cols-7 gap-y-1 px-3 pb-4 pt-1">
+      <div className="grid grid-cols-7 gap-y-1 px-2 pb-4 pt-1">
         {calendarDays.map((date, index) => {
-          if (!date) {
-            return <div key={`empty-${index}`} className="h-10" />;
-          }
+          if (!date) return <div key={`empty-${index}`} className="h-11" />;
 
           const key = formatKey(date);
           const past = isPast(date);
           const unavailable = isUnavailable(date);
           const available = isAvailable(date);
+          const pending = pendingSet.has(key);
           const beforeCheckIn = isBeforeCheckIn(date);
           const selected = isSelected(date);
           const inRange = isInRange(date);
@@ -553,7 +558,7 @@ function BookingCalendar({
           return (
             <div
               key={key}
-              className="h-10 flex items-center justify-center relative"
+              className="relative flex h-11 items-center justify-center"
             >
               {inRange && (
                 <div className="absolute inset-y-1 left-0 right-0 bg-[#FEF3C7]" />
@@ -564,11 +569,11 @@ function BookingCalendar({
                 disabled={disabled}
                 onClick={() => handleDateClick(date)}
                 title={
-                  unavailable
+                  unavailable || past
                     ? isAr
-                      ? "غير متاح"
-                      : "Unavailable"
-                    : past
+                      ? "حجز قيد الانتظار"
+                      : "Pending booking"
+                    : unavailable || past
                       ? isAr
                         ? "غير متاح"
                         : "Unavailable"
@@ -579,51 +584,28 @@ function BookingCalendar({
                         : ""
                 }
                 className={`
-                  relative z-10 w-8 h-8 rounded-full text-[11px]
-                  flex items-center justify-center
+                  relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-[13px]
                   transition-all duration-150
-                  ${past ? "text-[#ccc] cursor-not-allowed" : ""}
-                  ${
-                    unavailable
-                      ? "text-[#c4c4c4] bg-[#f1f1ee] cursor-not-allowed"
-                      : ""
-                  }
-                  ${
-                    beforeCheckIn && selectingCheckOut
-                      ? "text-[#ccc] cursor-not-allowed"
-                      : ""
-                  }
-                  ${
-                    selected
-                      ? "bg-[#e8c547] text-[#1a1a2e] font-semibold shadow-sm"
-                      : ""
-                  }
-                  ${
-                    !selected && !disabled && !inRange
-                      ? "text-[#333] hover:bg-[#f7f6f2] cursor-pointer"
-                      : ""
-                  }
-                  ${
-                    !selected && inRange
-                      ? "text-[#633806] hover:bg-[#FAEEDA] cursor-pointer"
-                      : ""
-                  }
-                  ${
-                    todayDate && !selected
-                      ? "ring-1 ring-[#e8c547] ring-inset font-semibold"
-                      : ""
-                  }
+                  ${past ? "cursor-not-allowed text-[#ccc]" : ""}
+                  ${unavailable ? "cursor-not-allowed bg-[#f1f1ee] text-[#c4c4c4]" : ""}
+                  ${pending && !selected ? "cursor-not-allowed bg-orange-100 font-semibold text-orange-800" : ""}
+                  ${beforeCheckIn && selectingCheckOut ? "cursor-not-allowed text-[#ccc]" : ""}
+                  ${selected ? "bg-[#e8c547] font-semibold text-[#1a1a2e] shadow-sm" : ""}
+                  ${!selected && !disabled && !inRange ? "cursor-pointer text-[#333] active:bg-gray-100" : ""}
+                  ${!selected && inRange ? "cursor-pointer text-[#633806]" : ""}
+                  ${todayDate && !selected ? "font-semibold ring-1 ring-inset ring-[#e8c547]" : ""}
                 `}
               >
                 {date.getDate()}
               </button>
 
-              {unavailable && (
-                <span className="absolute bottom-[2px] w-1 h-1 rounded-full bg-[#d66]" />
-              )}
-
+              {pending ? (
+                <span className="absolute bottom-[2px] h-1.5 w-1.5 rounded-full bg-orange-500" />
+              ) : unavailable ? (
+                <span className="absolute bottom-[2px] h-1 w-1 rounded-full bg-[#d66]" />
+              ) : null}
               {available && !selected && !past && !unavailable && (
-                <span className="absolute bottom-[2px] w-1 h-1 rounded-full bg-[#1D9E75]" />
+                <span className="absolute bottom-[2px] h-1 w-1 rounded-full bg-[#1D9E75]" />
               )}
             </div>
           );
@@ -632,47 +614,52 @@ function BookingCalendar({
 
       {/* Legend */}
       {!isHost && (
-        <div className="border-t border-black/7 px-3 py-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[10px] text-[#888]">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-gray-100 px-3 py-3 text-[11px] text-gray-500">
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-[#EAF3DE] border border-[#1D9E75]/20 flex items-center justify-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1D9E75]" />
+            <span className="flex h-3 w-3 items-center justify-center rounded-full border border-[#1D9E75]/20 bg-[#EAF3DE]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#1D9E75]" />
             </span>
             <span>{isAr ? "متاح" : "Available"}</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-[#f1f1ee] border border-black/5 flex items-center justify-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#d66]" />
+            <span className="flex h-3 w-3 items-center justify-center rounded-full border border-black/5 bg-[#f1f1ee]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#d66]" />
             </span>
             <span>{isAr ? "محجوز" : "Unavailable"}</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-[#e8c547]" />
+            <span className="h-3 w-3 rounded-full bg-orange-100 ring-1 ring-orange-300" />
+            <span>{isAr ? "حجز قيد الانتظار" : "Pending booking"}</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="h-3 w-3 rounded-full bg-[#e8c547]" />
             <span>{isAr ? "محدد" : "Selected"}</span>
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full ring-1 ring-[#e8c547]" />
+            <span className="h-3 w-3 rounded-full ring-1 ring-[#e8c547]" />
             <span>{isAr ? "اليوم" : "Today"}</span>
           </div>
         </div>
       )}
 
       {isHost && (
-        <div className="border-t border-black/7 px-4 py-3 text-center">
-          <span className="text-[10px] text-[#888]">
-            {isAr
-              ? "📅 إدارة الحجوزات والتواريخ المحجوزة أدناه"
-              : "📅 Manage bookings and blocked dates below"}
-          </span>
+        <div className="border-t border-gray-100 px-4 py-3 text-center text-xs text-gray-500">
+          {isAr
+            ? "📅 إدارة الحجوزات والتواريخ المحجوزة أدناه"
+            : "📅 Manage bookings and blocked dates below"}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Cancellation Policy Card ─────────────────────────────────────────────────
+/* ==========================================================================
+   CANCELLATION POLICY
+========================================================================== */
 
 function CancellationPolicyCard({
   policy,
@@ -685,21 +672,21 @@ function CancellationPolicyCard({
 
   const meta = POLICY_META[policy.type] ?? POLICY_META.custom;
   const label = isAr ? meta.labelAr : meta.labelEn;
-  const description = isAr ? policy.descriptionAr : policy.description;
+  const description = isAr
+    ? policy.descriptionAr || policy.description
+    : policy.description;
   const rules = policy.rulePairs
     ? policy.rulePairs.map((p) => (isAr ? p.ar : p.en)).filter(Boolean)
     : policy.rules || [];
 
   return (
-    <div className="bg-white rounded-2xl border border-black/7 px-5 pb-5">
-      <div className="border-t-[3px] border-[#e8c547] pt-5 mb-4">
-        <div className="text-[10px] tracking-[0.1em] uppercase text-[#999] mb-1.5">
-          {isAr ? "سياسة الإلغاء" : "Cancellation Policy"}
-        </div>
-      </div>
-
+    <SectionCard
+      id="cancellation-policy"
+      title={isAr ? "سياسة الإلغاء" : "Cancellation Policy"}
+      accent="#e8c547"
+    >
       <div
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[12px] font-semibold mb-3"
+        className="mb-3 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold"
         style={{ background: meta.bg, color: meta.color }}
       >
         <span>{meta.icon}</span>
@@ -707,7 +694,7 @@ function CancellationPolicyCard({
       </div>
 
       {description && (
-        <p className="text-[13px] text-[#666] leading-[1.7] mb-3 italic">
+        <p className="mb-3 text-sm italic leading-relaxed text-gray-600">
           {description}
         </p>
       )}
@@ -717,10 +704,10 @@ function CancellationPolicyCard({
           {rules.map((rule, i) => (
             <li
               key={i}
-              className="flex items-start gap-2.5 text-[13px] text-[#555]"
+              className="flex items-start gap-2.5 text-sm text-gray-600"
             >
               <span
-                className="w-[18px] h-[18px] rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full"
                 style={{ background: meta.bg }}
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
@@ -739,50 +726,50 @@ function CancellationPolicyCard({
         </ul>
       ) : (
         !description && (
-          <p className="text-[13px] text-[#999] italic">
+          <p className="text-sm italic text-gray-400">
             {isAr
               ? "تواصل مع المضيف للاستفسار عن شروط الإلغاء."
               : "Contact the host for cancellation terms."}
           </p>
         )
       )}
-    </div>
+    </SectionCard>
   );
 }
 
-function CancellationPolicyMini({
+// One-line pointer to the full policy (the full text is shown once, in the card on the page)
+function CancellationPolicyLink({
   policy,
   isAr,
+  onClick,
 }: {
   policy: Listing["cancellation_policy"];
   isAr: boolean;
+  onClick: () => void;
 }) {
   if (!policy) return null;
 
   const meta = POLICY_META[policy.type] ?? POLICY_META.custom;
   const label = isAr ? meta.labelAr : meta.labelEn;
-  const firstRule = policy.rulePairs
-    ? isAr
-      ? policy.rulePairs[0]?.ar
-      : policy.rulePairs[0]?.en
-    : policy.rules?.[0];
 
   return (
-    <div
-      className="rounded-lg px-3 py-2.5 text-[11px] leading-[1.6]"
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-start text-xs font-semibold"
       style={{ background: meta.bg, color: meta.color }}
     >
-      <span className="font-semibold">
+      <span>
         {meta.icon} {label} {isAr ? "سياسة الإلغاء" : "cancellation"}
       </span>
-      {firstRule && (
-        <span className="block mt-0.5 opacity-80">{firstRule}</span>
-      )}
-    </div>
+      <span className="underline">{isAr ? "عرض السياسة" : "View policy"}</span>
+    </button>
   );
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+/* ==========================================================================
+   MAIN COMPONENT
+========================================================================== */
 
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -794,6 +781,7 @@ export default function ListingDetail() {
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [unavailableDates, setUnavailableDates] = useState<string[]>([]);
+  const [pendingDates, setPendingDates] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isHost, setIsHost] = useState(false);
@@ -810,20 +798,22 @@ export default function ListingDetail() {
   const [listingView, setListingView] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTogglingActive, setIsTogglingActive] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  // ─── Fetch listing (public endpoint) ───────────────────────────────────────
+  const galleryRef = useRef<HTMLDivElement | null>(null);
 
-  const fetchListing = async () => {
+  /* --------------------- Fetch listing (public endpoint) -------------------- */
+
+  // silent = refresh without bringing the skeletons back
+  const fetchListing = async (silent = false) => {
     if (!id) return;
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
 
     try {
-      // Public endpoint — works for both guests and logged-in users.
-      // If the user is logged in, sending the Authorization header lets
-      // the backend return personalised fields (e.g. bookings if this is
-      // their own listing).
+      // Public endpoint: works for guests and logged-in users. When logged in, the
+      // Authorization header lets the backend return personalised fields.
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
       };
@@ -831,25 +821,20 @@ export default function ListingDetail() {
       if (token) {
         try {
           const parsed = JSON.parse(token);
-          if (parsed?.accessToken) {
+          if (parsed?.accessToken)
             headers.Authorization = `Bearer ${parsed.accessToken}`;
-          }
         } catch {
           /* ignore malformed storage */
         }
       }
 
       const res = await fetch(`${API_BASE}/listings/${id}`, { headers });
-
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const response = await res.json();
-      console.log(response);
-      
-
       const listingData = response?.data?.data ?? response?.data ?? response;
+      console.log("listing", listingData);
+      
 
       if (!listingData || !listingData.id) {
         setError(isAr ? "تعذر تحميل القائمة" : "Failed to load listing");
@@ -858,69 +843,68 @@ export default function ListingDetail() {
 
       setListing(listingData);
 
-      // ── Build unavailable dates ────────────────────────────────────────────
+      // Unavailable dates: bookings block check-in through the night before check-out
       const unavailable = new Set<string>();
+const pending = new Set<string>();
 
-      // Bookings block check-in through the night before check-out.
-      if (Array.isArray(listingData.bookings)) {
-        listingData.bookings.forEach((b: any) => {
-          if (!b.check_in || !b.check_out) return;
-          if (
-            b.status === "cancelled" ||
-            b.status === "canceled" ||
-            b.status === "rejected"
-          ) {
-            return;
-          }
+if (Array.isArray(listingData.bookings)) {
+  listingData.bookings.forEach((b: any) => {
+    if (!b.check_in || !b.check_out) return;
 
-          const start = fromDateString(b.check_in.slice(0, 10));
-          const end = fromDateString(b.check_out.slice(0, 10));
-          if (!start || !end) return;
+    const status = String(b.status || "").toLowerCase();
 
-          const cursor = new Date(start);
-          while (cursor < end) {
-            unavailable.add(
-              `${cursor.getUTCFullYear()}-${String(
-                cursor.getUTCMonth() + 1,
-              ).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(
-                2,
-                "0",
-              )}`,
-            );
-            cursor.setUTCDate(cursor.getUTCDate() + 1);
-          }
-        });
+    // Cancelled/rejected bookings should not block dates
+    if (["cancelled", "canceled", "rejected"].includes(status)) {
+      return;
+    }
+
+    const start = fromDateString(b.check_in.slice(0, 10));
+    const end = fromDateString(b.check_out.slice(0, 10));
+
+    if (!start || !end || start >= end) return;
+
+    const cursor = new Date(start);
+
+    // Check-out date is not blocked
+    while (cursor < end) {
+      const key = toKey(cursor);
+
+      unavailable.add(key);
+
+      if (status === "pending") {
+        pending.add(key);
       }
 
-      // Host blocked date ranges.
-      const blockedRanges = Array.isArray(listingData.blocked_dates)
-        ? listingData.blocked_dates
-        : Array.isArray(listingData.blockedDates)
-          ? listingData.blockedDates
-          : [];
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+  });
+}
 
-      blockedRanges.forEach((blocked: any) => {
-        if (!blocked.startDate || !blocked.endDate) return;
+// Host-blocked date ranges
+const blockedRanges = Array.isArray(listingData.blocked_dates)
+  ? listingData.blocked_dates
+  : Array.isArray(listingData.blockedDates)
+    ? listingData.blockedDates
+    : [];
 
-        const start = fromDateString(blocked.startDate);
-        const end = fromDateString(blocked.endDate);
-        if (!start || !end) return;
+blockedRanges.forEach((blocked: any) => {
+  if (!blocked.startDate || !blocked.endDate) return;
 
-        const cursor = new Date(start);
-        while (cursor < end) {
-          unavailable.add(
-            `${cursor.getUTCFullYear()}-${String(
-              cursor.getUTCMonth() + 1,
-            ).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(
-              2,
-              "0",
-            )}`,
-          );
-          cursor.setUTCDate(cursor.getUTCDate() + 1);
-        }
-      });
+  const start = fromDateString(blocked.startDate);
+  const end = fromDateString(blocked.endDate);
 
-      setUnavailableDates(Array.from(unavailable));
+  if (!start || !end || start >= end) return;
+
+  const cursor = new Date(start);
+
+  while (cursor < end) {
+    unavailable.add(toKey(cursor));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+});
+
+setUnavailableDates(Array.from(unavailable));
+setPendingDates(Array.from(pending));
     } catch (err) {
       console.error("Error fetching listing:", err);
       setError(isAr ? "حدث خطأ أثناء تحميل القائمة" : "Error loading listing");
@@ -928,8 +912,6 @@ export default function ListingDetail() {
       setLoading(false);
     }
   };
-
-  // ─── Fetch view count (only when logged in) ────────────────────────────────
 
   const fetchListingView = async () => {
     if (!id || !isAuthenticated) return;
@@ -942,12 +924,12 @@ export default function ListingDetail() {
         setListingView(response.data.views || response.data.view_count);
       }
     } catch (err) {
-      // Non-fatal — the page works without the view counter.
+      // Non-fatal: the page works without the view counter
       console.error("Error updating view count:", err);
     }
   };
 
-  // ─── Effects ───────────────────────────────────────────────────────────────
+  /* -------------------------------- Effects -------------------------------- */
 
   useEffect(() => {
     if (id) fetchListing();
@@ -969,20 +951,31 @@ export default function ListingDetail() {
     }
   }, [user, listing]);
 
-  useEffect(() => {
-    if (!listing || !booking.checkIn || !booking.checkOut) {
-      setTotalPrice(0);
-      return;
-    }
-    const nights = Math.ceil(
+  const nights = useMemo(() => {
+    if (!booking.checkIn || !booking.checkOut) return 0;
+    const n = Math.ceil(
       (createLocalDate(booking.checkOut)!.getTime() -
         createLocalDate(booking.checkIn)!.getTime()) /
         86400000,
     );
-    setTotalPrice(nights > 0 ? listing.price * nights : 0);
-  }, [booking.checkIn, booking.checkOut, listing]);
+    return n > 0 ? n : 0;
+  }, [booking.checkIn, booking.checkOut]);
 
-  // ─── Handlers ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    setTotalPrice(listing && nights > 0 ? listing.price * nights : 0);
+  }, [nights, listing]);
+
+  // Lock page scroll while the booking sheet is open (mobile)
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [sheetOpen]);
+
+  /* ------------------------------- Handlers -------------------------------- */
 
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1044,26 +1037,22 @@ export default function ListingDetail() {
         setBookingSuccess(t.bookingCreatedSuccess);
 
         try {
-          await fetchListing();
+          await fetchListing(true);
         } catch (refreshError) {
           console.error("Failed to refresh listing:", refreshError);
         }
 
-        setTimeout(() => {
-          navigate("/user-dashboard");
-        }, 2000);
-
+        setTimeout(() => navigate("/user-dashboard"), 2000);
         return;
       }
 
-      const errorMessage =
+      setBookingError(
         response?.message ||
-        response?.error ||
-        response?.data?.message ||
-        response?.data?.error ||
-        (isAr ? "فشل إنشاء الحجز." : "Failed to create booking.");
-
-      setBookingError(errorMessage);
+          response?.error ||
+          response?.data?.message ||
+          response?.data?.error ||
+          (isAr ? "فشل إنشاء الحجز." : "Failed to create booking."),
+      );
     } catch (err: any) {
       let message =
         err?.response?.data?.message ||
@@ -1091,7 +1080,9 @@ export default function ListingDetail() {
     try {
       const response = await apiService.putProtectedData(
         `/api/v1/listings/${id}`,
-        { is_active: !listing?.is_active },
+        {
+          is_active: !listing?.is_active,
+        },
       );
       if (response.success && response.data) {
         setListing((prev) => ({
@@ -1113,36 +1104,94 @@ export default function ListingDetail() {
       : `${roundedAmount.toLocaleString("en-US")} LYD`;
   };
 
-  // ─── Render guards ─────────────────────────────────────────────────────────
+  const goToPolicy = () => {
+    setSheetOpen(false);
+    window.setTimeout(() => {
+      document
+        .getElementById("cancellation-policy")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
 
-  if (authLoading || loading) {
-    return <LoadingScreen />;
-  }
+  const onGalleryScroll = () => {
+    const el = galleryRef.current;
+    if (!el || !el.clientWidth) return;
+    setActiveImage(Math.round(Math.abs(el.scrollLeft) / el.clientWidth));
+  };
 
-  const userInitials = user ? getInitials(user.name) : "?";
+  /* ------------------------------ Page chrome ------------------------------ */
 
-  if (error || !listing) {
+  const fontClass = isAr ? "font-arabic" : "font-sans";
+
+  // Hosts get the same bottom tab bar as the other host pages (Home / Listings / Bookings / Settings).
+  // Based on the account role (not the listing) so the bar shows immediately, even while loading.
+  const isHostRole = String(user?.role || "").toLowerCase() === "host";
+
+  const navLinks = isHostRole
+    ? [
+        { id: "browse", label: t.browse, href: "/listings" },
+        {
+          id: "dashboard",
+          label: "Home",
+          labelAr: "الرئيسية",
+          href: "/host/dashboard",
+          icon: "🏡",
+        },
+        {
+          id: "listings",
+          label: "Listings",
+          labelAr: "إعلاناتي",
+          href: "/host/listings",
+          icon: "🏠",
+        },
+        {
+          id: "bookings",
+          label: "Bookings",
+          labelAr: "الحجوزات",
+          href: "/host/bookings",
+          icon: "📅",
+        },
+        {
+          id: "settings",
+          label: "Settings",
+          labelAr: "الإعدادات",
+          href: "/host/settings",
+          icon: "⚙️",
+        },
+      ]
+    : [{ id: "browse", label: t.browse, href: "/listings" }];
+
+  // Leave room at the bottom for the tab bar (and the booking bar above it)
+  const mainPad = isHostRole ? "pb-44" : "pb-28";
+
+  const navbar = (
+    <Navbar
+      NAV_LINKS={navLinks}
+      user={user}
+      lang={lang}
+      toggleLanguage={toggleLanguage}
+      defaultActiveId={isHostRole ? "listings" : undefined}
+    />
+  );
+
+  /* ------------------------------ Error state ------------------------------ */
+
+  if (!loading && (error || !listing)) {
     return (
-      <div className="min-h-screen bg-[#f7f6f2]">
-        <Navbar
-          NAV_LINKS={[
-            
-            { id: "browse", label: t.browse, href: "/listings" },
-          ]}
-          user={user}
-          lang={lang}
-          toggleLanguage={toggleLanguage}
-         
-        />
-        <div className="max-w-[1100px] mx-auto p-6">
-          <div className="bg-white rounded-2xl p-8 text-center border border-black/7">
-            <div className="text-5xl mb-4">🏠</div>
-            <h2 className="font-light text-2xl text-[#111118] mb-2">
+      <div
+        className={`min-h-screen bg-gray-50 ${fontClass}`}
+        dir={isAr ? "rtl" : "ltr"}
+      >
+        {navbar}
+        <div className={`mx-auto max-w-md p-6 ${isHostRole ? "pb-28" : ""}`}>
+          <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
+            <div className="mb-4 text-5xl">🏠</div>
+            <h2 className="mb-2 text-xl font-bold text-gray-900">
               {error || t.listingNotFound}
             </h2>
             <Link
               to="/listings"
-              className="inline-block mt-4 bg-[#1a1a2e] text-[#e8c547] px-6 py-2.5 rounded-lg text-sm"
+              className="mt-4 inline-block rounded-xl bg-[#1a1a2e] px-6 py-3 text-sm font-semibold text-[#e8c547] no-underline"
             >
               {t.backToListings} →
             </Link>
@@ -1152,71 +1201,457 @@ export default function ListingDetail() {
     );
   }
 
+  /* ------------------------------ Loading state ---------------------------- */
+  // The page shell shows immediately; each block fills in when the data arrives.
+
+  if (loading || !listing) {
+    return (
+      <div
+        className={`min-h-screen bg-gray-50 ${fontClass}`}
+        dir={isAr ? "rtl" : "ltr"}
+      >
+        {navbar}
+
+        <main
+          className={`mx-auto max-w-[1100px] px-4 ${mainPad} pt-4 md:px-6 md:py-7`}
+        >
+          <Link
+            to="/listings"
+            className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 no-underline"
+          >
+            ← {t.backToListings}
+          </Link>
+
+          <Skeleton className="-mx-4 h-64 rounded-none md:mx-0 md:h-[380px] md:rounded-2xl" />
+
+          <div className="mt-4 space-y-3">
+            <Skeleton className="h-6 w-24 rounded-full" />
+            <Skeleton className="h-9 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 items-start gap-5 md:grid-cols-[1fr_360px]">
+            <div className="space-y-4">
+              <Skeleton className="h-40 w-full rounded-2xl" />
+              <Skeleton className="h-24 w-full rounded-2xl" />
+              <Skeleton className="h-32 w-full rounded-2xl" />
+            </div>
+            <Skeleton className="hidden h-96 w-full rounded-2xl md:block" />
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  /* ------------------------------ Derived data ----------------------------- */
+
   const categoryInfo = listing.category
     ? CATEGORIES.find((c) => c.id === listing.category)
     : null;
   const hostAvi = getAvatar(listing.host?.name);
   const hostInitial = getInitials(listing.host?.name);
-  const nights =
-    booking.checkIn && booking.checkOut
-      ? Math.ceil(
-          (createLocalDate(booking.checkOut)!.getTime() -
-            createLocalDate(booking.checkIn)!.getTime()) /
-            86400000,
-        )
-      : 0;
+  const images = (listing.images ?? []).filter(Boolean);
+  const isGuestBooker = isAuthenticated && !isHost && !isAdmin;
+  const hasMap = !!(listing.latitude && listing.longitude);
+  const mapQuery = encodeURIComponent(
+    `${listing.latitude},${listing.longitude}`,
+  );
 
-  const displayFontClass = isAr
-    ? "font-['Cairo','Tajawal',sans-serif]"
-    : "font-['Fraunces',serif]";
-  const bodyFontClass = isAr
-    ? "font-['Cairo','Tajawal',sans-serif]"
-    : "font-['DM_Mono',monospace]";
+  /* ----------------------------- Right-hand panel -------------------------- */
 
-  const canBook =
-    isAuthenticated && !isHost && !isAdmin && listing.is_active;
+  const panel = authLoading ? (
+    <div className="space-y-3 rounded-2xl bg-white p-5 shadow-sm">
+      <Skeleton className="h-9 w-1/2" />
+      <Skeleton className="h-64 w-full" />
+      <Skeleton className="h-12 w-full" />
+    </div>
+  ) : !isAuthenticated ? (
+    /* Guest: login prompt, no calendar */
+    <div className="overflow-hidden rounded-2xl bg-white text-center shadow-sm">
+      <div className="h-[3px] bg-[#e8c547]" />
+      <div className="px-6 py-6">
+        <div className="mb-3 text-4xl">🔒</div>
+        <div className="mb-2 text-lg font-bold text-gray-900">
+          {t.loginToBook}
+        </div>
+        <p className="mb-4 text-sm leading-relaxed text-gray-600">
+          {t.loginToBookDesc}
+        </p>
+        <Link
+          to="/login"
+          state={{ from: `/listings/${id}` }}
+          className="flex min-h-[48px] w-full items-center justify-center rounded-xl bg-[#e8c547] text-sm font-semibold text-[#1a1a2e] no-underline active:scale-[0.98]"
+        >
+          {t.logIn} →
+        </Link>
+        <Link
+          to="/signup"
+          state={{ from: `/listings/${id}` }}
+          className="mt-2 flex min-h-[48px] w-full items-center justify-center rounded-xl border border-gray-200 text-sm font-medium text-gray-900 no-underline active:scale-[0.98]"
+        >
+          {t.createAccount}
+        </Link>
+      </div>
+    </div>
+  ) : isGuestBooker ? (
+    /* Guest booking panel */
+    <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+      <div className="h-[3px] bg-[#e8c547]" />
+      <div className="px-4 pb-5 pt-4">
+        <div className="mb-4 flex items-baseline gap-1">
+          <span className="text-3xl font-bold leading-none text-gray-900">
+            {formatCurrency(listing.price)}
+          </span>
+          <span className="text-sm text-gray-500">/ {t.night}</span>
+        </div>
+
+        {!listing.is_active && (
+          <div className="mb-4 rounded-xl bg-amber-50 px-3.5 py-3 text-sm text-amber-800">
+            {t.listingUnavailable}
+          </div>
+        )}
+
+        <form onSubmit={handleBooking} className="flex flex-col gap-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-gray-500">
+              {t.selectDates}
+            </label>
+            <BookingCalendar
+              unavailableDates={unavailableDates}
+                pendingDates={pendingDates}
+
+              onDateSelect={(dates) => {
+                setBooking((prev) => ({ ...prev, ...dates }));
+                if (dates.checkIn && dates.checkOut) setBookingError("");
+              }}
+              checkIn={booking.checkIn}
+              checkOut={booking.checkOut}
+              isAr={isAr}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              [t.checkIn, booking.checkIn],
+              [t.checkOut, booking.checkOut],
+            ].map(([label, val]) => (
+              <div key={label} className="rounded-xl bg-gray-50 px-3 py-2.5">
+                <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-gray-400">
+                  {label}
+                </div>
+                <div
+                  className={`text-sm font-medium ${val ? "text-gray-900" : "text-gray-300"}`}
+                >
+                  {val ? displayDate(val, isAr) : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Guests stepper */}
+          <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3.5 py-2.5">
+            <span className="text-sm font-medium text-gray-700">
+              {t.guests}
+            </span>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setBooking((b) => ({
+                    ...b,
+                    guests: Math.max(1, b.guests - 1),
+                  }))
+                }
+                disabled={booking.guests <= 1}
+                aria-label="-"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-xl text-gray-700 active:scale-95 disabled:opacity-40"
+              >
+                −
+              </button>
+              <span className="w-6 text-center text-base font-semibold">
+                {booking.guests}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setBooking((b) => ({
+                    ...b,
+                    guests: Math.min(10, b.guests + 1),
+                  }))
+                }
+                disabled={booking.guests >= 10}
+                aria-label="+"
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-xl text-gray-700 active:scale-95 disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          {/* Price breakdown (the nightly rate × nights, then one total) */}
+          {nights > 0 && (
+            <div className="rounded-xl bg-gray-50 px-3.5 py-3">
+              <div className="mb-2 text-sm text-gray-600">
+                {formatCurrency(listing.price)} × {nights}{" "}
+                {nights === 1 ? t.night : t.nights}
+              </div>
+              <div className="flex items-center justify-between border-t border-gray-200 pt-2 text-sm font-semibold text-gray-900">
+                <span>{t.total}</span>
+                <span className="text-base text-emerald-700">
+                  {formatCurrency(totalPrice)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <CancellationPolicyLink
+            policy={listing.cancellation_policy}
+            isAr={isAr}
+            onClick={goToPolicy}
+          />
+
+          {bookingError && (
+            <div className="rounded-xl bg-red-50 px-3.5 py-3 text-sm text-red-800">
+              {bookingError}
+            </div>
+          )}
+          {bookingSuccess && (
+            <div className="rounded-xl bg-emerald-50 px-3.5 py-3 text-sm text-emerald-800">
+              {bookingSuccess}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={
+              !booking.checkIn ||
+              !booking.checkOut ||
+              isSubmitting ||
+              !listing.is_active
+            }
+            className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-[#e8c547] text-base font-bold text-[#1a1a2e] transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isSubmitting ? (
+              <>
+                <Spinner />
+                {isAr ? "جاري المعالجة..." : "Processing..."}
+              </>
+            ) : (
+              `${t.bookNow} →`
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  ) : isHost ? (
+    /* Host management panel */
+    <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+      <div className="h-[3px] bg-[#7F77DD]" />
+      <div className="px-4 pb-5 pt-4">
+        <div className="mb-5 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#EEEDFE] text-[22px]">
+            🏠
+          </div>
+          <div className="mb-1 text-lg font-bold text-gray-900">
+            {t.youOwnThisProperty}
+          </div>
+          <p className="text-sm leading-relaxed text-gray-500">
+            {t.cannotBookOwnListing}
+          </p>
+        </div>
+
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+          <div className="min-w-0">
+            <div className="text-sm font-semibold text-gray-900">
+              {listing.is_active ? t.listingActive : t.listingInactive}
+            </div>
+            <div className="mt-0.5 text-xs text-gray-500">
+              {listing.is_active ? t.listingActiveDesc : t.listingInactiveDesc}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={listing.is_active}
+            onClick={handleToggleActive}
+            disabled={isTogglingActive}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+              listing.is_active ? "bg-emerald-500" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-all ${
+                listing.is_active ? "start-[22px]" : "start-0.5"
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="border-t border-gray-100 pt-4">
+          <BookingCalendar
+            unavailableDates={unavailableDates}
+              pendingDates={pendingDates}
+
+            onDateSelect={() => {}}
+            checkIn=""
+            checkOut=""
+            isHost={true}
+            isAr={isAr}
+          />
+          <HostDateManager
+            listingId={listing.id}
+            blockedDates={listing.blocked_dates || listing.blockedDates || []}
+            bookings={listing.bookings || []}
+            onDatesUpdated={() => fetchListing(true)}
+          />
+        </div>
+
+        <div className="mt-5 border-t border-gray-100 pt-4 text-center">
+          <Link
+            to="/host/bookings"
+            className="text-sm font-medium text-blue-700 no-underline"
+          >
+            {t.viewAllBookings} →
+          </Link>
+        </div>
+      </div>
+    </div>
+  ) : (
+    /* Admin view */
+    <div className="overflow-hidden rounded-2xl bg-white text-center shadow-sm">
+      <div className="h-[3px] bg-gray-400" />
+      <div className="px-6 py-6">
+        <div className="mb-3 text-5xl">👑</div>
+        <div className="mb-2 text-lg font-bold text-gray-900">
+          {t.adminViewOnly}
+        </div>
+        <p className="text-sm leading-relaxed text-gray-600">
+          {t.adminCannotBookOrBlock}
+        </p>
+        <Link
+          to="/admin"
+          className="mt-4 inline-block text-sm font-medium text-blue-700 no-underline"
+        >
+          {t.goToAdminPanel} →
+        </Link>
+      </div>
+    </div>
+  );
+
+  /* The panel opens as a bottom sheet on phones for guests, bookers and hosts */
+  const usesSheet =
+    !authLoading && (!isAuthenticated || isGuestBooker || isHost);
+  const showAdminInline =
+    !authLoading && isAuthenticated && !isHost && !isGuestBooker;
+
+  /* ---------------------------------- Render ------------------------------- */
 
   return (
     <div
-      className={`min-h-screen bg-[#f7f6f2] ${isAr ? "rtl" : "ltr"} ${bodyFontClass}`}
+      className={`min-h-screen bg-gray-50 text-gray-900 ${fontClass}`}
+      dir={isAr ? "rtl" : "ltr"}
     >
-      <Navbar
-        NAV_LINKS={[
-          { id: "browse", label: t.browse, href: "/listings" },
-        ]}
-        user={user}
-        lang={lang}
-        toggleLanguage={toggleLanguage}
-        
-      />
+      {navbar}
 
-      <main className="max-w-[1100px] mx-auto px-4 md:px-6 py-7">
-        {/* Back + Title */}
+      <main
+        className={`mx-auto max-w-[1100px] px-4 ${mainPad} pt-4 md:px-6 md:pb-12 md:pt-7`}
+      >
+        {/* Back */}
+        <Link
+          to="/listings"
+          className="mb-3 inline-flex items-center gap-1 text-sm text-gray-500 no-underline"
+        >
+          ← {t.backToListings}
+        </Link>
+
+        {/* ================= Gallery ================= */}
         <div className="mb-5">
-          <Link
-            to="/listings"
-            className="text-[12px] text-[#888] no-underline inline-flex items-center gap-1 mb-2.5"
-          >
-            ← {t.backToListings}
-          </Link>
+          {images.length === 0 ? (
+            <div className="-mx-4 flex h-64 items-center justify-center bg-gray-200 text-5xl md:mx-0 md:h-[380px] md:rounded-2xl">
+              🏠
+            </div>
+          ) : (
+            <>
+              {/* Mobile: swipeable carousel */}
+              <div className="relative -mx-4 md:hidden">
+                <div
+                  ref={galleryRef}
+                  onScroll={onGalleryScroll}
+                  className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+                  {images.map((img, i) => (
+                    <img
+                      key={i}
+                      src={img}
+                      alt={`${listing.title} ${i + 1}`}
+                      className="h-64 w-full shrink-0 snap-center object-cover"
+                    />
+                  ))}
+                </div>
 
+                {images.length > 1 && (
+                  <span className="absolute bottom-3 end-3 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium text-white">
+                    {Math.min(activeImage + 1, images.length)} / {images.length}
+                  </span>
+                )}
+              </div>
+
+              {/* Desktop: large image + thumbnails */}
+              <div className="hidden md:block">
+                <div className="mb-2.5 h-[380px] overflow-hidden rounded-2xl bg-gray-200">
+                  <img
+                    src={images[Math.min(activeImage, images.length - 1)]}
+                    alt={listing.title}
+                    className="block h-full w-full object-cover transition-opacity duration-200"
+                  />
+                </div>
+
+                {images.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {images.map((img, i) => (
+                      <img
+                        key={i}
+                        src={img}
+                        alt={`view ${i + 1}`}
+                        onClick={() => setActiveImage(i)}
+                        className={`h-[70px] w-[70px] cursor-pointer rounded-lg border-2 object-cover transition-all ${
+                          i === activeImage
+                            ? "border-[#e8c547] opacity-100"
+                            : "border-transparent opacity-60"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ================= Title block ================= */}
+        <div className="mb-5">
           {categoryInfo && (
-            <div className="inline-flex items-center gap-1.5 bg-[#f7f6f2] px-3.5 py-1.5 rounded-3xl text-[13px] text-[#555] mb-4 border border-black/7">
-              <span className="text-[18px]">{categoryInfo.icon}</span>
+            <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-white px-3.5 py-1.5 text-sm text-gray-600 shadow-sm">
+              <span className="text-lg">{categoryInfo.icon}</span>
               <span>{isAr ? categoryInfo.labelAr : categoryInfo.labelEn}</span>
             </div>
           )}
 
-          <h1
-            className={`font-light text-[clamp(24px,4vw,36px)] text-[#111118] leading-[1.1] mb-2 ${displayFontClass}`}
-          >
+          <h1 className="mb-2 text-[clamp(24px,5vw,36px)] font-bold leading-tight text-gray-900">
             {listing.title}
           </h1>
 
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#888]">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-col gap-1.5 text-sm text-gray-500">
               <div className="flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  className="shrink-0"
+                >
                   <path
                     d="M6 1C4.07 1 2.5 2.57 2.5 4.5c0 2.78 3.5 6.5 3.5 6.5s3.5-3.72 3.5-6.5C9.5 2.57 7.93 1 6 1zm0 5a1.5 1.5 0 110-3 1.5 1.5 0 010 3z"
                     fill="#bbb"
@@ -1225,7 +1660,7 @@ export default function ListingDetail() {
                 {listing.location}
               </div>
 
-              <div className="flex items-center gap-1 text-[#666]">
+              <div className="flex items-center gap-1.5">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="14"
@@ -1247,133 +1682,82 @@ export default function ListingDetail() {
               </div>
             </div>
 
-            {/* QR code — scans to this exact listing URL */}
+            {/* QR code: scans to this exact listing URL */}
             <div className="flex flex-col items-center">
               <ListingQRCode
                 url={`${window.location.origin}/listings/${listing.id}`}
-                size={120}
+                size={96}
                 filename={`listing-${listing.id}-qr.png`}
                 isAr={isAr}
               />
-              <span className="text-[10px] text-[#999] mt-1">
+              <span className="mt-1 text-[10px] text-gray-400">
                 {isAr ? "امسح للمشاركة" : "Scan to share"}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Image Gallery */}
-        <div className="mb-6">
-          <div className="h-[380px] rounded-2xl overflow-hidden bg-[#e0dfd9] mb-2.5">
-            {listing.images?.[activeImage] && (
-              <img
-                src={listing.images[activeImage]}
-                alt={listing.title}
-                className="w-full h-full object-cover block transition-opacity duration-200"
-              />
-            )}
-          </div>
-          {listing.images?.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {listing.images.map((img, i) => (
-                <img
-                  key={i}
-                  src={img}
-                  alt={`view ${i + 1}`}
-                  onClick={() => setActiveImage(i)}
-                  className={`w-[70px] h-[70px] rounded-lg object-cover cursor-pointer transition-all border-2 ${
-                    i === activeImage
-                      ? "opacity-100 border-[#e8c547]"
-                      : "opacity-60 border-transparent"
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Detail Layout */}
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_360px] gap-5 items-start">
-          {/* ── LEFT column ── */}
-          <div className="flex flex-col gap-5">
-            {/* Description */}
-            <div className="bg-white rounded-2xl border border-black/7 px-5 pb-5">
-              <div className="border-t-[3px] border-[#378ADD] pt-5 mb-4">
-                <div className="text-[10px] tracking-[0.1em] uppercase text-[#999] mb-1.5">
-                  {t.about}
-                </div>
-              </div>
-              <p className="text-[13px] text-[#555] leading-[1.75]">
+        {/* ================= Details ================= */}
+        <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-[1fr_360px]">
+          {/* ---------- Left column ---------- */}
+          <div className="flex flex-col gap-4">
+            <SectionCard title={t.about} accent="#378ADD">
+              <p className="text-sm leading-[1.75] text-gray-600">
                 {listing.description}
               </p>
-            </div>
+            </SectionCard>
 
-            {/* Amenities */}
             {listing.amenities?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-black/7 px-5 pb-5 pt-5">
-                <div className="text-[10px] tracking-[0.1em] uppercase text-[#999] mb-4">
-                  {t.amenities}
-                </div>
+              <SectionCard title={t.amenities}>
                 <div className="flex flex-wrap gap-2">
                   {listing.amenities.map((a, i) => (
                     <span
                       key={i}
-                      className="bg-[#f7f6f2] px-3 py-[5px] rounded-2xl text-[12px] text-[#555]"
+                      className="rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-600"
                     >
                       {a}
                     </span>
                   ))}
                 </div>
-              </div>
+              </SectionCard>
             )}
 
-            {/* House Rules */}
             {listing.rules?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-black/7 px-5 pb-5">
-                <div className="border-t-[3px] border-[#e8c547] pt-5 mb-4">
-                  <div className="text-[10px] tracking-[0.1em] uppercase text-[#999] mb-1.5">
-                    {t.houseRules}
-                  </div>
-                </div>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+              <SectionCard title={t.houseRules} accent="#e8c547">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {listing.rules.map((rule, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2.5 text-[13px] text-[#555] px-2 py-1.5 bg-[#fafaf8] rounded-lg"
+                      className="flex items-center gap-2.5 rounded-xl bg-gray-50 px-3 py-2.5 text-sm text-gray-600"
                     >
-                      <span className="w-5 h-5 rounded-full bg-[#FAEEDA] inline-flex items-center justify-center text-[10px] text-[#633806] flex-shrink-0">
+                      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#FAEEDA] text-[10px] text-[#633806]">
                         ✓
                       </span>
                       {rule}
                     </div>
                   ))}
                 </div>
-              </div>
+              </SectionCard>
             )}
 
-            {/* Cancellation Policy */}
             <CancellationPolicyCard
               policy={listing.cancellation_policy}
               isAr={isAr}
             />
 
-            {/* Host */}
-            <div className="bg-white rounded-2xl border border-black/7 px-5 pb-5 pt-5">
-              <div className="text-[10px] tracking-[0.1em] uppercase text-[#999] mb-4">
-                {t.hostedBy}
-              </div>
+            <SectionCard title={t.hostedBy}>
               <div className="flex items-center gap-3.5">
                 <div
-                  className="w-11 h-11 rounded-full flex items-center justify-center text-[16px] font-medium flex-shrink-0"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-base font-semibold"
                   style={{ background: hostAvi.bg, color: hostAvi.color }}
                 >
                   {hostInitial}
                 </div>
                 <div>
-                  <div className="text-[14px] font-medium text-[#111118]">
+                  <div className="text-[15px] font-semibold text-gray-900">
                     {listing.host?.name}
                   </div>
-                  <div className="text-[11px] text-[#999] mt-0.5">
+                  <div className="mt-0.5 text-xs text-gray-500">
                     {t.hostSince}{" "}
                     {listing.host?.hostDetails?.joinedDate
                       ? new Date(
@@ -1383,30 +1767,29 @@ export default function ListingDetail() {
                   </div>
                 </div>
               </div>
-            </div>
+            </SectionCard>
 
-            {/* Location */}
-            {listing.latitude && listing.longitude && (
-              <section className="bg-white rounded-2xl border border-black/5 overflow-hidden">
-                <div className="p-5">
-                  <div className="text-[10px] tracking-[0.1em] uppercase text-[#999] mb-2">
+            {/* Location: the address is shown once, under the title; this section is the map */}
+            {hasMap && (
+              <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                <div className="p-4 pb-3">
+                  <h2 className="text-base font-bold text-gray-900">
                     {isAr ? "الموقع" : "Location"}
-                  </div>
-
-                  <h3 className="text-lg font-semibold text-[#111118]">
-                    {isAr ? "موقع العقار" : "Property location"}
-                  </h3>
-
-                  <p className="text-sm text-[#666] mt-1">{listing.location}</p>
+                  </h2>
+                  <p
+                    className="mt-0.5 text-xs text-gray-400"
+                    dir="ltr"
+                    style={{ textAlign: isAr ? "right" : "left" }}
+                  >
+                    📍 {listing.latitude}, {listing.longitude}
+                  </p>
                 </div>
 
                 <a
-                  href={`https://www.google.com/maps?q=${encodeURIComponent(
-                    `${listing.latitude},${listing.longitude}`,
-                  )}`}
+                  href={`https://www.google.com/maps?q=${mapQuery}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="relative block"
+                  className="block"
                   aria-label={
                     isAr
                       ? "فتح الموقع في خرائط Google"
@@ -1419,347 +1802,145 @@ export default function ListingDetail() {
                         ? "موقع العقار على الخريطة"
                         : "Property location on map"
                     }
-                    src={`https://www.google.com/maps?q=${encodeURIComponent(
-                      `${listing.latitude},${listing.longitude}`,
-                    )}&z=15&output=embed`}
-                    width="100%"
-                    height="350"
-                    style={{
-                      border: 0,
-                      display: "block",
-                      pointerEvents: "none",
-                    }}
+                    src={`https://www.google.com/maps?q=${mapQuery}&z=15&output=embed`}
+                    className="block h-[260px] w-full md:h-[350px]"
+                    style={{ border: 0, pointerEvents: "none" }}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                     tabIndex={-1}
                   />
-
-                  <span className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-md text-xs font-medium text-[#1a1a2e] flex items-center gap-2">
-                    <span>🗺️</span>
-                    {isAr ? "فتح في خرائط Google" : "Open in Google Maps"}
-                  </span>
                 </a>
 
-                <div className="p-5">
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="w-9 h-9 rounded-full bg-[#f7f6f2] flex items-center justify-center shrink-0">
-                      <span className="text-lg">📍</span>
-                    </div>
+                <div className="flex flex-wrap gap-2 p-4">
+                  <a
+                    href={`https://www.google.com/maps?q=${mapQuery}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-4 text-sm font-semibold text-[#e8c547] no-underline active:scale-[0.97]"
+                  >
+                    🗺️ {isAr ? "فتح في خرائط Google" : "Open in Google Maps"}
+                  </a>
 
-                    <div>
-                      <div className="text-xs font-medium text-[#999] uppercase tracking-wide">
-                        {isAr ? "العنوان" : "Address"}
-                      </div>
-
-                      <p className="text-sm text-[#111118] mt-1">
-                        {listing.location}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-[10px] text-[#999] mb-4">
-                    {listing.latitude}, {listing.longitude}
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      href={`https://www.google.com/maps?q=${encodeURIComponent(
-                        `${listing.latitude},${listing.longitude}`,
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#1a1a2e] text-[#e8c547] text-xs font-medium hover:opacity-90 transition"
-                    >
-                      <span>🗺️</span>
-                      {isAr ? "فتح في خرائط Google" : "Open in Google Maps"}
-                    </a>
-
-                    <a
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                        `${listing.latitude},${listing.longitude}`,
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#e8c547] text-[#1a1a2e] text-xs font-semibold hover:opacity-90 transition"
-                    >
-                      <span>🧭</span>
-                      {isAr ? "احصل على الاتجاهات" : "Get directions"}
-                    </a>
-                  </div>
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${mapQuery}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-[#e8c547] px-4 text-sm font-semibold text-[#1a1a2e] no-underline active:scale-[0.97]"
+                  >
+                    🧭 {isAr ? "احصل على الاتجاهات" : "Get directions"}
+                  </a>
                 </div>
               </section>
             )}
+
+            {/* Admins have no sheet on phones, so their card sits at the end of the page */}
+            {showAdminInline && <div className="md:hidden">{panel}</div>}
           </div>
 
-          {/* ── RIGHT column ── */}
-          <div>
-            {!isAuthenticated ? (
-              /* Guest: login prompt, no calendar */
-              <div className="bg-white rounded-2xl border border-black/7 border-t-[3px] border-t-[#e8c547] px-6 py-6 text-center">
-                <div className="text-4xl mb-3">🔒</div>
-                <div
-                  className={`font-light text-[18px] text-[#111118] mb-2 ${displayFontClass}`}
-                >
-                  {t.loginToBook}
-                </div>
-                <p className="text-[12px] text-[#666] leading-[1.6] mb-4">
-                  {t.loginToBookDesc}
-                </p>
-                <Link
-                  to="/login"
-                  state={{ from: `/listings/${id}` }}
-                  className="block w-full bg-[#e8c547] text-[#1a1a2e] px-4 py-3 rounded-[10px] text-[13px] font-semibold no-underline hover:opacity-90 transition"
-                >
-                  {t.logIn} →
-                </Link>
-                <Link
-                  to="/signup"
-                  state={{ from: `/listings/${id}` }}
-                  className="block w-full mt-2 border border-black/10 text-[#111118] px-4 py-3 rounded-[10px] text-[13px] font-medium no-underline hover:bg-[#f7f6f2] transition"
-                >
-                  {t.createAccount}
-                </Link>
+          {/* ---------- Right column (desktop) ---------- */}
+          <div className="hidden md:sticky md:top-20 md:block">{panel}</div>
+        </div>
+      </main>
 
-                {listing.cancellation_policy && (
-                  <div className="mt-4 text-start">
-                    <CancellationPolicyMini
-                      policy={listing.cancellation_policy}
-                      isAr={isAr}
-                    />
-                  </div>
-                )}
-              </div>
-            ) : canBook ? (
-              /* Guest booking panel */
-              <div className="bg-white rounded-2xl border border-black/7 border-t-[3px] border-t-[#e8c547] px-5 pb-5">
-                <div className="flex items-baseline gap-1 mb-5 pt-4">
-                  <span
-                    className={`font-light text-[34px] text-[#111118] leading-none ${displayFontClass}`}
-                  >
-                    {formatCurrency(listing.price)}
-                  </span>
-                  <span className="text-[12px] text-[#999]">/ {t.night}</span>
-                </div>
-
-                {!listing.is_active && (
-                  <div className="bg-[#FEF3C7] border border-[#D97706]/20 rounded-lg px-3 py-2.5 text-[12px] text-[#92400E] mb-4">
-                    {t.listingUnavailable}
-                  </div>
-                )}
-
-                <form
-                  onSubmit={handleBooking}
-                  className="flex flex-col gap-3.5"
-                >
-                  <div>
-                    <label className="block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5">
-                      {t.selectDates}
-                    </label>
-                    <BookingCalendar
-                      unavailableDates={unavailableDates}
-                      onDateSelect={(dates) => {
-                        setBooking((prev) => ({ ...prev, ...dates }));
-                        if (dates.checkIn && dates.checkOut) {
-                          setBookingError("");
-                        }
-                      }}
-                      checkIn={booking.checkIn}
-                      checkOut={booking.checkOut}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      [t.checkIn, booking.checkIn],
-                      [t.checkOut, booking.checkOut],
-                    ].map(([label, val]) => (
-                      <div
-                        key={label}
-                        className="bg-[#f7f6f2] border border-black/7 rounded-lg px-3 py-2.5"
-                      >
-                        <div className="text-[10px] tracking-[0.08em] uppercase text-[#999] mb-[3px]">
-                          {label}
-                        </div>
-                        <div
-                          className={`text-[12px] ${val ? "text-[#111118]" : "text-[#bbb]"}`}
-                        >
-                          {val ? displayDate(val) : "—"}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] tracking-[0.1em] uppercase text-[#888] mb-1.5">
-                      {t.guests}
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      required
-                      value={booking.guests}
-                      onChange={(e) =>
-                        setBooking({
-                          ...booking,
-                          guests: parseInt(e.target.value) || 1,
-                        })
-                      }
-                      className="w-full px-3.5 py-2.5 border border-black/12 rounded-lg text-[13px] font-[inherit] text-[#111118] bg-[#fafaf8] outline-none"
-                    />
-                  </div>
-
-                  {nights > 0 && (
-                    <div className="bg-[#f7f6f2] rounded-lg px-3 py-3 border border-black/7">
-                      <div className="flex justify-between text-[12px] text-[#666] mb-2">
-                        <span>
-                          {formatCurrency(listing.price)} × {nights}{" "}
-                          {nights === 1 ? t.night : t.nights}
-                        </span>
-                        <span>{formatCurrency(totalPrice)}</span>
-                      </div>
-                      <div className="flex justify-between text-[13px] font-medium text-[#111118] pt-2 border-t border-black/7">
-                        <span>{t.total}</span>
-                        <span className="text-[#1D9E75]">
-                          {formatCurrency(totalPrice)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {listing.cancellation_policy && (
-                    <CancellationPolicyMini
-                      policy={listing.cancellation_policy}
-                      isAr={isAr}
-                    />
-                  )}
-
-                  {bookingError && (
-                    <div className="bg-[#FCEBEB] border border-[#A32D2D]/15 rounded-lg px-3 py-2.5 text-[12px] text-[#791F1F]">
-                      {bookingError}
-                    </div>
-                  )}
-                  {bookingSuccess && (
-                    <div className="bg-[#EAF3DE] border border-[#27500A]/15 rounded-lg px-3 py-2.5 text-[12px] text-[#27500A]">
-                      {bookingSuccess}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={
-                      !booking.checkIn ||
-                      !booking.checkOut ||
-                      isSubmitting ||
-                      !listing.is_active
-                    }
-                    className="bg-[#e8c547] text-[#1a1a2e] px-3 py-3 rounded-[10px] text-[13px] font-semibold border-none cursor-pointer font-[inherit] transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting
-                      ? isAr
-                        ? "جاري المعالجة..."
-                        : "Processing..."
-                      : `${t.bookNow} →`}
-                  </button>
-                </form>
-              </div>
-            ) : isHost ? (
-              /* Host management panel */
-              <div className="bg-white rounded-2xl border border-black/7 border-t-[3px] border-t-[#7F77DD] px-5 pb-5">
-                <div className="pt-4 text-center mb-5">
-                  <div className="w-12 h-12 rounded-full bg-[#EEEDFE] flex items-center justify-center mx-auto mb-3 text-[22px]">
-                    🏠
-                  </div>
-                  <div
-                    className={`font-light text-[18px] text-[#111118] mb-1.5 ${displayFontClass}`}
-                  >
+      {/* ================= Mobile sticky bar ================= */}
+      {usesSheet && !sheetOpen && (
+        <div
+          className={`fixed inset-x-0 z-30 border-t border-gray-200 bg-white px-4 pt-3 md:hidden ${
+            isHostRole
+              ? "bottom-[calc(env(safe-area-inset-bottom)+62px)] pb-3"
+              : "bottom-0 z-40 pb-[calc(env(safe-area-inset-bottom)+12px)]"
+          }`}
+        >
+          <div className="mx-auto flex max-w-md items-center justify-between gap-3">
+            {isHost ? (
+              <>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
                     {t.youOwnThisProperty}
-                  </div>
-                  <p className="text-[12px] text-[#999] leading-[1.6]">
-                    {t.cannotBookOwnListing}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {listing.is_active ? t.listingActive : t.listingInactive}
                   </p>
                 </div>
-
-                <div className="mb-4 px-1">
-                  <div className="flex items-center justify-between bg-[#f7f6f2] rounded-xl px-4 py-3 border border-black/7">
-                    <div>
-                      <div className="text-[12px] font-medium text-[#111118]">
-                        {listing.is_active
-                          ? t.listingActive
-                          : t.listingInactive}
-                      </div>
-                      <div className="text-[11px] text-[#999] mt-0.5">
-                        {listing.is_active
-                          ? t.listingActiveDesc
-                          : t.listingInactiveDesc}
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleToggleActive}
-                      disabled={isTogglingActive}
-                      className={`relative w-11 h-6 rounded-full transition-colors duration-200 border-none cursor-pointer flex-shrink-0 disabled:opacity-50 ${
-                        listing.is_active ? "bg-[#1D9E75]" : "bg-[#ddd]"
-                      }`}
-                    >
-                      <span
-                        className={`absolute top-[3px] w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-all duration-200 ${
-                          listing.is_active ? "left-[22px]" : "left-[3px]"
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border-t border-black/7 pt-4">
-                  <BookingCalendar
-                    unavailableDates={unavailableDates}
-                    onDateSelect={() => {}}
-                    checkIn=""
-                    checkOut=""
-                    isHost={true}
-                  />
-                  <HostDateManager
-                    listingId={listing.id}
-                    blockedDates={
-                      listing.blocked_dates || listing.blockedDates || []
-                    }
-                    bookings={listing.bookings || []}
-                    onDatesUpdated={fetchListing}
-                  />
-                </div>
-
-                <div className="mt-5 pt-4 border-t border-black/7 text-center">
-                  <Link
-                    to="/host/bookings"
-                    className="text-[12px] text-[#185FA5] no-underline"
-                  >
-                    {t.viewAllBookings} →
-                  </Link>
-                </div>
-              </div>
+                <button
+                  type="button"
+                  onClick={() => setSheetOpen(true)}
+                  className="min-h-[48px] shrink-0 rounded-xl bg-[#1a1a2e] px-5 text-sm font-semibold text-[#e8c547] active:scale-[0.97]"
+                >
+                  🏠 {isAr ? "إدارة" : "Manage"}
+                </button>
+              </>
             ) : (
-              /* Admin view */
-              <div className="bg-white rounded-2xl border border-black/7 border-t-[3px] border-t-[#999] px-6 py-6 text-center">
-                <div className="text-5xl mb-3">👑</div>
-                <div
-                  className={`font-light text-[18px] text-[#111118] mb-2 ${displayFontClass}`}
-                >
-                  {t.adminViewOnly}
+              <>
+                <div className="min-w-0">
+                  {nights > 0 ? (
+                    <>
+                      <p className="text-base font-bold text-emerald-700">
+                        {formatCurrency(totalPrice)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {displayDate(booking.checkIn, isAr)} –{" "}
+                        {displayDate(booking.checkOut, isAr)} · {nights}{" "}
+                        {nights === 1 ? t.night : t.nights}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-base font-bold">
+                        {formatCurrency(listing.price)}
+                      </p>
+                      <p className="text-xs text-gray-500">/ {t.night}</p>
+                    </>
+                  )}
                 </div>
-                <p className="text-[12px] text-[#666] leading-[1.6]">
-                  {t.adminCannotBookOrBlock}
-                </p>
-                <Link
-                  to="/admin"
-                  className="inline-block mt-4 text-[12px] text-[#185FA5] no-underline"
+
+                <button
+                  type="button"
+                  onClick={() => setSheetOpen(true)}
+                  className="min-h-[48px] shrink-0 rounded-xl bg-[#e8c547] px-6 text-sm font-bold text-[#1a1a2e] active:scale-[0.97]"
                 >
-                  {t.goToAdminPanel} →
-                </Link>
-              </div>
+                  {!isAuthenticated
+                    ? `${t.logIn} →`
+                    : nights > 0
+                      ? `${t.bookNow} →`
+                      : t.selectDates}
+                </button>
+              </>
             )}
           </div>
         </div>
-      </main>
+      )}
+
+      {/* ================= Mobile bottom sheet ================= */}
+      {usesSheet && sheetOpen && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col justify-end md:hidden"
+          dir={isAr ? "rtl" : "ltr"}
+        >
+          <button
+            type="button"
+            aria-label={isAr ? "إغلاق" : "Close"}
+            onClick={() => setSheetOpen(false)}
+            className="absolute inset-0 cursor-default border-none bg-black/50"
+          />
+
+          <div className="relative max-h-[92vh] overflow-y-auto rounded-t-3xl bg-gray-50 pb-[env(safe-area-inset-bottom)]">
+            <div className="sticky top-0 z-10 flex items-center justify-between bg-gray-50 px-4 pb-2 pt-3">
+              <div className="mx-auto h-1.5 w-10 rounded-full bg-gray-300" />
+              <button
+                type="button"
+                onClick={() => setSheetOpen(false)}
+                aria-label={isAr ? "إغلاق" : "Close"}
+                className="absolute end-3 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg text-gray-600 shadow-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-3 pb-5 pt-1">{panel}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
