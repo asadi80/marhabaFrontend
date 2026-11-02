@@ -584,17 +584,38 @@ function BookingCalendar({
                         : ""
                 }
                 className={`
-                  relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-[13px]
-                  transition-all duration-150
-                  ${past ? "cursor-not-allowed text-[#ccc]" : ""}
-                  ${unavailable ? "cursor-not-allowed bg-[#f1f1ee] text-[#c4c4c4] after:absolute after:bottom-[2px] after:right-[2px] after:z-20 after:h-1.5 after:w-1.5 after:rounded-full after:bg-orange-500 after:content-['']"
-  : ""}
-                  ${pending && !selected ? "cursor-not-allowed bg-orange-100 font-semibold text-orange-800" : ""}
-                  ${beforeCheckIn && selectingCheckOut ? "cursor-not-allowed text-[#ccc]" : ""}
-                  ${selected ? "bg-[#e8c547] font-semibold text-[#1a1a2e] shadow-sm" : ""}
-                  ${!selected && !disabled && !inRange ? "cursor-pointer text-[#333] active:bg-gray-100" : ""}
-                  ${!selected && inRange ? "cursor-pointer text-[#633806]" : ""}
-                  ${todayDate && !selected ? "font-semibold ring-1 ring-inset ring-[#e8c547]" : ""}
+                 relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-[13px]
+transition-all duration-150
+
+${past ? "cursor-not-allowed text-[#ccc]" : ""}
+
+${
+  unavailable
+    ? "cursor-not-allowed bg-[#f1f1ee] text-[#c4c4c4] after:absolute after:bottom-[2px] after:right-[2px] after:z-20 after:h-1.5 after:w-1.5 after:rounded-full after:bg-orange-500 after:content-['']"
+    : ""
+}
+
+${
+  pending && !selected
+    ? "cursor-not-allowed bg-orange-100 font-semibold text-orange-800"
+    : ""
+}
+
+${beforeCheckIn && selectingCheckOut ? "cursor-not-allowed text-[#ccc]" : ""}
+
+${selected ? "bg-[#e8c547] font-semibold text-[#1a1a2e] shadow-sm" : ""}
+
+${
+  !selected && !disabled && !inRange
+    ? "cursor-pointer text-[#333] active:bg-gray-100"
+    : ""
+}
+
+${!selected && inRange ? "cursor-pointer text-[#633806]" : ""}
+
+${
+  todayDate && !selected ? "font-semibold ring-1 ring-inset ring-[#e8c547]" : ""
+}
                 `}
               >
                 {date.getDate()}
@@ -835,7 +856,6 @@ export default function ListingDetail() {
       const response = await res.json();
       const listingData = response?.data?.data ?? response?.data ?? response;
       console.log("listing", listingData);
-      
 
       if (!listingData || !listingData.id) {
         setError(isAr ? "تعذر تحميل القائمة" : "Failed to load listing");
@@ -846,66 +866,66 @@ export default function ListingDetail() {
 
       // Unavailable dates: bookings block check-in through the night before check-out
       const unavailable = new Set<string>();
-const pending = new Set<string>();
+      const pending = new Set<string>();
 
-if (Array.isArray(listingData.bookings)) {
-  listingData.bookings.forEach((b: any) => {
-    if (!b.check_in || !b.check_out) return;
+      if (Array.isArray(listingData.bookings)) {
+        listingData.bookings.forEach((b: any) => {
+          if (!b.check_in || !b.check_out) return;
 
-    const status = String(b.status || "").toLowerCase();
+          const status = String(b.status || "").toLowerCase();
 
-    // Cancelled/rejected bookings should not block dates
-    if (["cancelled", "canceled", "rejected"].includes(status)) {
-      return;
-    }
+          // Cancelled/rejected bookings should not block dates
+          if (["cancelled", "canceled", "rejected"].includes(status)) {
+            return;
+          }
 
-    const start = fromDateString(b.check_in.slice(0, 10));
-    const end = fromDateString(b.check_out.slice(0, 10));
+          const start = fromDateString(b.check_in.slice(0, 10));
+          const end = fromDateString(b.check_out.slice(0, 10));
 
-    if (!start || !end || start >= end) return;
+          if (!start || !end || start >= end) return;
 
-    const cursor = new Date(start);
+          const cursor = new Date(start);
 
-    // Check-out date is not blocked
-    while (cursor < end) {
-      const key = toKey(cursor);
+          // Check-out date is not blocked
+          while (cursor < end) {
+            const key = toKey(cursor);
 
-      unavailable.add(key);
+            unavailable.add(key);
 
-      if (status === "pending") {
-        pending.add(key);
+            if (status === "pending") {
+              pending.add(key);
+            }
+
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
+          }
+        });
       }
 
-      cursor.setUTCDate(cursor.getUTCDate() + 1);
-    }
-  });
-}
+      // Host-blocked date ranges
+      const blockedRanges = Array.isArray(listingData.blocked_dates)
+        ? listingData.blocked_dates
+        : Array.isArray(listingData.blockedDates)
+          ? listingData.blockedDates
+          : [];
 
-// Host-blocked date ranges
-const blockedRanges = Array.isArray(listingData.blocked_dates)
-  ? listingData.blocked_dates
-  : Array.isArray(listingData.blockedDates)
-    ? listingData.blockedDates
-    : [];
+      blockedRanges.forEach((blocked: any) => {
+        if (!blocked.startDate || !blocked.endDate) return;
 
-blockedRanges.forEach((blocked: any) => {
-  if (!blocked.startDate || !blocked.endDate) return;
+        const start = fromDateString(blocked.startDate);
+        const end = fromDateString(blocked.endDate);
 
-  const start = fromDateString(blocked.startDate);
-  const end = fromDateString(blocked.endDate);
+        if (!start || !end || start >= end) return;
 
-  if (!start || !end || start >= end) return;
+        const cursor = new Date(start);
 
-  const cursor = new Date(start);
+        while (cursor < end) {
+          unavailable.add(toKey(cursor));
+          cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+      });
 
-  while (cursor < end) {
-    unavailable.add(toKey(cursor));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-});
-
-setUnavailableDates(Array.from(unavailable));
-setPendingDates(Array.from(pending));
+      setUnavailableDates(Array.from(unavailable));
+      setPendingDates(Array.from(pending));
     } catch (err) {
       console.error("Error fetching listing:", err);
       setError(isAr ? "حدث خطأ أثناء تحميل القائمة" : "Error loading listing");
@@ -1319,8 +1339,7 @@ setPendingDates(Array.from(pending));
             </label>
             <BookingCalendar
               unavailableDates={unavailableDates}
-                pendingDates={pendingDates}
-
+              pendingDates={pendingDates}
               onDateSelect={(dates) => {
                 setBooking((prev) => ({ ...prev, ...dates }));
                 if (dates.checkIn && dates.checkOut) setBookingError("");
@@ -1492,8 +1511,7 @@ setPendingDates(Array.from(pending));
         <div className="border-t border-gray-100 pt-4">
           <BookingCalendar
             unavailableDates={unavailableDates}
-              pendingDates={pendingDates}
-
+            pendingDates={pendingDates}
             onDateSelect={() => {}}
             checkIn=""
             checkOut=""
