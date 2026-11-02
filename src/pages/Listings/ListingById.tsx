@@ -587,7 +587,8 @@ function BookingCalendar({
                   relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-[13px]
                   transition-all duration-150
                   ${past ? "cursor-not-allowed text-[#ccc]" : ""}
-                  ${unavailable ? "relative cursor-not-allowed bg-[#f1f1ee] text-[#c4c4c4] after:absolute after:bottom-[2px] after:right-[2px] after:h-1.5 after:w-1.5 after:rounded-full after:bg-orange-500" : ""}
+                  ${unavailable ? "cursor-not-allowed bg-[#f1f1ee] text-[#c4c4c4] after:absolute after:bottom-[2px] after:right-[2px] after:z-20 after:h-1.5 after:w-1.5 after:rounded-full after:bg-orange-500 after:content-['']"
+  : ""}
                   ${pending && !selected ? "cursor-not-allowed bg-orange-100 font-semibold text-orange-800" : ""}
                   ${beforeCheckIn && selectingCheckOut ? "cursor-not-allowed text-[#ccc]" : ""}
                   ${selected ? "bg-[#e8c547] font-semibold text-[#1a1a2e] shadow-sm" : ""}
