@@ -589,11 +589,9 @@ transition-all duration-150
 
 ${past ? "cursor-not-allowed text-[#ccc]" : ""}
 
-${
-  unavailable
-    ? "cursor-not-allowed bg-[#f1f1ee] text-[#c4c4c4] after:absolute after:bottom-[2px] after:right-[2px] after:z-20 after:h-1.5 after:w-1.5 after:rounded-full after:bg-orange-500 after:content-['']"
-    : ""
-}
+${unavailable
+  ? "cursor-not-allowed bg-[#f1f1ee] text-[#c4c4c4] after:absolute after:bottom-[2px] after:left-1/2 after:-translate-x-1/2 after:z-20 after:h-1.5 after:w-1.5 after:rounded-full after:bg-orange-500 after:content-['']"
+  : ""}
 
 ${
   pending && !selected
