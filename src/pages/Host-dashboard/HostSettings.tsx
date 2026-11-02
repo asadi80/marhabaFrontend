@@ -803,7 +803,7 @@ const HostSettings: React.FC = () => {
         {/* Desktop header */}
         <div className="hidden md:block">
           <div className="mb-2 flex items-center gap-3 text-sm">
-            <Link to="/host/dashboard" className="font-medium text-gray-500 hover:text-[#1a1a2e]">
+            <Link to="/host-dashboard" className="font-medium text-gray-500 hover:text-[#1a1a2e]">
               {t("Dashboard", "لوحة التحكم")}
             </Link>
             <span className="text-gray-300">/</span>
