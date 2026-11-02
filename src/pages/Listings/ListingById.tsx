@@ -1134,7 +1134,7 @@ setPendingDates(Array.from(pending));
           id: "dashboard",
           label: "Home",
           labelAr: "الرئيسية",
-          href: "/host/dashboard",
+          href: "/host-dashboard",
           icon: "🏡",
         },
         {
