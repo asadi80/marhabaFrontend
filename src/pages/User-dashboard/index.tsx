@@ -80,6 +80,16 @@ const STATUS_STYLES: Record<
   confirmed: { bg: "#EAF3DE", c: "#27500A", label: ["confirmed", "مؤكد"] },
   pending: { bg: "#FAEEDA", c: "#633806", label: ["pending", "قيد الانتظار"] },
   cancelled: { bg: "#FCEBEB", c: "#791F1F", label: ["cancelled", "ملغي"] },
+  checked_in: {
+    bg: "#E1F5EE",
+    c: "#085041",
+    label: ["Checked in", "تم تسجيل الوصول"],
+  },
+  checked_out: {
+    bg: "#E6F1FB",
+    c: "#0C447C",
+    label: ["Checked out", "تم تسجيل المغادرة"],
+  },
 };
 
 /* ==========================================================================
@@ -928,13 +938,12 @@ export default function UserDashboard() {
 
                       <div className="flex flex-wrap gap-2 border-t border-gray-100 bg-gray-50/60 p-3">
                         {/* View listing: show for every booking except cancelled */}
-                          <Link
-                            to={`/listings/${booking.listing_id}`}
-                            className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-sm font-semibold text-[#e8c547] no-underline active:scale-[0.97]"
-                          >
-                            {t("View listing", "عرض القائمة")}
-                          </Link>
-                     
+                        <Link
+                          to={`/listings/${booking.listing_id}`}
+                          className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-sm font-semibold text-[#e8c547] no-underline active:scale-[0.97]"
+                        >
+                          {t("View listing", "عرض القائمة")}
+                        </Link>
 
                         {/* Cancel: only pending or confirmed */}
                         {(booking.status === "pending" ||
