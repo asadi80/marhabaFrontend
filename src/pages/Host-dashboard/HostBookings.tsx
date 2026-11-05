@@ -7,6 +7,7 @@ import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
 import HostCalendar from "../../components/HostCalendar";
 
+
 /* ==========================================================================
    TOKEN GUARD
    UX nicety only (redirects early when the stored token is missing/expired).

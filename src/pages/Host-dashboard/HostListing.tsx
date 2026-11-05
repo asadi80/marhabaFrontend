@@ -10,82 +10,73 @@ import { compressImage } from "../../lib/compressImage";
 import type mapboxgl from "mapbox-gl";
 
 /* ==========================================================================
-   TOKEN GUARD
-   UX nicety only. The real security boundary is the server.
+   CONFIGURATION
 ========================================================================== */
 
 const HOST_ROLE = "host";
+const MAX_IMAGES = 6;
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 
-const readStoredAccessToken = (): string | null => {
-  try {
-    const raw = localStorage.getItem("tokens");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    return typeof parsed?.accessToken === "string" ? parsed.accessToken : null;
-  } catch {
-    return null;
-  }
-};
+const ACCEPTED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+];
 
-const isJwtExpired = (token: string): boolean => {
-  try {
-    const parts = token.split(".");
-    if (parts.length < 2) return true;
-    const payload = JSON.parse(
-      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")),
-    );
-    if (!payload?.exp) return false;
-    return Date.now() >= payload.exp * 1000;
-  } catch {
-    return true;
-  }
-};
+const ACCEPTED_IMAGE_EXTENSIONS = [
+  "jpg",
+  "jpeg",
+  "png",
+  "webp",
+  "heic",
+  "heif",
+];
 
-const hasValidStoredToken = (): boolean => {
-  const token = readStoredAccessToken();
-  return !!token && !isJwtExpired(token);
-};
+// Backend route: POST /api/v1/uploads/:type
+const LISTING_IMAGE_UPLOAD_ENDPOINT =
+  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT ||
+  "/api/v1/uploads/listings";
 
-const toRole = (role?: string) => String(role || "").toLowerCase();
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
 
-/* ==========================================================================
-   ERROR MESSAGE EXTRACTOR
-========================================================================== */
+const DEFAULT_CENTER = { lat: 20, lng: 0 };
 
-const extractApiErrorMessage = (error: any): string => {
-  if (!error) return "Something went wrong";
+const NAV_LINKS = [
+  {
+    id: "dashboard",
+    label: "Home",
+    labelAr: "الرئيسية",
+    href: "/host-dashboard",
+    icon: "🏡",
+  },
+  {
+    id: "listings",
+    label: "Listings",
+    labelAr: "إعلاناتي",
+    href: "/host/listings",
+    icon: "🏠",
+  },
+  {
+    id: "bookings",
+    label: "Bookings",
+    labelAr: "الحجوزات",
+    href: "/host/bookings",
+    icon: "📅",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    labelAr: "الإعدادات",
+    href: "/host/settings",
+    icon: "⚙️",
+  },
+];
 
-  const body = error?.response?.data || error?.data || error?.body || null;
-
-  if (body && typeof body === "object") {
-    if (Array.isArray(body.errors) && body.errors.length > 0) {
-      const fieldErrors = body.errors
-        .map((e: any) => {
-          if (typeof e === "string") return e;
-          if (e && typeof e === "object") {
-            const base = e.message || e.msg || e.error;
-            const val = e.value !== undefined ? `: ${e.value}` : "";
-            return base ? `${base}${val}` : null;
-          }
-          return null;
-        })
-        .filter(Boolean);
-
-      return [body.message || "Validation failed", ...fieldErrors].join("\n");
-    }
-
-    if (typeof body.message === "string" && body.message) return body.message;
-    if (typeof body.error === "string" && body.error) return body.error;
-  }
-
-  if (typeof error?.message === "string" && error.message) return error.message;
-
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return "Something went wrong";
-  }
-};
+const inputCls =
+  "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-base outline-none transition focus:border-[#e8c547] focus:ring-2 focus:ring-[#e8c547]/30 disabled:bg-gray-50";
 
 /* ==========================================================================
    TYPES
@@ -177,70 +168,110 @@ const EMPTY_FORM: FormState = {
   },
 };
 
-const DEFAULT_CENTER: Coordinates = { lat: 20, lng: 0 };
+/* ==========================================================================
+   GENERAL HELPERS
+========================================================================== */
 
-const MAX_IMAGES = 6;
-const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
-const ACCEPTED_IMAGE_TYPES = [
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-  "image/webp",
-  "image/heic",
-  "image/heif",
-];
-const ACCEPTED_IMAGE_EXTENSIONS = [
-  "jpg",
-  "jpeg",
-  "png",
-  "webp",
-  "heic",
-  "heif",
-];
+// Read the access token from the application's stored token object.
+const readStoredAccessToken = (): string | null => {
+  try {
+    const raw = localStorage.getItem("tokens");
+    if (!raw) return null;
 
-// Backend route: POST /api/v1/uploads/:type
-const LISTING_IMAGE_UPLOAD_ENDPOINT =
-  import.meta.env.VITE_LISTING_IMAGE_UPLOAD_ENDPOINT ||
-  "/api/v1/uploads/listings";
+    const parsed = JSON.parse(raw);
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN || "";
+    return typeof parsed?.accessToken === "string" ? parsed.accessToken : null;
+  } catch {
+    return null;
+  }
+};
 
-const NAV_LINKS = [
-  {
-    id: "dashboard",
-    label: "Home",
-    labelAr: "الرئيسية",
-    href: "/host-dashboard",
-    icon: "🏡",
-  },
-  {
-    id: "listings",
-    label: "Listings",
-    labelAr: "إعلاناتي",
-    href: "/host/listings",
-    icon: "🏠",
-  },
-  {
-    id: "bookings",
-    label: "Bookings",
-    labelAr: "الحجوزات",
-    href: "/host/bookings",
-    icon: "📅",
-  },
-  {
-    id: "settings",
-    label: "Settings",
-    labelAr: "الإعدادات",
-    href: "/host/settings",
-    icon: "⚙️",
-  },
-];
+// Basic client-side JWT expiration check.
+// The backend must still validate every protected request.
+const isJwtExpired = (token: string): boolean => {
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return true;
 
-const inputCls =
-  "w-full rounded-xl border border-gray-200 bg-white px-3.5 py-3 text-base outline-none transition focus:border-[#e8c547] focus:ring-2 focus:ring-[#e8c547]/30 disabled:bg-gray-50";
+    const base64 = parts[1]
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(parts[1].length / 4) * 4, "=");
+
+    const payload = JSON.parse(atob(base64));
+
+    if (!payload?.exp) return false;
+
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+};
+
+const hasValidStoredToken = (): boolean => {
+  const token = readStoredAccessToken();
+  return !!token && !isJwtExpired(token);
+};
+
+const toRole = (role?: string) => String(role || "").toLowerCase();
+
+// Repair older URLs that were saved with HTML-escaped characters.
+const normalizeImageUrl = (value: string): string => {
+  return value
+    .trim()
+    .replace(/&#x2f;|&#47;|&sol;/gi, "/")
+    .replace(/&#x3a;|&#58;|&colon;/gi, ":")
+    .replace(/&amp;/gi, "&");
+};
+
+// Extract a useful message from different API error formats.
+const extractApiErrorMessage = (error: any): string => {
+  if (!error) return "Something went wrong";
+
+  const body = error?.response?.data || error?.data || error?.body || null;
+
+  if (body && typeof body === "object") {
+    if (Array.isArray(body.errors) && body.errors.length > 0) {
+      const fieldErrors = body.errors
+        .map((item: any) => {
+          if (typeof item === "string") return item;
+
+          if (item && typeof item === "object") {
+            const message = item.message || item.msg || item.error;
+            const value = item.value !== undefined ? `: ${item.value}` : "";
+
+            return message ? `${message}${value}` : null;
+          }
+
+          return null;
+        })
+        .filter(Boolean);
+
+      return [body.message || "Validation failed", ...fieldErrors].join("\n");
+    }
+
+    if (typeof body.message === "string" && body.message) {
+      return body.message;
+    }
+
+    if (typeof body.error === "string" && body.error) {
+      return body.error;
+    }
+  }
+
+  if (typeof error?.message === "string" && error.message) {
+    return error.message;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Something went wrong";
+  }
+};
 
 /* ==========================================================================
-   SMALL UI PIECES
+   SMALL UI COMPONENTS
 ========================================================================== */
 
 const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
@@ -262,7 +293,9 @@ const Section: React.FC<{
 }> = ({ title, hint, children }) => (
   <section className="rounded-2xl bg-white p-4 shadow-sm">
     <h3 className="text-base font-bold">{title}</h3>
+
     {hint && <p className="mt-0.5 text-xs text-gray-500">{hint}</p>}
+
     <div className="mt-3 space-y-3">{children}</div>
   </section>
 );
@@ -274,7 +307,7 @@ const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 /* ==========================================================================
-   COMPONENT
+   MAIN COMPONENT
 ========================================================================== */
 
 const HostListings: React.FC = () => {
@@ -286,10 +319,13 @@ const HostListings: React.FC = () => {
 
   const isAr = lang === "ar";
   const t: TFn = (en, ar) => (isAr ? ar : en);
+
   const isAuthorizedHost =
     isAuthenticated && !!user && toRole(user.role) === HOST_ROLE;
 
-  /* ------------------------------ State -------------------------------- */
+  /* ------------------------------------------------------------------------
+     STATE
+  ------------------------------------------------------------------------ */
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -304,59 +340,202 @@ const HostListings: React.FC = () => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [savingListing, setSavingListing] = useState(false);
 
-  // Location
+  // Location and map state.
   const [markerPosition, setMarkerPosition] = useState<Coordinates | null>(
     null,
   );
+
   const [mapCenter, setMapCenter] = useState<Coordinates | null>(null);
+
   const [selectedLocation, setSelectedLocation] = useState<{
     lat: number;
     lng: number;
     address: string;
   } | null>(null);
+
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
-  // Address search
+  // Address search state.
   const [addressQuery, setAddressQuery] = useState("");
+
   const [addressSuggestions, setAddressSuggestions] = useState<
     { id: string; place_name: string; lat: number; lng: number }[]
   >([]);
+
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
+
   const addressSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
 
-  // Images
+  // Image upload and preview state.
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
   const [uploadingFileName, setUploadingFileName] = useState<string | null>(
     null,
   );
+
   const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Map refs
+  /*
+   * IMPORTANT:
+   * This Map connects each local blob preview URL to its actual File.
+   *
+   * Existing server images are normal URLs and are NOT stored here.
+   * New images stay here until the user publishes or saves the listing.
+   */
+  const pendingImageFilesRef = useRef<Map<string, File>>(new Map());
+
+  // Mapbox references.
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
   const markerRef = useRef<mapboxgl.Marker | null>(null);
   const mapboxglLibRef = useRef<typeof mapboxgl | null>(null);
+
   const [mapReady, setMapReady] = useState(false);
 
-  // Toast
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const notify = useCallback(
-    (msg: string, ok = true) => setToast({ msg, ok }),
-    [],
-  );
+  // Toast notifications.
+  const [toast, setToast] = useState<{
+    msg: string;
+    ok: boolean;
+  } | null>(null);
 
+  const notify = useCallback((msg: string, ok = true) => {
+    setToast({ msg, ok });
+  }, []);
+
+  /* ------------------------------------------------------------------------
+     IMAGE CLEANUP
+  ------------------------------------------------------------------------ */
+
+  // Release all local preview URLs and clear their associated files.
+  const clearPendingImages = useCallback(() => {
+    for (const previewUrl of pendingImageFilesRef.current.keys()) {
+      URL.revokeObjectURL(previewUrl);
+    }
+
+    pendingImageFilesRef.current.clear();
+  }, []);
+
+  // Toast automatically disappears.
   useEffect(() => {
     if (!toast) return;
+
     const id = window.setTimeout(() => setToast(null), toast.ok ? 3200 : 6000);
+
     return () => window.clearTimeout(id);
   }, [toast]);
 
-  /* ----------------------------- Helpers ------------------------------- */
+  // Cleanup local resources when this component unmounts.
+  useEffect(() => {
+    return () => {
+      clearPendingImages();
+
+      if (addressSearchTimeout.current) {
+        clearTimeout(addressSearchTimeout.current);
+      }
+
+      mapInstanceRef.current?.remove();
+      mapInstanceRef.current = null;
+      markerRef.current = null;
+    };
+  }, [clearPendingImages]);
+
+  /* ------------------------------------------------------------------------
+     API URL HELPERS
+  ------------------------------------------------------------------------ */
+
+  // Build API endpoint URLs.
+  const getApiUrl = useCallback((endpoint: string): string => {
+    const baseUrl = (import.meta.env.VITE_API_URL || "")
+      .trim()
+      .replace(/\/+$/, "");
+
+    let clean = endpoint.trim();
+
+    if (/^https?:\/\//i.test(clean)) return clean;
+
+    if (!clean.startsWith("/")) {
+      clean = `/${clean}`;
+    }
+
+    // Prevent /api/v1/api/v1 duplication.
+    if (baseUrl.endsWith("/api/v1") && clean.startsWith("/api/v1/")) {
+      clean = clean.substring("/api/v1".length);
+    }
+
+    return baseUrl ? `${baseUrl}${clean}` : clean;
+  }, []);
+
+  // Get the API origin without its /api/v1 suffix.
+  const getApiOrigin = useCallback((): string => {
+    const baseUrl = (import.meta.env.VITE_API_URL || "")
+      .trim()
+      .replace(/\/+$/, "");
+
+    return baseUrl.replace(/\/api\/v1$/i, "");
+  }, []);
+
+  /*
+   * Convert a stored image path into a usable image URL.
+   *
+   * - Absolute URLs remain unchanged.
+   * - blob URLs remain unchanged for local previews.
+   * - Relative upload paths use the API origin.
+   */
+  const getAbsoluteImageUrl = useCallback(
+    (imageUrl: string): string => {
+      if (!imageUrl) return "";
+
+      const normalized = normalizeImageUrl(imageUrl);
+
+      if (/^https?:\/\//i.test(normalized)) return normalized;
+
+      if (normalized.startsWith("blob:")) return normalized;
+
+      if (normalized.startsWith("data:")) return normalized;
+
+      const origin = getApiOrigin();
+
+      if (!origin) return normalized;
+
+      return `${origin}${normalized.startsWith("/") ? "" : "/"}${normalized}`;
+    },
+    [getApiOrigin],
+  );
+
+  // Read the token used by the image upload endpoint.
+  const getAuthToken = (): string => {
+    try {
+      const raw = localStorage.getItem("tokens");
+
+      if (raw) {
+        const parsed = JSON.parse(raw);
+
+        if (typeof parsed?.accessToken === "string") {
+          return parsed.accessToken;
+        }
+      }
+    } catch {
+      // Try fallback token keys below.
+    }
+
+    return (
+      localStorage.getItem("authToken") ||
+      localStorage.getItem("token") ||
+      sessionStorage.getItem("authToken") ||
+      sessionStorage.getItem("token") ||
+      ""
+    );
+  };
+
+  /* ------------------------------------------------------------------------
+     GENERAL HELPERS
+  ------------------------------------------------------------------------ */
+
   const getTimezoneByCoordinates = async (
     lat: number,
     lng: number,
@@ -371,7 +550,6 @@ const HostListings: React.FC = () => {
       }
 
       const data = await response.json();
-
       const timezone = data?.city?.zone;
 
       if (typeof timezone === "string" && timezone.includes("/")) {
@@ -389,53 +567,11 @@ const HostListings: React.FC = () => {
       ? `${Math.round(n).toLocaleString()} دينار`
       : `${Math.round(n).toLocaleString()} LYD`;
 
-  const getApiUrl = useCallback((endpoint: string) => {
-    const baseUrl = (import.meta.env.VITE_API_URL || "")
-      .trim()
-      .replace(/\/+$/, "");
-    let clean = endpoint.trim();
+  /* ------------------------------------------------------------------------
+     FETCH LISTINGS
+  ------------------------------------------------------------------------ */
 
-    if (/^https?:\/\//i.test(clean)) return clean;
-    if (!clean.startsWith("/")) clean = `/${clean}`;
-    if (baseUrl.endsWith("/api/v1") && clean.startsWith("/api/v1/")) {
-      clean = clean.substring("/api/v1".length);
-    }
-
-    return baseUrl ? `${baseUrl}${clean}` : clean;
-  }, []);
-
-  const getAbsoluteImageUrl = useCallback(
-    (imageUrl: string): string => {
-      if (!imageUrl) return "";
-      if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
-      return getApiUrl(imageUrl);
-    },
-    [getApiUrl],
-  );
-
-  const getAuthToken = (): string => {
-    try {
-      const raw = localStorage.getItem("tokens");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (typeof parsed?.accessToken === "string") return parsed.accessToken;
-      }
-    } catch {
-      /* fall through */
-    }
-
-    return (
-      localStorage.getItem("authToken") ||
-      localStorage.getItem("token") ||
-      sessionStorage.getItem("authToken") ||
-      sessionStorage.getItem("token") ||
-      ""
-    );
-  };
-
-  /* ------------------------ Fetch listings ----------------------------- */
-
-  // silent = refresh without bringing the skeletons back
+  // silent=true refreshes the data without showing loading skeletons.
   const fetchListings = useCallback(
     async (silent = false) => {
       if (!user?.id) {
@@ -444,12 +580,15 @@ const HostListings: React.FC = () => {
         return;
       }
 
-      if (!silent) setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       try {
         const response = await apiService.getProtectedData<Listing[]>(
           `/api/v1/listings/host/${user.id}`,
         );
+
         setListings(
           response.success && Array.isArray(response.data) ? response.data : [],
         );
@@ -463,7 +602,9 @@ const HostListings: React.FC = () => {
     [user?.id],
   );
 
-  /* ------------------------ Auth + role guard -------------------------- */
+  /* ------------------------------------------------------------------------
+     AUTHENTICATION AND ROLE GUARD
+  ------------------------------------------------------------------------ */
 
   useEffect(() => {
     if (authLoading) return;
@@ -479,7 +620,9 @@ const HostListings: React.FC = () => {
     }
 
     const intervalId = window.setInterval(() => {
-      if (!hasValidStoredToken()) navigate("/login", { replace: true });
+      if (!hasValidStoredToken()) {
+        navigate("/login", { replace: true });
+      }
     }, 60_000);
 
     return () => window.clearInterval(intervalId);
@@ -487,19 +630,31 @@ const HostListings: React.FC = () => {
 
   useEffect(() => {
     if (!isAuthorizedHost) return;
+
     fetchListings();
   }, [isAuthorizedHost, fetchListings]);
 
-  /* ------------------------- Location logic ---------------------------- */
+  /* ------------------------------------------------------------------------
+     LOCATION HELPERS
+  ------------------------------------------------------------------------ */
 
   const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
     try {
-      const res = await fetch(
+      const response = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-        { headers: { Accept: "application/json" } },
+        {
+          headers: {
+            Accept: "application/json",
+          },
+        },
       );
-      if (!res.ok) throw new Error("Reverse geocoding failed");
-      const data = await res.json();
+
+      if (!response.ok) {
+        throw new Error("Reverse geocoding failed");
+      }
+
+      const data = await response.json();
+
       return data.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
     } catch {
       return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
@@ -528,15 +683,20 @@ const HostListings: React.FC = () => {
 
   const handleMapClick = useCallback(async (lat: number, lng: number) => {
     await applyCoordinates(lat, lng);
-    mapInstanceRef.current?.flyTo({ center: [lng, lat], zoom: 14 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    mapInstanceRef.current?.flyTo({
+      center: [lng, lat],
+      zoom: 14,
+    });
   }, []);
+
   const getIPGeolocation = async () => {
     try {
-      const res = await fetch("https://ipapi.co/json/");
-      if (!res.ok) return null;
+      const response = await fetch("https://ipapi.co/json/");
 
-      const data = await res.json();
+      if (!response.ok) return null;
+
+      const data = await response.json();
 
       if (data?.latitude !== undefined && data?.longitude !== undefined) {
         return {
@@ -547,7 +707,7 @@ const HostListings: React.FC = () => {
         };
       }
     } catch {
-      /* ignore */
+      // Ignore IP lookup errors.
     }
 
     return null;
@@ -560,9 +720,17 @@ const HostListings: React.FC = () => {
     let success = false;
 
     if ("geolocation" in navigator) {
-      const options = [
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-        { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 },
+      const options: PositionOptions[] = [
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 8000,
+          maximumAge: 30000,
+        },
       ];
 
       for (const opts of options) {
@@ -575,10 +743,13 @@ const HostListings: React.FC = () => {
             },
           );
 
-          const { latitude: lat, longitude: lng } = position.coords;
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
 
           setMapCenter({ lat, lng });
+
           await applyCoordinates(lat, lng);
+
           mapInstanceRef.current?.flyTo({
             center: [lng, lat],
             zoom: opts.enableHighAccuracy ? 15 : 13,
@@ -586,18 +757,25 @@ const HostListings: React.FC = () => {
 
           success = true;
         } catch {
-          /* try next option */
+          // Try the next geolocation option.
         }
       }
     }
 
+    // Fallback: approximate location from IP address.
     if (!success) {
       const ip = await getIPGeolocation();
 
       if (ip) {
         setMapCenter({ lat: ip.lat, lng: ip.lng });
+
         await applyCoordinates(ip.lat, ip.lng);
-        mapInstanceRef.current?.flyTo({ center: [ip.lng, ip.lat], zoom: 10 });
+
+        mapInstanceRef.current?.flyTo({
+          center: [ip.lng, ip.lat],
+          zoom: 10,
+        });
+
         success = true;
       }
     }
@@ -611,14 +789,18 @@ const HostListings: React.FC = () => {
           : "Could not detect your location. Search for an address instead.",
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAr]);
+
+  /* ------------------------------------------------------------------------
+     ADDRESS SEARCH
+  ------------------------------------------------------------------------ */
 
   const searchAddress = useCallback((query: string) => {
     setAddressQuery(query);
 
-    if (addressSearchTimeout.current)
+    if (addressSearchTimeout.current) {
       clearTimeout(addressSearchTimeout.current);
+    }
 
     if (!query.trim() || !MAPBOX_TOKEN) {
       setAddressSuggestions([]);
@@ -634,10 +816,13 @@ const HostListings: React.FC = () => {
           `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json` +
           `?access_token=${MAPBOX_TOKEN}&autocomplete=true&limit=5`;
 
-        const res = await fetch(url);
-        if (!res.ok) throw new Error("Address search failed");
+        const response = await fetch(url);
 
-        const data = await res.json();
+        if (!response.ok) {
+          throw new Error("Address search failed");
+        }
+
+        const data = await response.json();
 
         const results = (data?.features || [])
           .map((feature: any) => ({
@@ -661,56 +846,68 @@ const HostListings: React.FC = () => {
     }, 350);
   }, []);
 
-  const handleSuggestionSelect = async (s: {
+  const handleSuggestionSelect = async (suggestion: {
     place_name: string;
     lat: number;
     lng: number;
   }) => {
-    setMarkerPosition({ lat: s.lat, lng: s.lng });
+    const { lat, lng, place_name } = suggestion;
+
+    setMarkerPosition({ lat, lng });
+
     setSelectedLocation({
-      lat: s.lat,
-      lng: s.lng,
-      address: s.place_name,
+      lat,
+      lng,
+      address: place_name,
     });
 
-    setMapCenter({ lat: s.lat, lng: s.lng });
-    setAddressQuery(s.place_name);
+    setMapCenter({ lat, lng });
+    setAddressQuery(place_name);
     setShowSuggestions(false);
 
     mapInstanceRef.current?.flyTo({
-      center: [s.lng, s.lat],
+      center: [lng, lat],
       zoom: 14,
     });
 
-    const timezone = await getTimezoneByCoordinates(s.lat, s.lng);
+    const timezone = await getTimezoneByCoordinates(lat, lng);
 
     setFormData((prev) => ({
       ...prev,
-      location: s.place_name,
-      coordinates: { lat: s.lat, lng: s.lng },
+      location: place_name,
+      coordinates: { lat, lng },
       timezone,
     }));
   };
 
-  /* ------------------------------ Map ---------------------------------- */
+  /* ------------------------------------------------------------------------
+     MAPBOX INITIALIZATION
+  ------------------------------------------------------------------------ */
 
   useEffect(() => {
     const showMap = !!mapCenter && !isGettingLocation;
 
-    if (!showMap || !mapContainerRef.current || mapInstanceRef.current) return;
-    if (!MAPBOX_TOKEN) return;
+    if (
+      !showMap ||
+      !mapContainerRef.current ||
+      mapInstanceRef.current ||
+      !MAPBOX_TOKEN
+    ) {
+      return;
+    }
 
     let cancelled = false;
 
-    (async () => {
+    const initializeMap = async () => {
       try {
         const [{ default: mapboxglLib }] = await Promise.all([
           import("mapbox-gl"),
           import("mapbox-gl/dist/mapbox-gl.css"),
         ]);
 
-        if (cancelled || !mapContainerRef.current || mapInstanceRef.current)
+        if (cancelled || !mapContainerRef.current || mapInstanceRef.current) {
           return;
+        }
 
         mapboxglLib.accessToken = MAPBOX_TOKEN;
         mapboxglLibRef.current = mapboxglLib;
@@ -723,7 +920,9 @@ const HostListings: React.FC = () => {
         });
 
         map.addControl(
-          new mapboxglLib.NavigationControl({ showCompass: false }),
+          new mapboxglLib.NavigationControl({
+            showCompass: false,
+          }),
           "top-right",
         );
 
@@ -736,18 +935,22 @@ const HostListings: React.FC = () => {
       } catch (error) {
         console.error("Mapbox failed to load:", error);
       }
-    })();
+    };
+
+    initializeMap();
 
     return () => {
       cancelled = true;
+
       mapInstanceRef.current?.remove();
       mapInstanceRef.current = null;
       markerRef.current = null;
+
       setMapReady(false);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!mapCenter && !isGettingLocation]);
 
+  // Keep the map marker synchronized with the selected coordinates.
   useEffect(() => {
     const map = mapInstanceRef.current;
     const lib = mapboxglLibRef.current;
@@ -761,13 +964,21 @@ const HostListings: React.FC = () => {
     }
 
     if (!markerRef.current) {
-      const marker = new lib.Marker({ color: "#e8c547", draggable: true })
+      const marker = new lib.Marker({
+        color: "#e8c547",
+        draggable: true,
+      })
         .setLngLat([markerPosition.lng, markerPosition.lat])
         .addTo(map);
 
       marker.on("dragend", () => {
         const lngLat = marker.getLngLat();
-        setMarkerPosition({ lat: lngLat.lat, lng: lngLat.lng });
+
+        setMarkerPosition({
+          lat: lngLat.lat,
+          lng: lngLat.lng,
+        });
+
         applyCoordinates(lngLat.lat, lngLat.lng);
       });
 
@@ -775,25 +986,32 @@ const HostListings: React.FC = () => {
     } else {
       markerRef.current.setLngLat([markerPosition.lng, markerPosition.lat]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markerPosition, mapReady]);
 
-  // Auto-detect location when opening a NEW listing form
+  // Automatically detect location when creating a new listing.
   useEffect(() => {
-    if (!showForm || isEditing || mapCenter || isGettingLocation) return;
+    if (!showForm || isEditing || mapCenter || isGettingLocation) {
+      return;
+    }
 
     detectLocation().then(() => {
       setMapCenter((current) => current ?? DEFAULT_CENTER);
     });
   }, [showForm, isEditing, mapCenter, isGettingLocation, detectLocation]);
 
-  /* --------------------------- Form helpers ---------------------------- */
+  /* ------------------------------------------------------------------------
+     FORM HELPERS
+  ------------------------------------------------------------------------ */
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    const { name, value } = event.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleArrayChange = (
@@ -802,46 +1020,65 @@ const HostListings: React.FC = () => {
     value: string,
   ) => {
     setFormData((prev) => {
-      const arr = [...prev[field]];
-      arr[index] = value;
-      return { ...prev, [field]: arr };
+      const updated = [...prev[field]];
+      updated[index] = value;
+
+      return {
+        ...prev,
+        [field]: updated,
+      };
     });
   };
 
-  const addArrayField = (field: "amenities" | "rules") =>
-    setFormData((prev) => ({ ...prev, [field]: [...prev[field], ""] }));
+  const addArrayField = (field: "amenities" | "rules") => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: [...prev[field], ""],
+    }));
+  };
 
-  const removeArrayField = (field: "amenities" | "rules", index: number) =>
+  const removeArrayField = (field: "amenities" | "rules", index: number) => {
     setFormData((prev) => ({
       ...prev,
       [field]: prev[field].filter((_, i) => i !== index),
     }));
+  };
 
-  const toggleQuickRule = (rule: string) =>
+  const toggleQuickRule = (rule: string) => {
     setFormData((prev) => ({
       ...prev,
       rules: prev.rules.includes(rule)
-        ? prev.rules.filter((r) => r !== rule)
+        ? prev.rules.filter((item) => item !== rule)
         : [...prev.rules, rule],
     }));
+  };
 
-  const setPolicyField = (field: "type" | "description", value: string) =>
+  const setPolicyField = (field: "type" | "description", value: string) => {
     setFormData((prev) => ({
       ...prev,
-      cancellation_policy: { ...prev.cancellation_policy, [field]: value },
+      cancellation_policy: {
+        ...prev.cancellation_policy,
+        [field]: value,
+      },
     }));
+  };
 
-  const setPolicyRule = (index: number, value: string) =>
+  const setPolicyRule = (index: number, value: string) => {
     setFormData((prev) => {
       const rules = [...prev.cancellation_policy.rules];
       rules[index] = value;
+
       return {
         ...prev,
-        cancellation_policy: { ...prev.cancellation_policy, rules },
+        cancellation_policy: {
+          ...prev.cancellation_policy,
+          rules,
+        },
       };
     });
+  };
 
-  const addPolicyRule = () =>
+  const addPolicyRule = () => {
     setFormData((prev) => ({
       ...prev,
       cancellation_policy: {
@@ -849,8 +1086,9 @@ const HostListings: React.FC = () => {
         rules: [...prev.cancellation_policy.rules, ""],
       },
     }));
+  };
 
-  const removePolicyRule = (index: number) =>
+  const removePolicyRule = (index: number) => {
     setFormData((prev) => ({
       ...prev,
       cancellation_policy: {
@@ -858,32 +1096,53 @@ const HostListings: React.FC = () => {
         rules: prev.cancellation_policy.rules.filter((_, i) => i !== index),
       },
     }));
+  };
 
-  /* ---------------------------- Images --------------------------------- */
+  /* ------------------------------------------------------------------------
+     IMAGE VALIDATION
+  ------------------------------------------------------------------------ */
 
   const imageTypeError = t(
-    "Unsupported image type. Use JPG, PNG or WEBP",
-    "نوع الصورة غير مدعوم. استخدم JPG أو PNG أو WEBP",
+    "Unsupported image type. Use JPG, PNG, WEBP, HEIC or HEIF.",
+    "نوع الصورة غير مدعوم. استخدم JPG أو PNG أو WEBP أو HEIC أو HEIF.",
   );
+
   const imageSizeError = t(
-    "Image size must not exceed 10 MB",
-    "حجم الصورة يجب ألا يتجاوز 10 ميجابايت",
+    "Image size must not exceed 10 MB.",
+    "حجم الصورة يجب ألا يتجاوز 10 ميجابايت.",
   );
+
   const maxImagesError = t(
-    "You can upload a maximum of 6 images",
-    "يمكنك رفع 6 صور كحد أقصى",
+    "You can upload a maximum of 6 images.",
+    "يمكنك رفع 6 صور كحد أقصى.",
   );
 
   const validateImageFile = (file: File) => {
     const extension = file.name.split(".").pop()?.toLowerCase() || "";
+
     const valid =
       ACCEPTED_IMAGE_TYPES.includes(file.type.toLowerCase()) ||
       ACCEPTED_IMAGE_EXTENSIONS.includes(extension);
 
-    if (!valid) throw new Error(imageTypeError);
-    if (file.size > MAX_IMAGE_SIZE) throw new Error(imageSizeError);
+    if (!valid) {
+      throw new Error(imageTypeError);
+    }
+
+    if (file.size > MAX_IMAGE_SIZE) {
+      throw new Error(imageSizeError);
+    }
   };
 
+  /* ------------------------------------------------------------------------
+     IMAGE UPLOAD: ONE FILE
+  ------------------------------------------------------------------------ */
+
+  /*
+   * This function uploads exactly one image.
+   *
+   * It is called ONLY by uploadPendingImages(), which is called
+   * when the user clicks Publish listing or Save changes.
+   */
   const uploadSingleImage = async (file: File): Promise<string> => {
     validateImageFile(file);
 
@@ -899,14 +1158,18 @@ const HostListings: React.FC = () => {
     }
 
     const body = new FormData();
-    // Backend: upload.single("image")
+
+    // IMPORTANT: The backend expects the multipart field name "image".
     body.append("image", file);
 
     const url = getApiUrl(LISTING_IMAGE_UPLOAD_ENDPOINT);
 
     const response = await fetch(url, {
       method: "POST",
-      headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body,
       credentials: "include",
     });
@@ -914,13 +1177,13 @@ const HostListings: React.FC = () => {
     const responseText = await response.text();
     const contentType = response.headers.get("content-type") || "";
 
-    // Server must return JSON, not HTML (usually means the frontend server was hit)
     if (!contentType.includes("application/json")) {
-      console.error("Upload returned non-JSON response", {
+      console.error("Image upload returned non-JSON response", {
         url,
         status: response.status,
         contentType,
       });
+
       throw new Error(
         t(
           "Image upload failed: unexpected server response.",
@@ -930,10 +1193,11 @@ const HostListings: React.FC = () => {
     }
 
     let data: any = {};
+
     try {
       data = responseText ? JSON.parse(responseText) : {};
     } catch {
-      data = { message: responseText };
+      throw new Error("Invalid JSON response from image upload endpoint.");
     }
 
     if (!response.ok) {
@@ -945,6 +1209,7 @@ const HostListings: React.FC = () => {
       );
     }
 
+    // Support common upload response structures.
     const imageUrl =
       data?.url ||
       data?.imageUrl ||
@@ -973,10 +1238,106 @@ const HostListings: React.FC = () => {
     return getAbsoluteImageUrl(imageUrl);
   };
 
+  /* ------------------------------------------------------------------------
+     IMAGE UPLOAD: ALL PENDING FILES
+  ------------------------------------------------------------------------ */
+
+  /*
+   * Existing permanent URLs are left alone.
+   *
+   * Only blob URLs are uploaded.
+   *
+   * After each successful upload:
+   * 1. Replace the blob preview URL with the permanent URL.
+   * 2. Remove the File from the pending Map.
+   * 3. Release the local object URL.
+   *
+   * If a later upload fails, earlier successful uploads remain in formData.
+   */
+  const uploadPendingImages = async (): Promise<string[]> => {
+    const finalImages = [...formData.images];
+
+    const pendingEntries = finalImages
+      .map((url, index) => ({ url, index }))
+      .filter(({ url }) => url.startsWith("blob:"));
+
+    // Nothing new to upload. Return existing permanent URLs.
+    if (!pendingEntries.length) {
+      return finalImages.map(normalizeImageUrl);
+    }
+
+    setUploadingImages(true);
+    setUploadProgress(0);
+
+    try {
+      for (let i = 0; i < pendingEntries.length; i++) {
+        const { url: previewUrl, index } = pendingEntries[i];
+
+        const file = pendingImageFilesRef.current.get(previewUrl);
+
+        if (!file) {
+          throw new Error(
+            t(
+              "An image is missing. Please remove it and select it again.",
+              "إحدى الصور غير متوفرة. يرجى حذفها واختيارها مرة أخرى.",
+            ),
+          );
+        }
+
+        setUploadingFileName(
+          t(
+            `Uploading image ${i + 1} of ${pendingEntries.length}…`,
+            `رفع الصورة ${i + 1} من ${pendingEntries.length}…`,
+          ),
+        );
+
+        const uploadedUrl = await uploadSingleImage(file);
+        const permanentUrl = normalizeImageUrl(uploadedUrl);
+
+        // Update the final payload array.
+        finalImages[index] = permanentUrl;
+
+        // Remove the uploaded file from the pending collection.
+        pendingImageFilesRef.current.delete(previewUrl);
+
+        // Release the temporary browser preview URL.
+        URL.revokeObjectURL(previewUrl);
+
+        // Keep the successful upload in form state.
+        setFormData((prev) => ({
+          ...prev,
+          images: prev.images.map((image) =>
+            image === previewUrl ? permanentUrl : image,
+          ),
+        }));
+
+        setUploadProgress(Math.round(((i + 1) / pendingEntries.length) * 100));
+      }
+
+      return finalImages.map(normalizeImageUrl);
+    } finally {
+      setUploadingImages(false);
+      setUploadingFileName(null);
+    }
+  };
+
+  /* ------------------------------------------------------------------------
+     IMAGE SELECTION AND LOCAL PREVIEW
+  ------------------------------------------------------------------------ */
+
+  /*
+   * IMPORTANT:
+   * Selecting an image does NOT call the API.
+   *
+   * We compress the image, create a local blob preview, and save
+   * the actual File in pendingImageFilesRef.
+   */
   const handleImageFilesSelected = async (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const files = Array.from(event.target.files || []);
+
+    // Allow selecting the same file again later.
     event.target.value = "";
 
     if (!files.length) return;
@@ -991,14 +1352,14 @@ const HostListings: React.FC = () => {
     if (files.length > remainingSlots) {
       notify(
         t(
-          `Only ${remainingSlots} more image(s) can be added`,
-          `يمكنك إضافة ${remainingSlots} صورة فقط`,
+          `Only ${remainingSlots} more image(s) can be added.`,
+          `يمكنك إضافة ${remainingSlots} صورة فقط.`,
         ),
         false,
       );
     }
 
-    const filesToUpload = files.slice(0, remainingSlots);
+    const filesToPrepare = files.slice(0, remainingSlots);
 
     setUploadingImages(true);
     setUploadProgress(0);
@@ -1006,60 +1367,70 @@ const HostListings: React.FC = () => {
     const failed: { name: string; reason: string }[] = [];
 
     try {
-      for (let index = 0; index < filesToUpload.length; index++) {
-        const file = filesToUpload[index];
+      for (let index = 0; index < filesToPrepare.length; index++) {
+        const file = filesToPrepare[index];
 
         try {
           setUploadingFileName(
             t(`Preparing ${file.name}…`, `تجهيز ${file.name}…`),
           );
+
           validateImageFile(file);
 
-          const compressed = await compressImage(file);
+      
+          /*
+           * compressImage may return a Blob instead of a File.
+           * Convert it to a File so the pending Map has a consistent type.
+           */
+          // Compress the selected image.
+          const compressedFile = await compressImage(file);
 
-          setUploadingFileName(
-            t(`Uploading ${file.name}…`, `رفع ${file.name}…`),
-          );
-          const url = await uploadSingleImage(compressed);
+          // Create a local preview URL (no API upload yet).
+          const previewUrl = URL.createObjectURL(compressedFile);
 
+          // Keep the actual File for uploading when the user saves the listing.
+          pendingImageFilesRef.current.set(previewUrl, compressedFile);
+
+          // Add the preview URL to the form.
           setFormData((prev) => ({
             ...prev,
-            images: [...prev.images.filter(Boolean), url],
+            images: [...prev.images, previewUrl],
           }));
-        } catch (err: any) {
-          const raw =
-            err?.message || t("Image upload failed", "فشل رفع الصورة");
-          const reason = raw.toLowerCase().includes("heic")
-            ? t(
-                "Could not convert this HEIC image. Please convert it to JPG first.",
-                "تعذر تحويل صورة HEIC. الرجاء تحويلها إلى JPG أولاً.",
-              )
-            : raw;
-
-          failed.push({ name: file.name, reason });
+        } catch (error: any) {
+          failed.push({
+            name: file.name,
+            reason:
+              error?.message ||
+              t("Image preparation failed.", "فشل تجهيز الصورة."),
+          });
         } finally {
           setUploadProgress(
-            Math.round(((index + 1) / filesToUpload.length) * 100),
+            Math.round(((index + 1) / filesToPrepare.length) * 100),
           );
         }
       }
     } finally {
       setUploadingImages(false);
       setUploadingFileName(null);
-      setTimeout(() => setUploadProgress(0), 300);
+
+      window.setTimeout(() => setUploadProgress(0), 300);
     }
 
-    if (failed.length > 0) {
+    if (failed.length) {
       notify(
-        `${t(`${failed.length} image(s) failed`, `فشل رفع ${failed.length} صورة`)}\n` +
-          failed.map((f) => `• ${f.name}: ${f.reason}`).join("\n"),
+        `${t(
+          `${failed.length} image(s) failed.`,
+          `فشل تجهيز ${failed.length} صورة.`,
+        )}\n${failed
+          .map((item) => `• ${item.name}: ${item.reason}`)
+          .join("\n")}`,
         false,
       );
     }
   };
 
   const openImagePicker = () => {
-    if (uploadingImages) return;
+    if (uploadingImages || savingListing) return;
 
     if (formData.images.filter(Boolean).length >= MAX_IMAGES) {
       notify(maxImagesError, false);
@@ -1069,28 +1440,58 @@ const HostListings: React.FC = () => {
     imageInputRef.current?.click();
   };
 
-  const handleImageRemove = (index: number) =>
+  // Remove an image and clean up its local preview if necessary.
+  const handleImageRemove = (index: number) => {
+    if (uploadingImages || savingListing) return;
+
+    const imageToRemove = formData.images[index];
+
+    if (imageToRemove?.startsWith("blob:")) {
+      URL.revokeObjectURL(imageToRemove);
+      pendingImageFilesRef.current.delete(imageToRemove);
+    }
+
     setFormData((prev) => ({
       ...prev,
       images: prev.images.filter((_, i) => i !== index),
     }));
+  };
 
-  /* ------------------------ Open / close form -------------------------- */
+  /* ------------------------------------------------------------------------
+     RESET AND FORM OPEN/CLOSE
+  ------------------------------------------------------------------------ */
 
   const resetForm = () => {
-    setFormData({ ...EMPTY_FORM, amenities: [""], rules: [], images: [] });
+    // Always release local preview URLs before clearing the form.
+    clearPendingImages();
+
+    setFormData({
+      ...EMPTY_FORM,
+      amenities: [""],
+      rules: [],
+      images: [],
+    });
+
     setMarkerPosition(null);
     setMapCenter(null);
     setSelectedLocation(null);
+
     setIsEditing(false);
     setEditingId(null);
+
     setLocationError(null);
     setAddressQuery("");
     setAddressSuggestions([]);
     setShowSuggestions(false);
+
     setUploadingImages(false);
     setUploadingFileName(null);
     setUploadProgress(0);
+
+    if (addressSearchTimeout.current) {
+      clearTimeout(addressSearchTimeout.current);
+      addressSearchTimeout.current = null;
+    }
   };
 
   const openNewForm = () => {
@@ -1099,13 +1500,23 @@ const HostListings: React.FC = () => {
   };
 
   const closeForm = () => {
+    if (savingListing || uploadingImages) return;
+
     setShowForm(false);
     resetForm();
   };
 
+  /* ------------------------------------------------------------------------
+     EDIT EXISTING LISTING
+  ------------------------------------------------------------------------ */
+
   const handleEdit = (listing: Listing) => {
+    // Make sure no previous form previews remain.
+    clearPendingImages();
+
     const lat =
       listing.latitude != null ? parseFloat(String(listing.latitude)) : null;
+
     const lng =
       listing.longitude != null ? parseFloat(String(listing.longitude)) : null;
 
@@ -1127,12 +1538,19 @@ const HostListings: React.FC = () => {
       location: listing.location || "",
       coordinates: coords,
       timezone: listing.timezone || "Africa/Tripoli",
+
+      // Existing images are permanent URLs, not local blob previews.
       images: Array.isArray(listing.images)
-        ? listing.images.filter(Boolean)
+        ? listing.images
+            .filter(Boolean)
+            .map((image) => normalizeImageUrl(image))
         : [],
+
       amenities: listing.amenities?.length ? listing.amenities : [""],
+
       rules: listing.rules || [],
       category: listing.category || "city",
+
       cancellation_policy: listing.cancellation_policy || {
         type: "flexible",
         description: "",
@@ -1142,17 +1560,30 @@ const HostListings: React.FC = () => {
 
     if (coords) {
       setMarkerPosition(coords);
-      setMapCenter({ lat: coords.lat, lng: coords.lng });
-      setSelectedLocation({ ...coords, address: listing.location || "" });
+      setMapCenter({
+        lat: coords.lat,
+        lng: coords.lng,
+      });
+
+      setSelectedLocation({
+        ...coords,
+        address: listing.location || "",
+      });
+
       setAddressQuery(listing.location || "");
     } else {
+      setMarkerPosition(null);
       setMapCenter(DEFAULT_CENTER);
+      setSelectedLocation(null);
+      setAddressQuery("");
     }
 
     setShowForm(true);
   };
 
-  /* ------------------------------ Actions ------------------------------ */
+  /* ------------------------------------------------------------------------
+     LISTING ACTIONS
+  ------------------------------------------------------------------------ */
 
   const handleToggleActive = async (listing: Listing) => {
     setTogglingId(listing.id);
@@ -1166,7 +1597,10 @@ const HostListings: React.FC = () => {
         setListings((prev) =>
           prev.map((item) =>
             item.id === listing.id
-              ? { ...item, is_active: response.data!.is_active }
+              ? {
+                  ...item,
+                  is_active: response.data!.is_active,
+                }
               : item,
           ),
         );
@@ -1179,8 +1613,11 @@ const HostListings: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t("Delete this listing?", "هل أنت متأكد من حذف هذا الإعلان؟")))
+    if (
+      !confirm(t("Delete this listing?", "هل أنت متأكد من حذف هذا الإعلان؟"))
+    ) {
       return;
+    }
 
     setDeletingId(id);
 
@@ -1200,11 +1637,16 @@ const HostListings: React.FC = () => {
     }
   };
 
+  /* ------------------------------------------------------------------------
+     FORM VALIDATION
+  ------------------------------------------------------------------------ */
+
   const validateForm = (): boolean => {
     if (!formData.title.trim()) {
       notify(t("Please enter a title", "الرجاء إدخال عنوان الإعلان"), false);
       return false;
     }
+
     if (!formData.description.trim()) {
       notify(
         t("Please enter a description", "الرجاء إدخال وصف الإعلان"),
@@ -1212,10 +1654,16 @@ const HostListings: React.FC = () => {
       );
       return false;
     }
-    if (!formData.price || Number(formData.price) < 0) {
+
+    if (
+      !formData.price ||
+      !Number.isFinite(Number(formData.price)) ||
+      Number(formData.price) < 0
+    ) {
       notify(t("Please enter a valid price", "الرجاء إدخال سعر صحيح"), false);
       return false;
     }
+
     if (!formData.location || !formData.coordinates) {
       notify(
         t(
@@ -1236,6 +1684,7 @@ const HostListings: React.FC = () => {
       );
       return false;
     }
+
     if (images.length > MAX_IMAGES) {
       notify(maxImagesError, false);
       return false;
@@ -1244,37 +1693,75 @@ const HostListings: React.FC = () => {
     return true;
   };
 
-  // One save handler for both create and update
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  /* ------------------------------------------------------------------------
+     SAVE OR PUBLISH LISTING
+  ------------------------------------------------------------------------ */
+
+  /*
+   * One save handler handles both:
+   * - Creating a new listing.
+   * - Updating an existing listing.
+   *
+   * Upload sequence:
+   * 1. Validate the form.
+   * 2. Upload only new local blob images.
+   * 3. Replace blob URLs with permanent URLs.
+   * 4. Send the listing payload to the listing API.
+   */
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (savingListing || uploadingImages) return;
 
     if (!validateForm()) return;
+
     if (isEditing && !editingId) return;
 
     setSavingListing(true);
 
     try {
+      // Upload images only after Publish / Save changes is clicked.
+      const publishedImageUrls = await uploadPendingImages();
+
+      // Safety check: never send local blob URLs to the database.
+      if (publishedImageUrls.some((url) => url.startsWith("blob:"))) {
+        throw new Error(
+          "A temporary image URL was detected. Please try again.",
+        );
+      }
+
       const payload = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         price: Number(formData.price),
         location: formData.location.trim(),
         timezone: formData.timezone || "Africa/Tripoli",
+
         coordinates: formData.coordinates
           ? {
               lat: Number(formData.coordinates.lat),
               lng: Number(formData.coordinates.lng),
             }
           : null,
-        images: formData.images.filter(Boolean),
-        amenities: formData.amenities.map((i) => i.trim()).filter(Boolean),
-        rules: formData.rules.map((i) => i.trim()).filter(Boolean),
+
+        // Only permanent image URLs are sent to the listing API.
+        images: publishedImageUrls,
+
+        amenities: formData.amenities
+          .map((item) => item.trim())
+          .filter(Boolean),
+
+        rules: formData.rules.map((item) => item.trim()).filter(Boolean),
+
         category: formData.category || "city",
+
         cancellation_policy: {
           type: formData.cancellation_policy.type || "flexible",
+
           description: formData.cancellation_policy.description?.trim() || "",
+
           rules: formData.cancellation_policy.rules
-            .map((i) => i.trim())
+            .map((item) => item.trim())
             .filter(Boolean),
         },
       };
@@ -1296,6 +1783,7 @@ const HostListings: React.FC = () => {
 
       setShowForm(false);
       resetForm();
+
       await fetchListings(true);
 
       notify(
@@ -1307,13 +1795,20 @@ const HostListings: React.FC = () => {
       notify(extractApiErrorMessage(error), false);
     } finally {
       setSavingListing(false);
+      setUploadingImages(false);
+      setUploadingFileName(null);
+      setUploadProgress(0);
     }
   };
 
-  /* ---------------------------- Guards --------------------------------- */
+  /* ------------------------------------------------------------------------
+     RENDER HELPERS
+  ------------------------------------------------------------------------ */
 
-  // Only wait for auth. Listings never block the page.
-  if (authLoading || !isAuthorizedHost) return null;
+  // Wait for authentication, not for listings.
+  if (authLoading || !isAuthorizedHost) {
+    return null;
+  }
 
   const imageCount = formData.images.filter(Boolean).length;
 
@@ -1332,11 +1827,15 @@ const HostListings: React.FC = () => {
     { value: "strict", label: t("Strict", "صارمة") },
   ];
 
-  /* ---------------------------- Render --------------------------------- */
+  /* ==========================================================================
+     JSX
+  ========================================================================== */
 
   return (
     <div
-      className={`min-h-screen bg-gray-50 text-gray-900 ${isAr ? "font-arabic" : "font-sans"}`}
+      className={`min-h-screen bg-gray-50 text-gray-900 ${
+        isAr ? "font-arabic" : "font-sans"
+      }`}
       dir={isAr ? "rtl" : "ltr"}
     >
       {/* Desktop navbar */}
@@ -1354,10 +1853,12 @@ const HostListings: React.FC = () => {
           <h1 className="text-lg font-semibold text-white">
             {t("Listings", "الإعلانات")}
           </h1>
+
           <p className="text-xs text-white/50">
             {loading ? "…" : `${listings.length} ${t("listings", "إعلان")}`}
           </p>
         </div>
+
         <button
           onClick={toggleLanguage}
           className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-medium text-white active:bg-white/10"
@@ -1366,7 +1867,7 @@ const HostListings: React.FC = () => {
         </button>
       </header>
 
-      {/* Toast */}
+      {/* Toast notification */}
       {toast && (
         <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+64px)] z-[60] flex justify-center px-4">
           <div
@@ -1379,17 +1880,22 @@ const HostListings: React.FC = () => {
         </div>
       )}
 
-      {/* ====================== LIST ====================== */}
+      {/* =====================================================================
+          LISTINGS PAGE
+      ===================================================================== */}
+
       <main className="mx-auto max-w-5xl px-4 pb-28 pt-5 md:px-6 md:pb-12 md:pt-8">
         <div className="mb-6 hidden items-center justify-between md:flex">
           <div>
             <h1 className="text-2xl font-bold">
               {t("My listings", "إعلاناتي")}
             </h1>
+
             <p className="text-sm text-gray-500">
               {loading ? "…" : `${listings.length} ${t("listings", "إعلان")}`}
             </p>
           </div>
+
           <button
             onClick={openNewForm}
             className="rounded-xl bg-[#1a1a2e] px-5 py-3 text-sm font-semibold text-[#e8c547] transition hover:opacity-90"
@@ -1398,14 +1904,16 @@ const HostListings: React.FC = () => {
           </button>
         </div>
 
+        {/* Listing cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {loading &&
-            [1, 2, 3].map((i) => (
+            [1, 2, 3].map((item) => (
               <div
-                key={i}
+                key={item}
                 className="overflow-hidden rounded-2xl bg-white shadow-sm"
               >
                 <Skeleton className="h-44 w-full rounded-none" />
+
                 <div className="space-y-3 p-4">
                   <Skeleton className="h-5 w-3/4" />
                   <Skeleton className="h-4 w-1/2" />
@@ -1417,15 +1925,18 @@ const HostListings: React.FC = () => {
           {!loading && listings.length === 0 && (
             <div className="col-span-full rounded-2xl bg-white p-10 text-center shadow-sm">
               <div className="mb-2 text-4xl">🏠</div>
+
               <p className="font-semibold">
                 {t("No listings yet", "لا توجد إعلانات بعد")}
               </p>
+
               <p className="mt-1 text-sm text-gray-500">
                 {t(
                   "Add your first place to start getting bookings.",
                   "أضف مكانك الأول لتبدأ باستقبال الحجوزات.",
                 )}
               </p>
+
               <button
                 onClick={openNewForm}
                 className="mt-4 rounded-xl bg-[#1a1a2e] px-5 py-2.5 text-sm font-semibold text-[#e8c547]"
@@ -1438,9 +1949,11 @@ const HostListings: React.FC = () => {
           {!loading &&
             listings.map((listing) => {
               const category = CATEGORIES.find(
-                (c) => c.id === listing.category,
+                (item) => item.id === listing.category,
               );
+
               const isToggling = togglingId === listing.id;
+
               const firstImage =
                 listing.images?.find(Boolean) || "/placeholder.jpg";
 
@@ -1453,9 +1966,11 @@ const HostListings: React.FC = () => {
                     <img
                       src={getAbsoluteImageUrl(firstImage)}
                       alt={listing.title}
-                      className={`h-full w-full object-cover ${!listing.is_active ? "opacity-60 grayscale" : ""}`}
-                      onError={(e) => {
-                        e.currentTarget.src = "/placeholder.jpg";
+                      className={`h-full w-full object-cover ${
+                        !listing.is_active ? "opacity-60 grayscale" : ""
+                      }`}
+                      onError={(event) => {
+                        event.currentTarget.src = "/placeholder.jpg";
                       }}
                     />
 
@@ -1481,8 +1996,10 @@ const HostListings: React.FC = () => {
                       <h2 className="truncate text-base font-semibold">
                         {listing.title}
                       </h2>
+
                       <p className="shrink-0 text-sm font-bold">
                         {formatCurrency(Number(listing.price))}
+
                         <span className="text-xs font-normal text-gray-400">
                           /{t("night", "ليلة")}
                         </span>
@@ -1491,7 +2008,9 @@ const HostListings: React.FC = () => {
 
                     <p className="mt-1 truncate text-sm text-gray-500">
                       {category
-                        ? `${category.icon} ${isAr ? category.labelAr : category.labelEn} · `
+                        ? `${category.icon} ${
+                            isAr ? category.labelAr : category.labelEn
+                          } · `
                         : ""}
                       {listing.location}
                     </p>
@@ -1522,7 +2041,7 @@ const HostListings: React.FC = () => {
                       </button>
                     </div>
 
-                    {/* Actions */}
+                    {/* Listing actions */}
                     <div className="mt-3 flex gap-2">
                       <button
                         onClick={() => handleEdit(listing)}
@@ -1567,11 +2086,12 @@ const HostListings: React.FC = () => {
         +
       </button>
 
-      {/* Mobile bottom tab bar */}
+      {/* Mobile bottom navigation */}
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
         <ul className="mx-auto flex max-w-md">
           {NAV_LINKS.map((item) => {
             const active = location.pathname === item.href;
+
             return (
               <li key={item.id} className="flex-1">
                 <Link
@@ -1581,13 +2101,19 @@ const HostListings: React.FC = () => {
                   }`}
                 >
                   <span
-                    className={`text-xl ${active ? "" : "opacity-60 grayscale"}`}
+                    className={`text-xl ${
+                      active ? "" : "opacity-60 grayscale"
+                    }`}
                   >
                     {item.icon}
                   </span>
+
                   {isAr ? item.labelAr : item.label}
+
                   <span
-                    className={`h-1 w-1 rounded-full ${active ? "bg-[#e8c547]" : "bg-transparent"}`}
+                    className={`h-1 w-1 rounded-full ${
+                      active ? "bg-[#e8c547]" : "bg-transparent"
+                    }`}
                   />
                 </Link>
               </li>
@@ -1596,23 +2122,27 @@ const HostListings: React.FC = () => {
         </ul>
       </nav>
 
-      {/* ====================== FORM (full screen) ====================== */}
+      {/* =====================================================================
+          CREATE / EDIT LISTING FORM
+      ===================================================================== */}
+
       {showForm && (
         <div
           className="fixed inset-0 z-50 flex flex-col bg-gray-50"
           dir={isAr ? "rtl" : "ltr"}
         >
-          {/* Header */}
+          {/* Form header */}
           <div className="flex shrink-0 items-center gap-3 bg-[#1a1a2e] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)]">
             <button
               type="button"
               onClick={closeForm}
-              disabled={savingListing}
+              disabled={savingListing || uploadingImages}
               aria-label={t("Close", "إغلاق")}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-white active:bg-white/10"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-xl text-white active:bg-white/10 disabled:opacity-50"
             >
               ✕
             </button>
+
             <h2 className="text-lg font-semibold text-white">
               {isEditing
                 ? t("Edit listing", "تعديل الإعلان")
@@ -1620,17 +2150,21 @@ const HostListings: React.FC = () => {
             </h2>
           </div>
 
-          {/* Scrollable content */}
+          {/* Scrollable form content */}
           <div className="flex-1 overflow-y-auto">
             <form
               id="listing-form"
               onSubmit={handleSave}
               className="mx-auto max-w-2xl space-y-4 px-4 pb-8 pt-4"
             >
-              {/* Basics */}
+              {/* -------------------------------------------------------------
+                  BASIC INFORMATION
+              ------------------------------------------------------------- */}
+
               <Section title={t("The basics", "الأساسيات")}>
                 <div>
                   <Label>{t("Title", "العنوان")}</Label>
+
                   <input
                     type="text"
                     name="title"
@@ -1646,6 +2180,7 @@ const HostListings: React.FC = () => {
 
                 <div>
                   <Label>{t("Description", "الوصف")}</Label>
+
                   <textarea
                     name="description"
                     rows={4}
@@ -1664,6 +2199,7 @@ const HostListings: React.FC = () => {
                     {t("Price per night", "السعر لكل ليلة")} (
                     {isAr ? "دينار" : "LYD"})
                   </Label>
+
                   <input
                     type="number"
                     inputMode="decimal"
@@ -1679,15 +2215,20 @@ const HostListings: React.FC = () => {
 
                 <div>
                   <Label>{t("Category", "الفئة")}</Label>
+
                   <div className="grid grid-cols-4 gap-2">
-                    {CATEGORIES.map((c) => {
-                      const selected = formData.category === c.id;
+                    {CATEGORIES.map((category) => {
+                      const selected = formData.category === category.id;
+
                       return (
                         <button
-                          key={c.id}
+                          key={category.id}
                           type="button"
                           onClick={() =>
-                            setFormData((p) => ({ ...p, category: c.id }))
+                            setFormData((prev) => ({
+                              ...prev,
+                              category: category.id,
+                            }))
                           }
                           className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2.5 text-[11px] font-medium transition active:scale-95 ${
                             selected
@@ -1695,8 +2236,9 @@ const HostListings: React.FC = () => {
                               : "border-gray-200 bg-white text-gray-600"
                           }`}
                         >
-                          <span className="text-xl">{c.icon}</span>
-                          {isAr ? c.labelAr : c.labelEn}
+                          <span className="text-xl">{category.icon}</span>
+
+                          {isAr ? category.labelAr : category.labelEn}
                         </button>
                       );
                     })}
@@ -1704,7 +2246,10 @@ const HostListings: React.FC = () => {
                 </div>
               </Section>
 
-              {/* Photos */}
+              {/* -------------------------------------------------------------
+                  PHOTOS
+              ------------------------------------------------------------- */}
+
               <Section
                 title={`${t("Photos", "الصور")} (${imageCount}/${MAX_IMAGES})`}
                 hint={t(
@@ -1721,6 +2266,7 @@ const HostListings: React.FC = () => {
                   className="hidden"
                 />
 
+                {/* Local previews and existing permanent images */}
                 <div className="grid grid-cols-3 gap-2">
                   {formData.images.map((image, index) => (
                     <div
@@ -1728,11 +2274,11 @@ const HostListings: React.FC = () => {
                       className="relative aspect-square overflow-hidden rounded-xl bg-gray-100"
                     >
                       <img
-                        src={image}
+                        src={getAbsoluteImageUrl(image)}
                         alt={`${index + 1}`}
                         className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
                         }}
                       />
 
@@ -1745,7 +2291,7 @@ const HostListings: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleImageRemove(index)}
-                        disabled={uploadingImages}
+                        disabled={uploadingImages || savingListing}
                         aria-label={t("Remove", "إزالة")}
                         className="absolute end-1 top-1 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-base text-white disabled:opacity-50"
                       >
@@ -1758,7 +2304,7 @@ const HostListings: React.FC = () => {
                     <button
                       type="button"
                       onClick={openImagePicker}
-                      disabled={uploadingImages}
+                      disabled={uploadingImages || savingListing}
                       className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-300 text-xs text-gray-500 active:bg-gray-50 disabled:opacity-50"
                     >
                       <span className="text-2xl leading-none">+</span>
@@ -1767,14 +2313,18 @@ const HostListings: React.FC = () => {
                   )}
                 </div>
 
+                {/* Preparation and upload progress */}
                 {uploadingImages && (
                   <div className="rounded-xl bg-[#fdf8e7] p-3">
                     <div className="mb-2 flex items-center gap-2">
                       <Spinner />
+
                       <span className="truncate text-xs font-medium text-[#7a6012]">
-                        {uploadingFileName || t("Uploading…", "جاري الرفع…")}
+                        {uploadingFileName ||
+                          t("Processing images…", "جاري تجهيز الصور…")}
                       </span>
                     </div>
+
                     <div className="h-2 overflow-hidden rounded-full bg-black/5">
                       <div
                         className="h-full bg-[#e8c547] transition-all"
@@ -1785,7 +2335,10 @@ const HostListings: React.FC = () => {
                 )}
               </Section>
 
-              {/* Location */}
+              {/* -------------------------------------------------------------
+                  LOCATION
+              ------------------------------------------------------------- */}
+
               <Section
                 title={t("Location", "الموقع")}
                 hint={t(
@@ -1798,7 +2351,7 @@ const HostListings: React.FC = () => {
                     <input
                       type="text"
                       value={addressQuery}
-                      onChange={(e) => searchAddress(e.target.value)}
+                      onChange={(event) => searchAddress(event.target.value)}
                       onFocus={() =>
                         addressSuggestions.length && setShowSuggestions(true)
                       }
@@ -1818,15 +2371,15 @@ const HostListings: React.FC = () => {
 
                     {showSuggestions && addressSuggestions.length > 0 && (
                       <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-56 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
-                        {addressSuggestions.map((s) => (
+                        {addressSuggestions.map((suggestion) => (
                           <button
-                            key={s.id}
+                            key={suggestion.id}
                             type="button"
-                            onMouseDown={(e) => e.preventDefault()}
-                            onClick={() => handleSuggestionSelect(s)}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => handleSuggestionSelect(suggestion)}
                             className="block w-full border-b border-gray-100 px-3.5 py-3 text-start text-sm last:border-b-0 active:bg-gray-50"
                           >
-                            📍 {s.place_name}
+                            📍 {suggestion.place_name}
                           </button>
                         ))}
                       </div>
@@ -1863,6 +2416,7 @@ const HostListings: React.FC = () => {
                       {isGettingLocation ? (
                         <>
                           <Spinner className="!h-8 !w-8 border-[#e8c547]" />
+
                           <p className="text-sm text-gray-500">
                             {t(
                               "Finding your location…",
@@ -1905,6 +2459,7 @@ const HostListings: React.FC = () => {
                       t("No location selected yet", "لم يتم اختيار موقع بعد")}
                   </p>
                 </div>
+
                 <div className="rounded-xl border border-gray-200 bg-white px-3.5 py-3">
                   <Label>
                     {t("Property time zone", "المنطقة الزمنية للعقار")}
@@ -1926,19 +2481,27 @@ const HostListings: React.FC = () => {
                 </div>
               </Section>
 
-              {/* Amenities */}
+              {/* -------------------------------------------------------------
+                  AMENITIES
+              ------------------------------------------------------------- */}
+
               <Section title={t("Amenities", "المرافق")}>
                 {formData.amenities.map((amenity, index) => (
                   <div key={index} className="flex items-center gap-2">
                     <input
                       type="text"
                       value={amenity}
-                      onChange={(e) =>
-                        handleArrayChange(index, "amenities", e.target.value)
+                      onChange={(event) =>
+                        handleArrayChange(
+                          index,
+                          "amenities",
+                          event.target.value,
+                        )
                       }
                       placeholder={t("e.g. Wi-Fi", "مثل: Wi-Fi")}
                       className={inputCls}
                     />
+
                     {index > 0 && (
                       <button
                         type="button"
@@ -1961,23 +2524,27 @@ const HostListings: React.FC = () => {
                 </button>
               </Section>
 
-              {/* House rules */}
+              {/* -------------------------------------------------------------
+                  HOUSE RULES
+              ------------------------------------------------------------- */}
+
               <Section title={t("House rules", "قواعد المنزل")}>
                 <div className="flex flex-wrap gap-2">
                   {QUICK_RULES.map((rule) => {
-                    const on = formData.rules.includes(rule);
+                    const selected = formData.rules.includes(rule);
+
                     return (
                       <button
                         key={rule}
                         type="button"
                         onClick={() => toggleQuickRule(rule)}
                         className={`rounded-full px-3.5 py-2 text-sm transition active:scale-95 ${
-                          on
+                          selected
                             ? "bg-[#e8c547] font-semibold text-[#1a1a2e]"
                             : "bg-gray-100 text-gray-600"
                         }`}
                       >
-                        {on ? "✓ " : "+ "}
+                        {selected ? "✓ " : "+ "}
                         {rule}
                       </button>
                     );
@@ -1992,8 +2559,8 @@ const HostListings: React.FC = () => {
                       <input
                         type="text"
                         value={rule}
-                        onChange={(e) =>
-                          handleArrayChange(index, "rules", e.target.value)
+                        onChange={(event) =>
+                          handleArrayChange(index, "rules", event.target.value)
                         }
                         placeholder={t(
                           "e.g. No food in rooms",
@@ -2001,6 +2568,7 @@ const HostListings: React.FC = () => {
                         )}
                         className={inputCls}
                       />
+
                       <button
                         type="button"
                         onClick={() => removeArrayField("rules", index)}
@@ -2021,7 +2589,10 @@ const HostListings: React.FC = () => {
                 </button>
               </Section>
 
-              {/* Cancellation policy */}
+              {/* -------------------------------------------------------------
+                  CANCELLATION POLICY
+              ------------------------------------------------------------- */}
+
               <Section
                 title={t("Cancellation policy", "سياسة الإلغاء")}
                 hint={t(
@@ -2030,21 +2601,22 @@ const HostListings: React.FC = () => {
                 )}
               >
                 <div className="grid grid-cols-3 gap-2">
-                  {POLICIES.map((p) => {
+                  {POLICIES.map((policy) => {
                     const selected =
-                      formData.cancellation_policy.type === p.value;
+                      formData.cancellation_policy.type === policy.value;
+
                     return (
                       <button
-                        key={p.value}
+                        key={policy.value}
                         type="button"
-                        onClick={() => setPolicyField("type", p.value)}
+                        onClick={() => setPolicyField("type", policy.value)}
                         className={`rounded-xl border py-3 text-sm font-semibold transition active:scale-95 ${
                           selected
                             ? "border-[#e8c547] bg-[#fdf8e7] text-[#7a6012]"
                             : "border-gray-200 bg-white text-gray-600"
                         }`}
                       >
-                        {p.label}
+                        {policy.label}
                       </button>
                     );
                   })}
@@ -2053,8 +2625,8 @@ const HostListings: React.FC = () => {
                 <textarea
                   rows={4}
                   value={formData.cancellation_policy.description}
-                  onChange={(e) =>
-                    setPolicyField("description", e.target.value)
+                  onChange={(event) =>
+                    setPolicyField("description", event.target.value)
                   }
                   className={`${inputCls} resize-y`}
                   placeholder={t(
@@ -2068,10 +2640,13 @@ const HostListings: React.FC = () => {
                     <input
                       type="text"
                       value={rule}
-                      onChange={(e) => setPolicyRule(index, e.target.value)}
+                      onChange={(event) =>
+                        setPolicyRule(index, event.target.value)
+                      }
                       placeholder={t("Extra rule", "شرط إضافي")}
                       className={inputCls}
                     />
+
                     <button
                       type="button"
                       onClick={() => removePolicyRule(index)}
@@ -2094,7 +2669,10 @@ const HostListings: React.FC = () => {
             </form>
           </div>
 
-          {/* Sticky action bar */}
+          {/* ---------------------------------------------------------------
+              STICKY SAVE BUTTONS
+          --------------------------------------------------------------- */}
+
           <div className="shrink-0 border-t border-gray-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3">
             <div className="mx-auto flex max-w-2xl gap-3">
               <button

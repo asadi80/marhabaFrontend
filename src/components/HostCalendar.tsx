@@ -11,8 +11,8 @@ interface Booking {
   user_id: string;
   check_in: string;
   check_out: string;
-  check_in_display: string;
-  check_out_display: string;
+  check_in_display?: string;
+  check_out_display?: string;
   guests: number;
   total_price: number;
   status:
