@@ -13,7 +13,8 @@ import { apiService } from "../../services/api";
    CONSTANTS
 ========================================================================== */
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://api.mar-haba.ly/api/v1";
+const API_BASE =
+  import.meta.env.VITE_API_URL || "https://api.mar-haba.ly/api/v1";
 
 const USER_ROLE = "user";
 
@@ -35,8 +36,12 @@ interface Listing {
   longitude?: string | number;
 }
 
-type BookingStatus = "confirmed" | "pending" | "cancelled";
-
+type BookingStatus =
+  | "confirmed"
+  | "pending"
+  | "cancelled"
+  | "checked_in"
+  | "checked_out";
 interface Booking {
   id: string;
   listing_id: string;
@@ -68,7 +73,10 @@ const AVATAR_PALETTE = [
   { bg: "#FBEAF0", c: "#72243E" },
 ];
 
-const STATUS_STYLES: Record<BookingStatus, { bg: string; c: string; label: [string, string] }> = {
+const STATUS_STYLES: Record<
+  BookingStatus,
+  { bg: string; c: string; label: [string, string] }
+> = {
   confirmed: { bg: "#EAF3DE", c: "#27500A", label: ["confirmed", "مؤكد"] },
   pending: { bg: "#FAEEDA", c: "#633806", label: ["pending", "قيد الانتظار"] },
   cancelled: { bg: "#FCEBEB", c: "#791F1F", label: ["cancelled", "ملغي"] },
@@ -81,9 +89,16 @@ const STATUS_STYLES: Record<BookingStatus, { bg: string; c: string; label: [stri
 const toRole = (role?: string) => String(role || "").toLowerCase();
 
 const nightsBetween = (checkIn: string, checkOut: string) =>
-  Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000);
+  Math.ceil(
+    (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 86400000,
+  );
 
-const haversineDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+const haversineDistanceKm = (
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+) => {
   const EARTH_RADIUS_KM = 6371;
 
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -91,12 +106,15 @@ const haversineDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: num
 
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
 
   return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const getAvatarColors = (name: string) => AVATAR_PALETTE[(name?.charCodeAt(0) ?? 0) % AVATAR_PALETTE.length];
+const getAvatarColors = (name: string) =>
+  AVATAR_PALETTE[(name?.charCodeAt(0) ?? 0) % AVATAR_PALETTE.length];
 
 const getInitials = (name: string) =>
   name
@@ -107,7 +125,11 @@ const getInitials = (name: string) =>
     .toUpperCase() ?? "";
 
 const getStatusStyle = (status: BookingStatus) =>
-  STATUS_STYLES[status] ?? { bg: "#F1EFE8", c: "#444", label: [status, status] as [string, string] };
+  STATUS_STYLES[status] ?? {
+    bg: "#F1EFE8",
+    c: "#444",
+    label: [status, status] as [string, string],
+  };
 
 /**
  * Normalize whatever shape the listings API returns into a plain array.
@@ -158,7 +180,13 @@ const Spinner = () => (
 );
 
 const PinIcon = ({ size = 14 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    className="shrink-0"
+  >
     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
     <circle cx="12" cy="9" r="3" fill="white" />
   </svg>
@@ -192,7 +220,10 @@ export default function UserDashboard() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const notify = useCallback((msg: string, ok = true) => setToast({ msg, ok }), []);
+  const notify = useCallback(
+    (msg: string, ok = true) => setToast({ msg, ok }),
+    [],
+  );
 
   useEffect(() => {
     if (!toast) return;
@@ -200,7 +231,8 @@ export default function UserDashboard() {
     return () => window.clearTimeout(id);
   }, [toast]);
 
-  const isAuthorizedUser = isAuthenticated && !!user && toRole((user as any).role) === USER_ROLE;
+  const isAuthorizedUser =
+    isAuthenticated && !!user && toRole((user as any).role) === USER_ROLE;
 
   /* ------------------------- Formatting helpers ------------------------- */
 
@@ -212,12 +244,15 @@ export default function UserDashboard() {
 
     if (!year || !month || !day) return value;
 
-    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(isAr ? "ar-LY" : "en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: "UTC",
-    });
+    return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(
+      isAr ? "ar-LY" : "en-US",
+      {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        timeZone: "UTC",
+      },
+    );
   };
 
   const formatPrice = (value: number | string) => {
@@ -243,7 +278,9 @@ export default function UserDashboard() {
     const role = toRole((user as any).role);
 
     if (role !== USER_ROLE) {
-      navigate(role === "host" ? "/host-dashboard" : "/login", { replace: true });
+      navigate(role === "host" ? "/host-dashboard" : "/login", {
+        replace: true,
+      });
     }
   }, [authLoading, isAuthenticated, user, navigate]);
 
@@ -261,7 +298,10 @@ export default function UserDashboard() {
           }),
         );
 
-        setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setUserLocation({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
         setLocationResolved(true);
         return;
       } catch {
@@ -289,7 +329,8 @@ export default function UserDashboard() {
   const fetchBookings = async () => {
     try {
       // Bookings are user-specific, so this is a protected call
-      const response = await apiService.getProtectedData<any>("/api/v1/bookings");
+      const response =
+        await apiService.getProtectedData<any>("/api/v1/bookings");
 
       if (!response.success || !response.data) {
         console.error("Failed to fetch bookings:", response.message);
@@ -319,7 +360,9 @@ export default function UserDashboard() {
         limit: "100",
       });
 
-      const res = await fetch(`${API_BASE}/listings/nearby?${params.toString()}`);
+      const res = await fetch(
+        `${API_BASE}/listings/nearby?${params.toString()}`,
+      );
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -342,7 +385,10 @@ export default function UserDashboard() {
               : undefined;
 
         const coords =
-          lat !== undefined && lng !== undefined && Number.isFinite(lat) && Number.isFinite(lng)
+          lat !== undefined &&
+          lng !== undefined &&
+          Number.isFinite(lat) &&
+          Number.isFinite(lng)
             ? { lat, lng }
             : undefined;
 
@@ -399,12 +445,18 @@ export default function UserDashboard() {
     if (!listing.coordinates) return;
 
     const { lat, lng } = listing.coordinates;
-    window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, "_blank");
+    window.open(
+      `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+      "_blank",
+    );
   };
 
   const getDirectionsTo = (listing: Listing) => {
     if (!userLocation) {
-      notify(t("Enable location services first", "قم بتفعيل خدمات الموقع أولاً"), false);
+      notify(
+        t("Enable location services first", "قم بتفعيل خدمات الموقع أولاً"),
+        false,
+      );
       return;
     }
 
@@ -413,7 +465,10 @@ export default function UserDashboard() {
     const { lat: userLat, lng: userLng } = userLocation;
     const { lat: listingLat, lng: listingLng } = listing.coordinates;
 
-    window.open(`https://www.google.com/maps/dir/${userLat},${userLng}/${listingLat},${listingLng}`, "_blank");
+    window.open(
+      `https://www.google.com/maps/dir/${userLat},${userLng}/${listingLat},${listingLng}`,
+      "_blank",
+    );
   };
 
   const cancelBooking = async (id: string) => {
@@ -422,7 +477,10 @@ export default function UserDashboard() {
     setCancellingId(id);
 
     try {
-      const response = await apiService.putProtectedData(`/api/bookings/${id}`, { action: "cancel" });
+      const response = await apiService.putProtectedData(
+        `/api/bookings/${id}`,
+        { action: "cancel" },
+      );
 
       if (response.success) {
         notify(t("Booking cancelled", "تم إلغاء الحجز"));
@@ -430,7 +488,10 @@ export default function UserDashboard() {
       }
     } catch (error) {
       console.error("Failed to cancel booking:", error);
-      notify(error instanceof Error ? error.message : "Failed to cancel booking", false);
+      notify(
+        error instanceof Error ? error.message : "Failed to cancel booking",
+        false,
+      );
     } finally {
       setCancellingId(null);
     }
@@ -454,13 +515,21 @@ export default function UserDashboard() {
       label: `${t("Bookings", "الحجوزات")}${bookingsLoading ? "" : ` (${bookings.length})`}`,
       icon: "📅",
     },
-    { id: "listings", label: t("Browse Listings", "تصفح العقارات"), icon: "🔍", href: "/listings" },
+    {
+      id: "listings",
+      label: t("Browse Listings", "تصفح العقارات"),
+      icon: "🔍",
+      href: "/listings",
+    },
   ];
 
   /* ------------------------------ Render -------------------------------- */
 
   return (
-    <div className={`min-h-screen bg-gray-50 text-gray-900 ${isAr ? "font-arabic" : "font-sans"}`} dir={isAr ? "rtl" : "ltr"}>
+    <div
+      className={`min-h-screen bg-gray-50 text-gray-900 ${isAr ? "font-arabic" : "font-sans"}`}
+      dir={isAr ? "rtl" : "ltr"}
+    >
       <Navbar
         NAV_LINKS={TABS}
         user={user}
@@ -496,7 +565,9 @@ export default function UserDashboard() {
           </div>
 
           <div className="min-w-0">
-            <div className="truncate text-lg font-bold leading-tight text-gray-900">{user!.name}</div>
+            <div className="truncate text-lg font-bold leading-tight text-gray-900">
+              {user!.name}
+            </div>
             {memberSince && (
               <div className="mt-0.5 text-xs text-gray-400">
                 {t("Member since", "عضو منذ")} {formatDate(memberSince)}
@@ -512,7 +583,9 @@ export default function UserDashboard() {
               <h2 className="text-lg font-bold text-gray-900">
                 {t("Nearby places", "الأماكن القريبة")}
                 {!listingsLoading && locationResolved && (
-                  <span className="ms-2 text-sm font-normal text-gray-400">({listings.length})</span>
+                  <span className="ms-2 text-sm font-normal text-gray-400">
+                    ({listings.length})
+                  </span>
                 )}
               </h2>
             </div>
@@ -530,7 +603,9 @@ export default function UserDashboard() {
                     type="button"
                     onClick={() => setSearchRadius(v)}
                     className={`shrink-0 whitespace-nowrap rounded-full px-3.5 py-2 text-sm font-medium transition active:scale-95 ${
-                      searchRadius === v ? "bg-[#1a1a2e] text-[#e8c547]" : "bg-white text-gray-600 shadow-sm"
+                      searchRadius === v
+                        ? "bg-[#1a1a2e] text-[#e8c547]"
+                        : "bg-white text-gray-600 shadow-sm"
                     }`}
                   >
                     {v} {t("km", "كم")}
@@ -581,7 +656,10 @@ export default function UserDashboard() {
             {listingsLoading ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                  <div
+                    key={i}
+                    className="overflow-hidden rounded-2xl bg-white shadow-sm"
+                  >
                     <Skeleton className="h-44 w-full rounded-none" />
                     <div className="space-y-3 p-4">
                       <Skeleton className="h-5 w-3/4" />
@@ -609,7 +687,9 @@ export default function UserDashboard() {
                     <article
                       key={listing.id}
                       className={`overflow-hidden rounded-2xl bg-white shadow-sm transition ${
-                        activeMarkerId === listing.id ? "ring-2 ring-[#e8c547]" : ""
+                        activeMarkerId === listing.id
+                          ? "ring-2 ring-[#e8c547]"
+                          : ""
                       }`}
                     >
                       <div className="relative h-44 overflow-hidden bg-gray-100">
@@ -630,7 +710,9 @@ export default function UserDashboard() {
                       </div>
 
                       <div className="p-4">
-                        <h3 className="truncate text-base font-semibold text-gray-900">{listing.title}</h3>
+                        <h3 className="truncate text-base font-semibold text-gray-900">
+                          {listing.title}
+                        </h3>
 
                         <p className="mt-1 flex items-center gap-1 text-sm text-gray-400">
                           <span className="text-[#e8c547]">
@@ -641,7 +723,10 @@ export default function UserDashboard() {
 
                         <p className="mt-2 text-xl font-bold text-[#1a1a2e]">
                           {formatPrice(listing.price)} {t("LYD", "دينار")}
-                          <span className="text-sm font-normal text-gray-500"> / {t("night", "ليلة")}</span>
+                          <span className="text-sm font-normal text-gray-500">
+                            {" "}
+                            / {t("night", "ليلة")}
+                          </span>
                         </p>
 
                         <Link
@@ -678,9 +763,13 @@ export default function UserDashboard() {
               userLocation && (
                 <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
                   <div className="mb-2 text-4xl">🧭</div>
-                  <p className="text-lg font-bold text-gray-700">{t("Nothing nearby", "لا توجد أماكن قريبة")}</p>
+                  <p className="text-lg font-bold text-gray-700">
+                    {t("Nothing nearby", "لا توجد أماكن قريبة")}
+                  </p>
                   <p className="mb-4 mt-1 text-sm text-gray-400">
-                    {isAr ? `لا توجد أماكن ضمن ${searchRadius} كم` : `No places within ${searchRadius} km`}
+                    {isAr
+                      ? `لا توجد أماكن ضمن ${searchRadius} كم`
+                      : `No places within ${searchRadius} km`}
                   </p>
 
                   <button
@@ -698,12 +787,17 @@ export default function UserDashboard() {
         {/* ========================= BOOKINGS ========================= */}
         {activeTab === "bookings" && (
           <div>
-            <h2 className="mb-3 text-lg font-bold text-gray-900">{t("My bookings", "حجوزاتي")}</h2>
+            <h2 className="mb-3 text-lg font-bold text-gray-900">
+              {t("My bookings", "حجوزاتي")}
+            </h2>
 
             {bookingsLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm">
+                  <div
+                    key={i}
+                    className="space-y-3 rounded-2xl bg-white p-4 shadow-sm"
+                  >
                     <div className="flex justify-between gap-4">
                       <Skeleton className="h-5 w-1/2" />
                       <Skeleton className="h-5 w-20 rounded-full" />
@@ -722,9 +816,14 @@ export default function UserDashboard() {
             ) : bookings.length === 0 ? (
               <div className="rounded-2xl bg-white p-10 text-center shadow-sm">
                 <div className="mb-2 text-4xl">📅</div>
-                <p className="text-lg font-bold text-gray-700">{t("No bookings yet", "لا توجد حجوزات بعد")}</p>
+                <p className="text-lg font-bold text-gray-700">
+                  {t("No bookings yet", "لا توجد حجوزات بعد")}
+                </p>
                 <p className="mb-4 mt-1 text-sm text-gray-400">
-                  {t("Discover amazing places to stay", "اكتشف أماكن رائعة للإقامة")}
+                  {t(
+                    "Discover amazing places to stay",
+                    "اكتشف أماكن رائعة للإقامة",
+                  )}
                 </p>
                 <Link
                   to="/listings"
@@ -736,14 +835,27 @@ export default function UserDashboard() {
             ) : (
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
                 {bookings.map((booking) => {
-                  const { bg: statusBg, c: statusColor, label } = getStatusStyle(booking.status);
-                  const nightCount = nightsBetween(booking.check_in, booking.check_out);
+                  const {
+                    bg: statusBg,
+                    c: statusColor,
+                    label,
+                  } = getStatusStyle(booking.status);
+                  const nightCount = nightsBetween(
+                    booking.check_in,
+                    booking.check_out,
+                  );
                   const createdAt = booking.created_at || booking.createdAt;
                   const cancelled = booking.status === "cancelled";
 
                   const details = [
-                    { label: t("Check-in", "تسجيل الوصول"), value: formatDate(booking.check_in) },
-                    { label: t("Check-out", "تسجيل المغادرة"), value: formatDate(booking.check_out) },
+                    {
+                      label: t("Check-in", "تسجيل الوصول"),
+                      value: formatDate(booking.check_in),
+                    },
+                    {
+                      label: t("Check-out", "تسجيل المغادرة"),
+                      value: formatDate(booking.check_out),
+                    },
                     {
                       label: t("Nights", "الليالي"),
                       value: `${nightCount} ${nightCount === 1 ? t("night", "ليلة") : t("nights", "ليالي")}`,
@@ -755,7 +867,10 @@ export default function UserDashboard() {
                   ];
 
                   return (
-                    <article key={booking.id} className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                    <article
+                      key={booking.id}
+                      className="overflow-hidden rounded-2xl bg-white shadow-sm"
+                    >
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3">
                           <h3 className="min-w-0 truncate text-[15px] font-semibold text-gray-900">
@@ -773,15 +888,21 @@ export default function UserDashboard() {
                         {booking.listing?.location && (
                           <p className="mt-1 flex items-center gap-1 text-sm text-gray-400">
                             <PinIcon size={12} />
-                            <span className="truncate">{booking.listing.location}</span>
+                            <span className="truncate">
+                              {booking.listing.location}
+                            </span>
                           </p>
                         )}
 
                         <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-gray-50 p-3">
                           {details.map(({ label: l, value }) => (
                             <div key={l} className="min-w-0">
-                              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-400">{l}</div>
-                              <div className="mt-0.5 text-sm font-medium text-gray-800">{value}</div>
+                              <div className="text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                {l}
+                              </div>
+                              <div className="mt-0.5 text-sm font-medium text-gray-800">
+                                {value}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -792,7 +913,8 @@ export default function UserDashboard() {
                               {t("Total", "المجموع")}
                             </div>
                             <div className="text-xl font-bold text-[#1a1a2e]">
-                              {formatPrice(booking.total_price)} {t("LYD", "دينار")}
+                              {formatPrice(booking.total_price)}{" "}
+                              {t("LYD", "دينار")}
                             </div>
                           </div>
 
@@ -805,25 +927,33 @@ export default function UserDashboard() {
                       </div>
 
                       <div className="flex flex-wrap gap-2 border-t border-gray-100 bg-gray-50/60 p-3">
+                        {/* View listing: show for every booking except cancelled */}
                         {!cancelled && (
-                          <>
-                            <Link
-                              to={`/listings/${booking.listing_id}`}
-                              className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-sm font-semibold text-[#e8c547] no-underline active:scale-[0.97]"
-                            >
-                              {t("View listing", "عرض القائمة")}
-                            </Link>
-
-                            <button
-                              onClick={() => cancelBooking(booking.id)}
-                              disabled={cancellingId === booking.id}
-                              className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-red-50 px-4 text-sm font-semibold text-red-700 active:scale-[0.97] disabled:opacity-60"
-                            >
-                              {cancellingId === booking.id ? <Spinner /> : t("Cancel", "إلغاء")}
-                            </button>
-                          </>
+                          <Link
+                            to={`/listings/${booking.listing_id}`}
+                            className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-[#1a1a2e] px-4 text-sm font-semibold text-[#e8c547] no-underline active:scale-[0.97]"
+                          >
+                            {t("View listing", "عرض القائمة")}
+                          </Link>
                         )}
 
+                        {/* Cancel: only pending or confirmed */}
+                        {(booking.status === "pending" ||
+                          booking.status === "confirmed") && (
+                          <button
+                            onClick={() => cancelBooking(booking.id)}
+                            disabled={cancellingId === booking.id}
+                            className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl bg-red-50 px-4 text-sm font-semibold text-red-700 active:scale-[0.97] disabled:opacity-60"
+                          >
+                            {cancellingId === booking.id ? (
+                              <Spinner />
+                            ) : (
+                              t("Cancel", "إلغاء")
+                            )}
+                          </button>
+                        )}
+
+                        {/* Maps */}
                         {booking.listing?.coordinates && (
                           <button
                             onClick={() => openInMaps(booking.listing!)}
