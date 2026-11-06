@@ -1798,7 +1798,8 @@ export default function ListingDetail() {
                     dir="ltr"
                     style={{ textAlign: isAr ? "right" : "left" }}
                   >
-                    📍 {listing.latitude}, {listing.longitude}
+                    {/* 📍 {listing.latitude}, {listing.longitude} */}
+                    📍 {listing.location}
                   </p>
                 </div>
 
