@@ -7,7 +7,6 @@ import Navbar from "../../components/Navbar";
 import { apiService } from "../../services/api";
 import HostCalendar from "../../components/HostCalendar";
 
-
 /* ==========================================================================
    TOKEN GUARD
    UX nicety only (redirects early when the stored token is missing/expired).
@@ -608,7 +607,7 @@ const HostBookings: React.FC = () => {
 
     try {
       const reason =
-        booking.status === "no_show"
+        booking.no_show || booking.status === "no_show"
           ? "no_show"
           : booking.status === "cancelled"
             ? "cancellation"
@@ -1227,6 +1226,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
     booking.status === "pending" ||
     booking.status === "confirmed" ||
     canCheckOut ||
+    isNoShow ||
     (booking.status === "cancelled" && !isNoShow);
 
   return (
@@ -1440,6 +1440,20 @@ const BookingCard: React.FC<BookingCardProps> = ({
                 🚫{" "}
                 {isBlocked
                   ? t("Already blocked", "محظور")
+                  : t("Block User", "حظر المستخدم")}
+              </ActionBtn>
+            )}
+
+            {isNoShow && (
+              <ActionBtn
+                tone="danger"
+                onClick={() => onBlockUser(booking)}
+                disabled={busy || isBlocked}
+                spinning={spinning("block_user")}
+              >
+                🚫{" "}
+                {isBlocked
+                  ? t("Already blocked", "محظور بالفعل")
                   : t("Block User", "حظر المستخدم")}
               </ActionBtn>
             )}
