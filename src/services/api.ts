@@ -258,16 +258,20 @@ class ApiService {
   // AUTH — GOOGLE SIGN-IN ONLY
   // ─────────────────────────────────────────────
 
-  async loginWithGoogle(
-    idToken: string,
-  ): Promise<ApiResponse<LoginResponseData>> {
-    return this.request<LoginResponseData>("/api/v1/auth/google", {
-      method: "POST",
-      body: JSON.stringify({
-        idToken,
-      }),
-    });
-  }
+
+async loginWithGoogle(
+  idToken: string,
+  accountType: "traveler" | "host" = "traveler",
+): Promise<ApiResponse<LoginResponseData>> {
+  return this.request<LoginResponseData>("/api/v1/auth/google", {
+    method: "POST",
+    body: JSON.stringify({
+      idToken,
+      accountType,
+    }),
+  });
+}
+
 
   async logout() {
     return this.request("/api/v1/auth/logout", {
