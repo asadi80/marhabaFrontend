@@ -252,6 +252,10 @@ export default function LoginPage() {
       : "Protected by industry-standard encryption",
 
     langToggle: isAr ? "🇬🇧" : "🇱🇾",
+    alreadyHave: isAr
+      ? "لديك حساب بالفعل؟"
+      : "You do not have an account?",
+      signUp: isAr ? "تسجيل الدخول" : "Sign up",
   };
 
   // --------------------------------------------------
@@ -377,6 +381,16 @@ export default function LoginPage() {
               >
                 {copy.welcome}
               </h1>
+              <p className="text-[12px] text-[#999]">
+                {copy.alreadyHave}{" "}
+
+                <Link
+                  to="/signup"
+                  className="text-[#185FA5] no-underline font-medium"
+                >
+                  {copy.signUp}
+                </Link>
+              </p>
 
               <p className="text-[12px] text-[#999] leading-relaxed">
                 {copy.description}
