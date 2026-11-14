@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import { useLanguage } from "../../hooks/useLanguage";
+import Footer from "../../components/Footer";
 
 type Language = "en" | "ar";
 
@@ -56,11 +57,7 @@ type SafetyContent = {
   footer: FooterContent;
 };
 
-type SafetyColor =
-  | "#2563eb"
-  | "#059669"
-  | "#d97706"
-  | "#dc2626";
+type SafetyColor = "#2563eb" | "#059669" | "#d97706" | "#dc2626";
 
 const content: Record<Language, SafetyContent> = {
   en: {
@@ -68,8 +65,7 @@ const content: Record<Language, SafetyContent> = {
     badge: "Your Safety Matters",
     title: "Safety",
     title1: "Centre",
-    subtitle:
-      "Guidelines and resources to keep every stay safe and respectful",
+    subtitle: "Guidelines and resources to keep every stay safe and respectful",
     effective: "Updated regularly",
     lastUpdated: "Report incidents 24/7",
 
@@ -270,8 +266,7 @@ const content: Record<Language, SafetyContent> = {
         icon: "🧳",
         color: "#2563eb",
         title: "نصائح السلامة للضيوف",
-        intro:
-          "قبل الحجز وأثناء إقامتك، اتبع هذه الإرشادات لتبقى بأمان.",
+        intro: "قبل الحجز وأثناء إقامتك، اتبع هذه الإرشادات لتبقى بأمان.",
         items: [
           {
             title: "تحقق من القائمة قبل الحجز",
@@ -338,8 +333,7 @@ const content: Record<Language, SafetyContent> = {
         icon: "💳",
         color: "#d97706",
         title: "سلامة الحجز والمدفوعات",
-        intro:
-          "مرحبا لا تعالج المدفوعات. فهم آلية المعاملات يحمي كلا الطرفين.",
+        intro: "مرحبا لا تعالج المدفوعات. فهم آلية المعاملات يحمي كلا الطرفين.",
         items: [
           {
             title: "المدفوعات مباشرة بين الطرفين",
@@ -372,8 +366,7 @@ const content: Record<Language, SafetyContent> = {
         icon: "🚨",
         color: "#dc2626",
         title: "الإبلاغ عن الإساءة والحوادث",
-        intro:
-          "نأخذ كل بلاغ بجدية تامة. إليك كيفية الإبلاغ وما يحدث بعد ذلك.",
+        intro: "نأخذ كل بلاغ بجدية تامة. إليك كيفية الإبلاغ وما يحدث بعد ذلك.",
         items: [
           {
             title: "كيفية الإبلاغ عن حادثة أمنية",
@@ -404,8 +397,7 @@ const content: Record<Language, SafetyContent> = {
     ],
 
     emergencyHeading: "جهات الطوارئ في ليبيا",
-    emergencyNote:
-      "احفظ هذه الأرقام قبل رحلتك. قد يتفاوت التوفر حسب المنطقة.",
+    emergencyNote: "احفظ هذه الأرقام قبل رحلتك. قد يتفاوت التوفر حسب المنطقة.",
     emergencies: [
       { label: "الشرطة", number: "1515" },
       { label: "الإسعاف", number: "1120" },
@@ -420,8 +412,7 @@ const content: Record<Language, SafetyContent> = {
     ctaButton: "تواصل مع فريق السلامة",
 
     footer: {
-      desc:
-        "منصة التأجير قصير الأمد الموثوقة في ليبيا تربط المضيفين والمسافرين.",
+      desc: "منصة التأجير قصير الأمد الموثوقة في ليبيا تربط المضيفين والمسافرين.",
       rights: "جميع الحقوق محفوظة.",
       privacy: "سياسة الخصوصية",
       terms: "شروط الخدمة",
@@ -493,10 +484,7 @@ export default function SafetyInfoPage() {
     !!openItems[`${sectionId}-${i}`];
 
   return (
-    <div
-      dir={c.dir}
-      className="bg-white min-h-screen text-gray-900"
-    >
+    <div dir={c.dir} className="bg-white min-h-screen text-gray-900">
       {/* NAV */}
       <Navbar
         NAV_LINKS={navLinks}
@@ -531,15 +519,10 @@ export default function SafetyInfoPage() {
             }`}
           >
             {c.title}
-            <span className="font-bold text-[#e8c547]">
-              {" "}
-              {c.title1}
-            </span>
+            <span className="font-bold text-[#e8c547]"> {c.title1}</span>
           </h1>
 
-          <p className="text-white/50 text-[15px] mb-7">
-            {c.subtitle}
-          </p>
+          <p className="text-white/50 text-[15px] mb-7">{c.subtitle}</p>
 
           {/* Stat pills */}
           <div className="flex flex-wrap gap-3">
@@ -552,9 +535,7 @@ export default function SafetyInfoPage() {
                   {s.value}
                 </span>
 
-                <span className="text-white/40 text-[11px]">
-                  {s.label}
-                </span>
+                <span className="text-white/40 text-[11px]">{s.label}</span>
               </div>
             ))}
           </div>
@@ -602,9 +583,7 @@ export default function SafetyInfoPage() {
                 <div>
                   <h2
                     className={`font-semibold text-[22px] text-gray-900 leading-tight mb-1 ${
-                      isAr
-                        ? "font-['Cairo','Tajawal',sans-serif]"
-                        : ""
+                      isAr ? "font-['Cairo','Tajawal',sans-serif]" : ""
                     }`}
                   >
                     {sec.title}
@@ -625,14 +604,10 @@ export default function SafetyInfoPage() {
                     <div
                       key={i}
                       className={`border rounded-2xl overflow-hidden transition-all ${
-                        itemOpen
-                          ? `border-[${sec.color}]`
-                          : "border-gray-200"
+                        itemOpen ? `border-[${sec.color}]` : "border-gray-200"
                       }`}
                       style={{
-                        borderColor: itemOpen
-                          ? sec.color
-                          : undefined,
+                        borderColor: itemOpen ? sec.color : undefined,
                       }}
                     >
                       <button
@@ -647,9 +622,7 @@ export default function SafetyInfoPage() {
 
                           <span
                             className={`text-[13px] font-semibold text-gray-900 leading-[1.5] ${
-                              isAr
-                                ? "font-['Cairo','Tajawal',sans-serif]"
-                                : ""
+                              isAr ? "font-['Cairo','Tajawal',sans-serif]" : ""
                             }`}
                           >
                             {item.title}
@@ -659,9 +632,7 @@ export default function SafetyInfoPage() {
                         <span
                           className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-colors"
                           style={{
-                            background: itemOpen
-                              ? sec.color
-                              : "#f3f4f6",
+                            background: itemOpen ? sec.color : "#f3f4f6",
                           }}
                         >
                           <svg
@@ -675,9 +646,7 @@ export default function SafetyInfoPage() {
                           >
                             <path
                               d="M2 3.5l3 3 3-3"
-                              stroke={
-                                itemOpen ? "#fff" : "#6b7280"
-                              }
+                              stroke={itemOpen ? "#fff" : "#6b7280"}
                               strokeWidth="1.5"
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -717,17 +686,13 @@ export default function SafetyInfoPage() {
             <div>
               <h2
                 className={`font-semibold text-[22px] text-gray-900 leading-tight mb-1 ${
-                  isAr
-                    ? "font-['Cairo','Tajawal',sans-serif]"
-                    : ""
+                  isAr ? "font-['Cairo','Tajawal',sans-serif]" : ""
                 }`}
               >
                 {c.emergencyHeading}
               </h2>
 
-              <p className="text-[13px] text-gray-500">
-                {c.emergencyNote}
-              </p>
+              <p className="text-[13px] text-gray-500">{c.emergencyNote}</p>
             </div>
           </div>
 
@@ -795,60 +760,30 @@ export default function SafetyInfoPage() {
       </div>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-[#111] px-6 pt-12 pb-7">
-        <div className="max-w-screen-xl mx-auto">
-          <div className="flex items-center justify-between flex-wrap gap-5 pb-8 border-b border-[#222] mb-6">
-            <Link
-              to="/"
-              style={{
-                textDecoration: "none",
-                fontFamily: "'Cairo','Tajawal',sans-serif",
-                fontWeight: 500,
-                fontSize: "26px",
-                color: "#fff",
-                letterSpacing: "1px",
-              }}
-            >
-              مر
-              <span
-                style={{
-                  fontWeight: 700,
-                  color: "#e8c547",
-                }}
-              >
-                حبا
-              </span>
-            </Link>
+      <Footer
+        content={{
+          footerDesc: c.footer.desc,
 
-            <p className="text-sm text-[#555] max-w-xs leading-[1.7]">
-              {c.footer.desc}
-            </p>
-          </div>
+          travelersHeading: isAr ? "المسافرون" : "Travelers",
+          howToBook: isAr ? "كيفية الحجز" : "How to Book",
+          paymentMethods: isAr ? "طرق الدفع" : "Payment Methods",
+          travelTips: isAr ? "نصائح السفر" : "Travel Tips",
 
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-xs text-[#444]">
-              &copy; {new Date().getFullYear()} Marhaba.{" "}
-              {c.footer.rights}
-            </p>
+          hostsHeading: isAr ? "المضيفون" : "Hosts",
+          startHosting: isAr ? "ابدأ الاستضافة" : "Start Hosting",
+          hostResources: isAr ? "موارد المضيفين" : "Host Resources",
+          pricingTips: isAr ? "نصائح التسعير" : "Pricing Tips",
 
-            <div className="flex gap-5">
-              <Link
-                to="/privacy"
-                className="text-xs text-[#999] no-underline hover:text-yellow-400 transition-colors"
-              >
-                {c.footer.privacy}
-              </Link>
+          supportHeading: isAr ? "الدعم" : "Support",
+          helpCenter: isAr ? "مركز المساعدة" : "Help Center",
+          safetyInfo: isAr ? "معلومات السلامة" : "Safety Information",
+          contactUs: isAr ? "اتصل بنا" : "Contact Us",
 
-              <Link
-                to="/terms"
-                className="text-xs text-[#999] no-underline hover:text-yellow-400 transition-colors"
-              >
-                {c.footer.terms}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+          rights: c.footer.rights,
+          privacy: c.footer.privacy,
+          terms: c.footer.terms,
+        }}
+      />
     </div>
   );
 }

@@ -165,20 +165,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   // Logout
   // ───────────────────────────────────────────────────────────────────────────
 
-  const logout = useCallback(() => {
-    setUser(null);
-    setTokens(null);
+const logout = useCallback(() => {
+  // Revoke the backend session
+  void apiService.logout().catch((error) => {
+    console.error("Logout request failed:", error);
+  });
 
-    localStorage.removeItem("tokens");
+  setUser(null);
+  setTokens(null);
 
-    // Clean up legacy storage
-    localStorage.removeItem("user");
-    localStorage.removeItem("authToken");
+  localStorage.removeItem("tokens");
+  localStorage.removeItem("user");
+  localStorage.removeItem("authToken");
 
-    apiService.setAccessToken(null);
+  apiService.setAccessToken(null);
 
-    navigate("/login");
-  }, [navigate]);
+  navigate("/login");
+}, [navigate]);
 
   // ───────────────────────────────────────────────────────────────────────────
   // Refresh tokens

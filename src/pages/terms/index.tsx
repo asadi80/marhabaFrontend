@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
 
 type Language = "en" | "ar";
 
@@ -557,18 +558,17 @@ export default function TermsPage() {
                 )}
 
                 {/* Inline highlight block */}
-                {s.highlight &&
-                  typeof s.highlight === "object" && (
-                    <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
-                      <div className="font-semibold text-yellow-800 text-[13px] mb-1.5">
-                        {s.highlight.title}
-                      </div>
-
-                      <p className="text-[13px] text-yellow-700 leading-[1.7]">
-                        {s.highlight.text}
-                      </p>
+                {s.highlight && typeof s.highlight === "object" && (
+                  <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-2xl p-5">
+                    <div className="font-semibold text-yellow-800 text-[13px] mb-1.5">
+                      {s.highlight.title}
                     </div>
-                  )}
+
+                    <p className="text-[13px] text-yellow-700 leading-[1.7]">
+                      {s.highlight.text}
+                    </p>
+                  </div>
+                )}
 
                 {/* Subsection */}
                 {s.subsection && (
@@ -637,8 +637,7 @@ export default function TermsPage() {
                       </div>
 
                       <div className="text-[13px] text-gray-500">
-                        {isAr ? "الموقع" : "Location"}:{" "}
-                        {s.contactCard.location}
+                        {isAr ? "الموقع" : "Location"}: {s.contactCard.location}
                       </div>
                     </div>
                   </div>
@@ -664,59 +663,30 @@ export default function TermsPage() {
       </div>
 
       {/* FOOTER */}
-      <footer className="bg-[#111] px-6 pt-12 pb-7 mt-10">
-        <div className="max-w-screen-xl mx-auto">
-          <div className="flex items-center justify-between flex-wrap gap-5 pb-8 border-b border-[#222] mb-6">
-            <Link
-              to="/"
-              style={{
-                textDecoration: "none",
-                fontFamily: "'Cairo','Tajawal',sans-serif",
-                fontWeight: 500,
-                fontSize: "26px",
-                color: "#fff",
-                letterSpacing: "1px",
-              }}
-            >
-              مر
-              <span
-                style={{
-                  fontWeight: 700,
-                  color: "#e8c547",
-                }}
-              >
-                حبا
-              </span>
-            </Link>
+      <Footer
+        content={{
+          footerDesc: c.footer.desc,
 
-            <p className="text-sm text-[#555] max-w-xs leading-[1.7]">
-              {c.footer.desc}
-            </p>
-          </div>
+          travelersHeading: isAr ? "المسافرون" : "Travelers",
+          howToBook: isAr ? "كيفية الحجز" : "How to Book",
+          paymentMethods: isAr ? "طرق الدفع" : "Payment Methods",
+          travelTips: isAr ? "نصائح السفر" : "Travel Tips",
 
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-xs text-[#444]">
-              &copy; {new Date().getFullYear()} Marhaba. {c.footer.rights}
-            </p>
+          hostsHeading: isAr ? "المضيفون" : "Hosts",
+          startHosting: isAr ? "ابدأ الاستضافة" : "Start Hosting",
+          hostResources: isAr ? "موارد المضيفين" : "Host Resources",
+          pricingTips: isAr ? "نصائح التسعير" : "Pricing Tips",
 
-            <div className="flex gap-5">
-              <Link
-                to="/privacy"
-                className="text-xs text-[#999] no-underline hover:text-yellow-400 transition-colors"
-              >
-                {c.footer.privacy}
-              </Link>
+          supportHeading: isAr ? "الدعم" : "Support",
+          helpCenter: isAr ? "مركز المساعدة" : "Help Center",
+          safetyInfo: isAr ? "معلومات السلامة" : "Safety Information",
+          contactUs: isAr ? "اتصل بنا" : "Contact Us",
 
-              <Link
-                to="/terms"
-                className="text-xs text-yellow-400 no-underline font-semibold"
-              >
-                {c.footer.terms}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+          rights: c.footer.rights,
+          privacy: c.footer.privacy,
+          terms: c.footer.terms,
+        }}
+      />
     </div>
   );
 }

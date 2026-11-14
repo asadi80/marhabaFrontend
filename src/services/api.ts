@@ -16,6 +16,9 @@ interface LoginResponseData {
     name: string;
     email: string;
     created_at?: any;
+    requiresIdUpload?: boolean;
+    isHostApproved?: boolean;
+    verificationStatus?: Record<string, any>;
     [key: string]: any;
   };
 
@@ -23,6 +26,9 @@ interface LoginResponseData {
     accessToken: string;
     refreshToken: string;
   };
+
+  requiresIdUpload?: boolean;
+  isHostApproved?: boolean;
 
   verificationStatus?: {
     [key: string]: any;
@@ -247,27 +253,19 @@ class ApiService {
     }
   }
 
+
   // ─────────────────────────────────────────────
-  // AUTH
+  // AUTH — GOOGLE SIGN-IN ONLY
   // ─────────────────────────────────────────────
 
-  async login(
-    email: string,
-    password: string,
+  async loginWithGoogle(
+    idToken: string,
   ): Promise<ApiResponse<LoginResponseData>> {
-    return this.request<LoginResponseData>("/api/v1/auth/login", {
+    return this.request<LoginResponseData>("/api/v1/auth/google", {
       method: "POST",
       body: JSON.stringify({
-        email,
-        password,
+        idToken,
       }),
-    });
-  }
-
-  async register(userData: any) {
-    return this.request("/api/v1/auth/register", {
-      method: "POST",
-      body: JSON.stringify(userData),
     });
   }
 
@@ -286,15 +284,6 @@ class ApiService {
       method: "POST",
       body: JSON.stringify({
         refresh_token: refreshToken,
-      }),
-    });
-  }
-
-  async resendVerification(email: string) {
-    return this.request("/api/v1/auth/resend-verification", {
-      method: "POST",
-      body: JSON.stringify({
-        email,
       }),
     });
   }

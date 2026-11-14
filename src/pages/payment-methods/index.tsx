@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import { useLanguage } from "../../hooks/useLanguage";
+import Footer from "../../components/Footer";
+
 
 const content = {
   en: {
@@ -647,47 +649,31 @@ export default function PaymentsPage() {
       </div>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-[#111] px-6 pt-12 pb-7">
-        <div className="max-w-screen-xl mx-auto">
-          <div className="flex items-center justify-between flex-wrap gap-5 pb-8 border-b border-[#222] mb-6">
-            <Link
-              to="/"
-              style={{
-                textDecoration: "none",
-                fontFamily: "'Cairo','Tajawal',sans-serif",
-                fontWeight: 500,
-                fontSize: "26px",
-                color: "#fff",
-                letterSpacing: "1px",
-              }}
-            >
-              مر<span style={{ fontWeight: 700, color: "#e8c547" }}>حبا</span>
-            </Link>
-            <p className="text-sm text-[#555] max-w-xs leading-[1.7]">
-              {c.footer.desc}
-            </p>
-          </div>
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-xs text-[#444]">
-              &copy; {new Date().getFullYear()} Marhaba. {c.footer.rights}
-            </p>
-            <div className="flex gap-5">
-              <Link
-                to="/privacy"
-                className="text-xs text-[#999] no-underline hover:text-yellow-400 transition-colors"
-              >
-                {c.footer.privacy}
-              </Link>
-              <Link
-                to="/terms"
-                className="text-xs text-[#999] no-underline hover:text-yellow-400 transition-colors"
-              >
-                {c.footer.terms}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+       {/* ── FOOTER ── */}
+      <Footer
+        content={{
+          footerDesc: c.footer.desc,
+
+          travelersHeading: isAr ? "المسافرون" : "Travelers",
+          howToBook: isAr ? "كيفية الحجز" : "How to Book",
+          paymentMethods: isAr ? "طرق الدفع" : "Payment Methods",
+          travelTips: isAr ? "نصائح السفر" : "Travel Tips",
+
+          hostsHeading: isAr ? "المضيفون" : "Hosts",
+          startHosting: isAr ? "ابدأ الاستضافة" : "Start Hosting",
+          hostResources: isAr ? "موارد المضيفين" : "Host Resources",
+          pricingTips: isAr ? "نصائح التسعير" : "Pricing Tips",
+
+          supportHeading: isAr ? "الدعم" : "Support",
+          helpCenter: isAr ? "مركز المساعدة" : "Help Center",
+          safetyInfo: isAr ? "معلومات السلامة" : "Safety Information",
+          contactUs: isAr ? "اتصل بنا" : "Contact Us",
+
+          rights: c.footer.rights,
+          privacy: c.footer.privacy,
+          terms: c.footer.terms,
+        }}
+      />
     </div>
   );
 }

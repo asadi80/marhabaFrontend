@@ -1,9 +1,9 @@
-
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 import Navbar from "../../components/Navbar";
 import { useLanguage } from "../../hooks/useLanguage";
+import Footer from "../../components/Footer";
 
 // ============================================================
 // TYPES
@@ -121,29 +121,25 @@ const content: Record<Language, Content> = {
           {
             num: "01",
             title: "Sign up on Marhaba",
-            body:
-              "Click Get Started on the homepage, then choose Host as your account type. Enter your full name, email address, and a secure password.",
+            body: "Click Get Started on the homepage, then choose Host as your account type. Enter your full name, email address, and a secure password.",
           },
 
           {
             num: "02",
             title: "Verify your email",
-            body:
-              "Check your inbox for a confirmation email from Marhaba and click the verification link to activate your account.",
+            body: "Check your inbox for a confirmation email from Marhaba and click the verification link to activate your account.",
           },
 
           {
             num: "03",
             title: "Submit your national ID",
-            body:
-              "All hosts are required to verify their identity by submitting a copy of their Libyan national ID. This is reviewed by our team before your listings go live.",
+            body: "All hosts are required to verify their identity by submitting a copy of their Libyan national ID. This is reviewed by our team before your listings go live.",
           },
 
           {
             num: "04",
             title: "Access your Host Dashboard",
-            body:
-              "Once verified, you'll have full access to your Host Dashboard — where you manage listings, bookings, guests, and your subscription.",
+            body: "Once verified, you'll have full access to your Host Dashboard — where you manage listings, bookings, guests, and your subscription.",
           },
         ],
       },
@@ -175,50 +171,43 @@ const content: Record<Language, Content> = {
           {
             num: "01",
             title: "Go to Add Listing",
-            body:
-              "From your Host Dashboard, click Add New Listing. You'll be guided through each section of the listing form.",
+            body: "From your Host Dashboard, click Add New Listing. You'll be guided through each section of the listing form.",
           },
 
           {
             num: "02",
             title: "Add property details",
-            body:
-              "Enter your property title, description, type (apartment, villa, chalet, etc.), and select all relevant categories — beachfront, mountain, city, desert, pool, and more.",
+            body: "Enter your property title, description, type (apartment, villa, chalet, etc.), and select all relevant categories — beachfront, mountain, city, desert, pool, and more.",
           },
 
           {
             num: "03",
             title: "Upload photos",
-            body:
-              "Add high-quality photos of every room, the exterior, and any standout features. Listings with 6+ photos receive significantly more booking requests. Natural light makes a huge difference.",
+            body: "Add high-quality photos of every room, the exterior, and any standout features. Listings with 6+ photos receive significantly more booking requests. Natural light makes a huge difference.",
           },
 
           {
             num: "04",
             title: "Set your price",
-            body:
-              "Enter your nightly rate in Libyan Dinar (LYD). You can update pricing at any time from your dashboard. Consider seasonal demand when setting rates.",
+            body: "Enter your nightly rate in Libyan Dinar (LYD). You can update pricing at any time from your dashboard. Consider seasonal demand when setting rates.",
           },
 
           {
             num: "05",
             title: "Set availability",
-            body:
-              "Use the availability calendar to mark which dates your property is open. Keep it updated — stale calendars lead to declined requests and frustrated guests.",
+            body: "Use the availability calendar to mark which dates your property is open. Keep it updated — stale calendars lead to declined requests and frustrated guests.",
           },
 
           {
             num: "06",
             title: "Add amenities & house rules",
-            body:
-              "List all amenities (WiFi, kitchen, parking, AC, etc.) and clearly state your house rules — check-in/out times, pet policy, smoking policy, max guests.",
+            body: "List all amenities (WiFi, kitchen, parking, AC, etc.) and clearly state your house rules — check-in/out times, pet policy, smoking policy, max guests.",
           },
 
           {
             num: "07",
             title: "Publish",
-            body:
-              "Review everything and hit Publish. Your listing will go live immediately and appear in search results and the homepage.",
+            body: "Review everything and hit Publish. Your listing will go live immediately and appear in search results and the homepage.",
           },
         ],
       },
@@ -360,8 +349,7 @@ const content: Record<Language, Content> = {
     ],
 
     footer: {
-      desc:
-        "Libya's trusted short-term rental platform connecting hosts and travelers.",
+      desc: "Libya's trusted short-term rental platform connecting hosts and travelers.",
 
       rights: "All rights reserved.",
 
@@ -384,8 +372,7 @@ const content: Record<Language, Content> = {
 
     title1: "الاستضافة",
 
-    subtitle:
-      "كل ما تحتاج لمعرفته لإدراج عقارك واستقبال الضيوف في ليبيا",
+    subtitle: "كل ما تحتاج لمعرفته لإدراج عقارك واستقبال الضيوف في ليبيا",
 
     lastUpdated: "آخر تحديث: 1 يونيو 2025",
 
@@ -420,36 +407,31 @@ const content: Record<Language, Content> = {
 
         icon: "👤",
 
-        content:
-          "البدء يستغرق أقل من 5 دقائق. إليك كيفية إعداد حساب المضيف:",
+        content: "البدء يستغرق أقل من 5 دقائق. إليك كيفية إعداد حساب المضيف:",
 
         steps: [
           {
             num: "٠١",
             title: "سجّل في مرحبا",
-            body:
-              "اضغط ابدأ في الصفحة الرئيسية، ثم اختر مضيف كنوع الحساب. أدخل اسمك الكامل والبريد الإلكتروني وكلمة مرور آمنة.",
+            body: "اضغط ابدأ في الصفحة الرئيسية، ثم اختر مضيف كنوع الحساب. أدخل اسمك الكامل والبريد الإلكتروني وكلمة مرور آمنة.",
           },
 
           {
             num: "٠٢",
             title: "تحقق من بريدك الإلكتروني",
-            body:
-              "تحقق من بريدك الوارد للحصول على رسالة تأكيد من مرحبا واضغط رابط التحقق لتفعيل حسابك.",
+            body: "تحقق من بريدك الوارد للحصول على رسالة تأكيد من مرحبا واضغط رابط التحقق لتفعيل حسابك.",
           },
 
           {
             num: "٠٣",
             title: "أرسل هويتك الوطنية",
-            body:
-              "يُطلب من جميع المضيفين التحقق من هويتهم بتقديم نسخة من هويتهم الوطنية الليبية. تراجعها فريقنا قبل نشر قوائمك.",
+            body: "يُطلب من جميع المضيفين التحقق من هويتهم بتقديم نسخة من هويتهم الوطنية الليبية. تراجعها فريقنا قبل نشر قوائمك.",
           },
 
           {
             num: "٠٤",
             title: "ادخل لوحة تحكم المضيف",
-            body:
-              "بمجرد التحقق، ستحصل على وصول كامل للوحة تحكم المضيف — حيث تدير القوائم والحجوزات والضيوف واشتراكك.",
+            body: "بمجرد التحقق، ستحصل على وصول كامل للوحة تحكم المضيف — حيث تدير القوائم والحجوزات والضيوف واشتراكك.",
           },
         ],
       },
@@ -481,50 +463,43 @@ const content: Record<Language, Content> = {
           {
             num: "٠١",
             title: "اذهب إلى إضافة قائمة",
-            body:
-              "من لوحة تحكم المضيف، اضغط إضافة قائمة جديدة. سيتم توجيهك عبر كل قسم من نموذج القائمة.",
+            body: "من لوحة تحكم المضيف، اضغط إضافة قائمة جديدة. سيتم توجيهك عبر كل قسم من نموذج القائمة.",
           },
 
           {
             num: "٠٢",
             title: "أضف تفاصيل العقار",
-            body:
-              "أدخل عنوان عقارك ووصفه ونوعه (شقة، فيلا، شاليه، إلخ)، واختر جميع الفئات ذات الصلة — شاطئ، جبال، مدينة، صحراء، مسبح والمزيد.",
+            body: "أدخل عنوان عقارك ووصفه ونوعه (شقة، فيلا، شاليه، إلخ)، واختر جميع الفئات ذات الصلة — شاطئ، جبال، مدينة، صحراء، مسبح والمزيد.",
           },
 
           {
             num: "٠٣",
             title: "ارفع الصور",
-            body:
-              "أضف صوراً عالية الجودة لكل غرفة والواجهة الخارجية وأي مميزات بارزة. القوائم التي تحتوي على 6 صور أو أكثر تحصل على طلبات حجز أكثر بكثير.",
+            body: "أضف صوراً عالية الجودة لكل غرفة والواجهة الخارجية وأي مميزات بارزة. القوائم التي تحتوي على 6 صور أو أكثر تحصل على طلبات حجز أكثر بكثير.",
           },
 
           {
             num: "٠٤",
             title: "حدد سعرك",
-            body:
-              "أدخل سعرك الليلي بالدينار الليبي (LYD). يمكنك تحديث الأسعار في أي وقت من لوحة التحكم. ضع في اعتبارك الطلب الموسمي عند تحديد الأسعار.",
+            body: "أدخل سعرك الليلي بالدينار الليبي (LYD). يمكنك تحديث الأسعار في أي وقت من لوحة التحكم. ضع في اعتبارك الطلب الموسمي عند تحديد الأسعار.",
           },
 
           {
             num: "٠٥",
             title: "حدد التوافر",
-            body:
-              "استخدم تقويم التوافر لتحديد التواريخ المتاحة. ابقه محدثاً — التقاويم القديمة تؤدي إلى رفض الطلبات وإحباط الضيوف.",
+            body: "استخدم تقويم التوافر لتحديد التواريخ المتاحة. ابقه محدثاً — التقاويم القديمة تؤدي إلى رفض الطلبات وإحباط الضيوف.",
           },
 
           {
             num: "٠٦",
             title: "أضف المرافق وقواعد المنزل",
-            body:
-              "أدرج جميع المرافق (واي فاي، مطبخ، موقف سيارات، تكييف، إلخ) واذكر بوضوح قواعد منزلك — أوقات تسجيل الوصول والمغادرة، سياسة الحيوانات الأليفة، التدخين، الحد الأقصى للضيوف.",
+            body: "أدرج جميع المرافق (واي فاي، مطبخ، موقف سيارات، تكييف، إلخ) واذكر بوضوح قواعد منزلك — أوقات تسجيل الوصول والمغادرة، سياسة الحيوانات الأليفة، التدخين، الحد الأقصى للضيوف.",
           },
 
           {
             num: "٠٧",
             title: "انشر",
-            body:
-              "راجع كل شيء واضغط نشر. ستصبح قائمتك مباشرة فوراً وتظهر في نتائج البحث والصفحة الرئيسية.",
+            body: "راجع كل شيء واضغط نشر. ستصبح قائمتك مباشرة فوراً وتظهر في نتائج البحث والصفحة الرئيسية.",
           },
         ],
       },
@@ -653,8 +628,7 @@ const content: Record<Language, Content> = {
 
         icon: "📬",
 
-        content:
-          "فريقنا هنا لمساعدتك في كل خطوة — بالعربية أو الإنجليزية.",
+        content: "فريقنا هنا لمساعدتك في كل خطوة — بالعربية أو الإنجليزية.",
 
         contactCard: {
           name: "دعم المضيفين في مرحبا",
@@ -666,8 +640,7 @@ const content: Record<Language, Content> = {
     ],
 
     footer: {
-      desc:
-        "منصة التأجير قصير الأمد الموثوقة في ليبيا تربط المضيفين والمسافرين.",
+      desc: "منصة التأجير قصير الأمد الموثوقة في ليبيا تربط المضيفين والمسافرين.",
 
       rights: "جميع الحقوق محفوظة.",
 
@@ -703,10 +676,7 @@ export default function StartHostingPage() {
   ];
 
   return (
-    <div
-      dir={c.dir}
-      className="bg-white min-h-screen text-gray-900"
-    >
+    <div dir={c.dir} className="bg-white min-h-screen text-gray-900">
       {/* ======================================================
           NAVBAR
       ====================================================== */}
@@ -755,17 +725,12 @@ export default function StartHostingPage() {
           >
             {c.title}
 
-            <span className="font-bold text-[#e8c547]">
-              {" "}
-              {c.title1}
-            </span>
+            <span className="font-bold text-[#e8c547]"> {c.title1}</span>
           </h1>
 
           {/* Subtitle */}
 
-          <p className="text-white/50 text-[15px] mb-5">
-            {c.subtitle}
-          </p>
+          <p className="text-white/50 text-[15px] mb-5">{c.subtitle}</p>
 
           {/* Meta */}
 
@@ -852,18 +817,14 @@ export default function StartHostingPage() {
                 <a
                   key={section.id}
                   href={`#${section.id}`}
-                  onClick={() =>
-                    setActiveSection(section.id)
-                  }
+                  onClick={() => setActiveSection(section.id)}
                   className={`flex items-center gap-2.5 text-[13px] no-underline py-1.5 px-3 rounded-lg transition-all ${
                     activeSection === section.id
                       ? "bg-[#1a1a2e] text-yellow-400 font-semibold"
                       : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                   }`}
                 >
-                  <span className="text-base shrink-0">
-                    {section.icon}
-                  </span>
+                  <span className="text-base shrink-0">{section.icon}</span>
 
                   <span>
                     {index + 1}. {section.title}
@@ -916,9 +877,7 @@ export default function StartHostingPage() {
                 key={section.id}
                 id={section.id}
                 className="scroll-mt-28"
-                onMouseEnter={() =>
-                  setActiveSection(section.id)
-                }
+                onMouseEnter={() => setActiveSection(section.id)}
               >
                 {/* Section Header */}
 
@@ -929,9 +888,7 @@ export default function StartHostingPage() {
 
                   <h2
                     className={`font-semibold text-[18px] text-gray-900 ${
-                      isAr
-                        ? "font-['Cairo','Tajawal',sans-serif]"
-                        : ""
+                      isAr ? "font-['Cairo','Tajawal',sans-serif]" : ""
                     }`}
                   >
                     {index + 1}. {section.title}
@@ -944,9 +901,7 @@ export default function StartHostingPage() {
                   <div className="bg-[#1a1a2e] rounded-2xl p-6 border-l-4 border-yellow-400">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-yellow-400 text-[11px] font-bold uppercase tracking-widest">
-                        {isAr
-                          ? "تنبيه مهم"
-                          : "Important Notice"}
+                        {isAr ? "تنبيه مهم" : "Important Notice"}
                       </span>
                     </div>
 
@@ -1088,10 +1043,7 @@ export default function StartHostingPage() {
                       </div>
 
                       <div className="text-[13px] text-gray-500 mb-0.5">
-                        {isAr
-                          ? "البريد الإلكتروني"
-                          : "Email"}
-                        :{" "}
+                        {isAr ? "البريد الإلكتروني" : "Email"}:{" "}
                         <a
                           href={`mailto:${section.contactCard.email}`}
                           className="text-[#1a1a2e] font-medium no-underline hover:text-yellow-600"
@@ -1140,9 +1092,7 @@ export default function StartHostingPage() {
                     : "font-['Fraunces',serif] italic"
                 }`}
               >
-                {isAr
-                  ? "حوّل عقارك إلى دخل"
-                  : "Turn your property into income"}
+                {isAr ? "حوّل عقارك إلى دخل" : "Turn your property into income"}
               </h3>
 
               <p className="text-white/40 text-[13px] mb-6">
@@ -1156,10 +1106,7 @@ export default function StartHostingPage() {
                   to="/signup"
                   className="inline-flex items-center gap-2 bg-yellow-400 text-[#1a1a2e] px-6 py-3 rounded-xl text-sm font-bold no-underline"
                 >
-                  {isAr
-                    ? "أنشئ حساب مضيف"
-                    : "Create Host Account"}{" "}
-                  →
+                  {isAr ? "أنشئ حساب مضيف" : "Create Host Account"} →
                 </Link>
 
                 <Link
@@ -1190,61 +1137,30 @@ export default function StartHostingPage() {
           FOOTER
       ====================================================== */}
 
-      <footer className="bg-[#111] px-6 pt-12 pb-7 mt-10">
-        <div className="max-w-screen-xl mx-auto">
-          <div className="flex items-center justify-between flex-wrap gap-5 pb-8 border-b border-[#222] mb-6">
-            <Link
-              to="/"
-              style={{
-                textDecoration: "none",
-                fontFamily: "'Cairo','Tajawal',sans-serif",
-                fontWeight: 500,
-                fontSize: "26px",
-                color: "#fff",
-                letterSpacing: "1px",
-              }}
-            >
-              مر
-              <span
-                style={{
-                  fontWeight: 700,
-                  color: "#e8c547",
-                }}
-              >
-                حبا
-              </span>
-            </Link>
+      <Footer
+        content={{
+          footerDesc: c.footer.desc,
 
-            <p className="text-sm text-[#555] max-w-xs leading-[1.7]">
-              {c.footer.desc}
-            </p>
-          </div>
+          travelersHeading: isAr ? "المسافرون" : "Travelers",
+          howToBook: isAr ? "كيفية الحجز" : "How to Book",
+          paymentMethods: isAr ? "طرق الدفع" : "Payment Methods",
+          travelTips: isAr ? "نصائح السفر" : "Travel Tips",
 
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-xs text-[#444]">
-              &copy; {new Date().getFullYear()} Marhaba.{" "}
-              {c.footer.rights}
-            </p>
+          hostsHeading: isAr ? "المضيفون" : "Hosts",
+          startHosting: isAr ? "ابدأ الاستضافة" : "Start Hosting",
+          hostResources: isAr ? "موارد المضيفين" : "Host Resources",
+          pricingTips: isAr ? "نصائح التسعير" : "Pricing Tips",
 
-            <div className="flex gap-5">
-              <Link
-                to="/privacy"
-                className="text-xs text-[#999] no-underline hover:text-yellow-400 transition-colors"
-              >
-                {c.footer.privacy}
-              </Link>
+          supportHeading: isAr ? "الدعم" : "Support",
+          helpCenter: isAr ? "مركز المساعدة" : "Help Center",
+          safetyInfo: isAr ? "معلومات السلامة" : "Safety Information",
+          contactUs: isAr ? "اتصل بنا" : "Contact Us",
 
-              <Link
-                to="/terms"
-                className="text-xs text-[#999] no-underline hover:text-yellow-400 transition-colors"
-              >
-                {c.footer.terms}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+          rights: c.footer.rights,
+          privacy: c.footer.privacy,
+          terms: c.footer.terms,
+        }}
+      />
     </div>
   );
 }
-

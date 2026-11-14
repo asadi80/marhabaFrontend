@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
+import Footer from "../../components/Footer";
 
 type Language = "en" | "ar";
 
@@ -109,20 +110,20 @@ const content: Record<Language, PrivacyContent> = {
         ],
       },
       {
-          id: "use",
-          title: "How We Use Your Information",
-          icon: "⚙️",
-          items: [
-              "To create and manage your account (host or guest)",
-              "To facilitate listing creation, property management, and booking workflows",
-              "To process the host's flat-rate subscription billing every six months",
-              "To send booking confirmations, reminders, and platform notifications",
-              "To allow hosts to record guest no-shows or cancellations",
-              "To improve platform features, fix bugs, and analyze usage patterns",
-              "To comply with applicable Libyan law and respond to lawful requests from authorities",
-              "To prevent fraud, abuse, and violations of our Terms of Service",
-          ],
-          content: ""
+        id: "use",
+        title: "How We Use Your Information",
+        icon: "⚙️",
+        items: [
+          "To create and manage your account (host or guest)",
+          "To facilitate listing creation, property management, and booking workflows",
+          "To process the host's flat-rate subscription billing every six months",
+          "To send booking confirmations, reminders, and platform notifications",
+          "To allow hosts to record guest no-shows or cancellations",
+          "To improve platform features, fix bugs, and analyze usage patterns",
+          "To comply with applicable Libyan law and respond to lawful requests from authorities",
+          "To prevent fraud, abuse, and violations of our Terms of Service",
+        ],
+        content: "",
       },
       {
         id: "payments",
@@ -275,20 +276,20 @@ const content: Record<Language, PrivacyContent> = {
         ],
       },
       {
-          id: "use",
-          title: "كيف نستخدم معلوماتك",
-          icon: "⚙️",
-          items: [
-              "لإنشاء حسابك وإدارته (مضيف أو ضيف)",
-              "لتسهيل إنشاء القوائم وإدارة العقارات وسير عمل الحجوزات",
-              "لمعالجة اشتراك المضيف الثابت كل ستة أشهر",
-              "لإرسال تأكيدات الحجز والتذكيرات وإشعارات المنصة",
-              "للسماح للمضيفين بتسجيل حالات عدم حضور الضيوف أو الإلغاءات",
-              "لتحسين ميزات المنصة وإصلاح الأخطاء وتحليل أنماط الاستخدام",
-              "للامتثال للقانون الليبي المعمول به والاستجابة للطلبات القانونية",
-              "لمنع الاحتيال والانتهاكات",
-          ],
-          content: ""
+        id: "use",
+        title: "كيف نستخدم معلوماتك",
+        icon: "⚙️",
+        items: [
+          "لإنشاء حسابك وإدارته (مضيف أو ضيف)",
+          "لتسهيل إنشاء القوائم وإدارة العقارات وسير عمل الحجوزات",
+          "لمعالجة اشتراك المضيف الثابت كل ستة أشهر",
+          "لإرسال تأكيدات الحجز والتذكيرات وإشعارات المنصة",
+          "للسماح للمضيفين بتسجيل حالات عدم حضور الضيوف أو الإلغاءات",
+          "لتحسين ميزات المنصة وإصلاح الأخطاء وتحليل أنماط الاستخدام",
+          "للامتثال للقانون الليبي المعمول به والاستجابة للطلبات القانونية",
+          "لمنع الاحتيال والانتهاكات",
+        ],
+        content: "",
       },
       {
         id: "payments",
@@ -342,8 +343,7 @@ const content: Record<Language, PrivacyContent> = {
           "الاعتراض — الاعتراض على معالجة معينة لبياناتك",
           "حذف الحساب — حذف حسابك في أي وقت من خلال إعدادات المنصة",
         ],
-        footer:
-          "لممارسة أي من هذه الحقوق، تواصل معنا على العنوان في القسم 10.",
+        footer: "لممارسة أي من هذه الحقوق، تواصل معنا على العنوان في القسم 10.",
       },
       {
         id: "retention",
@@ -402,9 +402,7 @@ export default function PrivacyPage() {
   ];
 
   const toggleLanguage = () => {
-    setLang((currentLang) =>
-      currentLang === "en" ? "ar" : "en"
-    );
+    setLang((currentLang) => (currentLang === "en" ? "ar" : "en"));
   };
 
   return (
@@ -443,15 +441,10 @@ export default function PrivacyPage() {
             }`}
           >
             {c.title}
-            <span className="font-bold text-[#e8c547]">
-              {" "}
-              {c.title1}
-            </span>
+            <span className="font-bold text-[#e8c547]"> {c.title1}</span>
           </h1>
 
-          <p className="text-white/50 text-[15px] mb-5">
-            {c.subtitle}
-          </p>
+          <p className="text-white/50 text-[15px] mb-5">{c.subtitle}</p>
 
           <div className="flex flex-wrap gap-4">
             <span className="text-[12px] text-white/40 bg-white/5 border border-white/10 rounded-full px-3 py-1">
@@ -486,9 +479,7 @@ export default function PrivacyPage() {
                       : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                   }`}
                 >
-                  <span className="text-base shrink-0">
-                    {s.icon}
-                  </span>
+                  <span className="text-base shrink-0">{s.icon}</span>
 
                   <span>
                     {i + 1}. {s.title}
@@ -524,9 +515,7 @@ export default function PrivacyPage() {
 
                   <h2
                     className={`font-semibold text-[18px] text-gray-900 ${
-                      isAr
-                        ? "font-['Cairo','Tajawal',sans-serif]"
-                        : ""
+                      isAr ? "font-['Cairo','Tajawal',sans-serif]" : ""
                     }`}
                   >
                     {i + 1}. {s.title}
@@ -651,8 +640,7 @@ export default function PrivacyPage() {
                       </div>
 
                       <div className="text-[13px] text-gray-500">
-                        {isAr ? "الموقع" : "Location"}:{" "}
-                        {s.contactCard.location}
+                        {isAr ? "الموقع" : "Location"}: {s.contactCard.location}
                       </div>
                     </div>
                   </div>
@@ -678,60 +666,30 @@ export default function PrivacyPage() {
       </div>
 
       {/* FOOTER */}
-      <footer className="bg-[#111] px-6 pt-12 pb-7 mt-10">
-        <div className="max-w-screen-xl mx-auto">
-          <div className="flex items-center justify-between flex-wrap gap-5 pb-8 border-b border-[#222] mb-6">
-            <Link
-              to="/"
-              style={{
-                textDecoration: "none",
-                fontFamily: "'Cairo','Tajawal',sans-serif",
-                fontWeight: 500,
-                fontSize: "26px",
-                color: "#fff",
-                letterSpacing: "1px",
-              }}
-            >
-              مر
-              <span
-                style={{
-                  fontWeight: 700,
-                  color: "#e8c547",
-                }}
-              >
-                حبا
-              </span>
-            </Link>
+      <Footer
+        content={{
+          footerDesc: c.footer.desc,
 
-            <p className="text-sm text-[#555] max-w-xs leading-[1.7]">
-              {c.footer.desc}
-            </p>
-          </div>
+          travelersHeading: isAr ? "المسافرون" : "Travelers",
+          howToBook: isAr ? "كيفية الحجز" : "How to Book",
+          paymentMethods: isAr ? "طرق الدفع" : "Payment Methods",
+          travelTips: isAr ? "نصائح السفر" : "Travel Tips",
 
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <p className="text-xs text-[#444]">
-              &copy; {new Date().getFullYear()} Marhaba.{" "}
-              {c.footer.rights}
-            </p>
+          hostsHeading: isAr ? "المضيفون" : "Hosts",
+          startHosting: isAr ? "ابدأ الاستضافة" : "Start Hosting",
+          hostResources: isAr ? "موارد المضيفين" : "Host Resources",
+          pricingTips: isAr ? "نصائح التسعير" : "Pricing Tips",
 
-            <div className="flex gap-5">
-              <Link
-                to="/privacy"
-                className="text-xs text-yellow-400 no-underline font-semibold"
-              >
-                {c.footer.privacy}
-              </Link>
+          supportHeading: isAr ? "الدعم" : "Support",
+          helpCenter: isAr ? "مركز المساعدة" : "Help Center",
+          safetyInfo: isAr ? "معلومات السلامة" : "Safety Information",
+          contactUs: isAr ? "اتصل بنا" : "Contact Us",
 
-              <Link
-                to="/terms"
-                className="text-xs text-[#999] no-underline hover:text-yellow-400 transition-colors"
-              >
-                {c.footer.terms}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+          rights: c.footer.rights,
+          privacy: c.footer.privacy,
+          terms: c.footer.terms,
+        }}
+      />
     </div>
   );
 }

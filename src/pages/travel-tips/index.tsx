@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import Navbar from "../../components/Navbar";
 import { useLanguage } from "../../hooks/useLanguage";
+import Footer from "../../components/Footer";
 
 type Language = "en" | "ar";
 
@@ -61,8 +62,7 @@ const content: Record<Language, SafetyContent> = {
     badge: "Your Safety Matters",
     title: "Safety",
     title1: "Centre",
-    subtitle:
-      "Guidelines and resources to keep every stay safe and respectful",
+    subtitle: "Guidelines and resources to keep every stay safe and respectful",
     effective: "Updated regularly",
     lastUpdated: "Report incidents 24/7",
 
@@ -89,33 +89,27 @@ const content: Record<Language, SafetyContent> = {
         items: [
           {
             title: "Verify the listing before booking",
-            body:
-              "Read all reviews carefully. If a property has no reviews yet, message the host with questions before confirming. Look for verified host badges.",
+            body: "Read all reviews carefully. If a property has no reviews yet, message the host with questions before confirming. Look for verified host badges.",
           },
           {
             title: "Keep communication on-platform",
-            body:
-              "Use Marhaba's messaging system to communicate with hosts. Avoid sharing personal phone numbers or email addresses before a booking is confirmed.",
+            body: "Use Marhaba's messaging system to communicate with hosts. Avoid sharing personal phone numbers or email addresses before a booking is confirmed.",
           },
           {
             title: "Check the address before you travel",
-            body:
-              "Cross-reference the listed address on a map application before you set off. Contact your host if anything seems unclear.",
+            body: "Cross-reference the listed address on a map application before you set off. Contact your host if anything seems unclear.",
           },
           {
             title: "Know the emergency exits",
-            body:
-              "On arrival, locate fire exits, extinguishers, and the property's first-aid kit. Ask the host if these are not immediately obvious.",
+            body: "On arrival, locate fire exits, extinguishers, and the property's first-aid kit. Ask the host if these are not immediately obvious.",
           },
           {
             title: "Share your itinerary",
-            body:
-              "Let a trusted friend or family member know where you are staying, the host's name, and when you expect to check out.",
+            body: "Let a trusted friend or family member know where you are staying, the host's name, and when you expect to check out.",
           },
           {
             title: "Trust your instincts",
-            body:
-              "If something feels wrong on arrival — the property doesn't match photos, or you feel unsafe — leave and contact Marhaba support immediately.",
+            body: "If something feels wrong on arrival — the property doesn't match photos, or you feel unsafe — leave and contact Marhaba support immediately.",
           },
         ],
       },
@@ -130,33 +124,27 @@ const content: Record<Language, SafetyContent> = {
         items: [
           {
             title: "Accurate listing information",
-            body:
-              "Photos, descriptions, and amenities must truthfully represent the property. Misleading listings violate Marhaba's Terms of Service and may result in account suspension.",
+            body: "Photos, descriptions, and amenities must truthfully represent the property. Misleading listings violate Marhaba's Terms of Service and may result in account suspension.",
           },
           {
             title: "Safety equipment",
-            body:
-              "Ensure your property has working smoke detectors, a fire extinguisher, and a first-aid kit. Replace batteries and check equipment before every new guest.",
+            body: "Ensure your property has working smoke detectors, a fire extinguisher, and a first-aid kit. Replace batteries and check equipment before every new guest.",
           },
           {
             title: "Clear emergency information",
-            body:
-              "Provide guests with local emergency numbers (police, ambulance, fire brigade) and the address of the nearest hospital in your welcome guide.",
+            body: "Provide guests with local emergency numbers (police, ambulance, fire brigade) and the address of the nearest hospital in your welcome guide.",
           },
           {
             title: "Respect guest privacy",
-            body:
-              "Hidden cameras or recording devices of any kind are strictly prohibited. Hosts found in violation will be permanently removed from the platform.",
+            body: "Hidden cameras or recording devices of any kind are strictly prohibited. Hosts found in violation will be permanently removed from the platform.",
           },
           {
             title: "Secure access",
-            body:
-              "Change door codes or lock combinations between every guest. Do not share access credentials with third parties.",
+            body: "Change door codes or lock combinations between every guest. Do not share access credentials with third parties.",
           },
           {
             title: "Prompt communication",
-            body:
-              "Respond to guest messages within a reasonable time. If you are unavailable, set an out-of-office response and provide an emergency contact.",
+            body: "Respond to guest messages within a reasonable time. If you are unavailable, set an out-of-office response and provide an emergency contact.",
           },
         ],
       },
@@ -171,33 +159,27 @@ const content: Record<Language, SafetyContent> = {
         items: [
           {
             title: "Payments are direct between parties",
-            body:
-              "Marhaba does not handle, hold, or facilitate any money between guests and hosts. All payment arrangements are made privately and directly between the two parties.",
+            body: "Marhaba does not handle, hold, or facilitate any money between guests and hosts. All payment arrangements are made privately and directly between the two parties.",
           },
           {
             title: "Agree on payment terms before confirming",
-            body:
-              "Discuss and agree on amount, method, currency, and refund policy with the host before you confirm a booking. Get written confirmation in the Marhaba chat.",
+            body: "Discuss and agree on amount, method, currency, and refund policy with the host before you confirm a booking. Get written confirmation in the Marhaba chat.",
           },
           {
             title: "Beware of off-platform requests",
-            body:
-              "Any request asking you to pay through an external link, crypto wallet, or unofficial channel before a booking is confirmed is a red flag. Report it immediately.",
+            body: "Any request asking you to pay through an external link, crypto wallet, or unofficial channel before a booking is confirmed is a red flag. Report it immediately.",
           },
           {
             title: "No refund guarantees from Marhaba",
-            body:
-              "Because Marhaba does not process payments, we cannot issue refunds. Dispute resolution is between the guest and host directly. Document all payment agreements in writing.",
+            body: "Because Marhaba does not process payments, we cannot issue refunds. Dispute resolution is between the guest and host directly. Document all payment agreements in writing.",
           },
           {
             title: "Use traceable payment methods",
-            body:
-              "Where possible, use bank transfers or payment methods that leave a paper trail. Avoid large cash payments with no receipt.",
+            body: "Where possible, use bank transfers or payment methods that leave a paper trail. Avoid large cash payments with no receipt.",
           },
           {
             title: "Cancellation policies",
-            body:
-              "Review the host's cancellation policy before booking. It is the guest's responsibility to understand and agree to these terms prior to confirmation.",
+            body: "Review the host's cancellation policy before booking. It is the guest's responsibility to understand and agree to these terms prior to confirmation.",
           },
         ],
       },
@@ -212,33 +194,27 @@ const content: Record<Language, SafetyContent> = {
         items: [
           {
             title: "How to report a safety incident",
-            body:
-              "Go to your dashboard → Bookings → select the booking → 'Report an Issue'. Describe the incident in detail. Our team reviews all reports within 48 hours.",
+            body: "Go to your dashboard → Bookings → select the booking → 'Report an Issue'. Describe the incident in detail. Our team reviews all reports within 48 hours.",
           },
           {
             title: "What counts as a reportable incident",
-            body:
-              "Misrepresented listings, hidden cameras, harassment, threats, property damage, no-shows, payment disputes, or any behaviour that makes you feel unsafe.",
+            body: "Misrepresented listings, hidden cameras, harassment, threats, property damage, no-shows, payment disputes, or any behaviour that makes you feel unsafe.",
           },
           {
             title: "Urgent safety situations",
-            body:
-              "If you are in immediate danger, contact local emergency services first (police: 1515 in Libya). Then contact Marhaba support at safety@mar-haba.ly.",
+            body: "If you are in immediate danger, contact local emergency services first (police: 1515 in Libya). Then contact Marhaba support at safety@mar-haba.ly.",
           },
           {
             title: "What happens after you report",
-            body:
-              "Our team will acknowledge your report within 24 hours. Depending on severity, we may suspend the account under review, request evidence, or escalate to authorities.",
+            body: "Our team will acknowledge your report within 24 hours. Depending on severity, we may suspend the account under review, request evidence, or escalate to authorities.",
           },
           {
             title: "False reports",
-            body:
-              "Submitting a knowingly false report is a violation of our Terms of Service and may result in account suspension. Please only report genuine incidents.",
+            body: "Submitting a knowingly false report is a violation of our Terms of Service and may result in account suspension. Please only report genuine incidents.",
           },
           {
             title: "Anonymous reporting",
-            body:
-              "You may request that your identity be kept confidential during an investigation. We will make reasonable efforts to honour this where legally possible.",
+            body: "You may request that your identity be kept confidential during an investigation. We will make reasonable efforts to honour this where legally possible.",
           },
         ],
       },
@@ -265,8 +241,7 @@ const content: Record<Language, SafetyContent> = {
     ctaButton: "Contact Safety Team",
 
     footer: {
-      desc:
-        "Libya's trusted short-term rental platform connecting hosts and travelers.",
+      desc: "Libya's trusted short-term rental platform connecting hosts and travelers.",
       rights: "All rights reserved.",
       privacy: "Privacy Policy",
       terms: "Terms of Service",
@@ -278,8 +253,7 @@ const content: Record<Language, SafetyContent> = {
     badge: "سلامتك تهمنا",
     title: "مركز",
     title1: " السلامة",
-    subtitle:
-      "إرشادات وموارد لضمان إقامة آمنة ومحترمة للجميع",
+    subtitle: "إرشادات وموارد لضمان إقامة آمنة ومحترمة للجميع",
     effective: "يُحدَّث بانتظام",
     lastUpdated: "الإبلاغ عن الحوادث 24/7",
 
@@ -304,38 +278,31 @@ const content: Record<Language, SafetyContent> = {
         icon: "🧳",
         color: "#2563eb",
         title: "نصائح السلامة للضيوف",
-        intro:
-          "قبل الحجز وأثناء إقامتك، اتبع هذه الإرشادات لتبقى بأمان.",
+        intro: "قبل الحجز وأثناء إقامتك، اتبع هذه الإرشادات لتبقى بأمان.",
         items: [
           {
             title: "تحقق من القائمة قبل الحجز",
-            body:
-              "اقرأ جميع التقييمات بعناية. إذا لم يكن للعقار تقييمات بعد، راسل المضيف بأسئلتك قبل التأكيد. ابحث عن شارة المضيف الموثَّق.",
+            body: "اقرأ جميع التقييمات بعناية. إذا لم يكن للعقار تقييمات بعد، راسل المضيف بأسئلتك قبل التأكيد. ابحث عن شارة المضيف الموثَّق.",
           },
           {
             title: "أبقِ التواصل داخل المنصة",
-            body:
-              "استخدم نظام المراسلة في مرحبا للتواصل مع المضيفين. تجنّب مشاركة أرقام هواتفك الشخصية أو بريدك الإلكتروني قبل تأكيد الحجز.",
+            body: "استخدم نظام المراسلة في مرحبا للتواصل مع المضيفين. تجنّب مشاركة أرقام هواتفك الشخصية أو بريدك الإلكتروني قبل تأكيد الحجز.",
           },
           {
             title: "تحقق من العنوان قبل السفر",
-            body:
-              "راجع العنوان المدرج على تطبيق الخرائط قبل المغادرة. تواصل مع مضيفك إذا كان هناك أي شيء غير واضح.",
+            body: "راجع العنوان المدرج على تطبيق الخرائط قبل المغادرة. تواصل مع مضيفك إذا كان هناك أي شيء غير واضح.",
           },
           {
             title: "تعرّف على مخارج الطوارئ",
-            body:
-              "عند الوصول، حدد مخارج الحريق وأجهزة الإطفاء وحقيبة الإسعافات الأولية. اسأل المضيف إن لم تكن ظاهرة بوضوح.",
+            body: "عند الوصول، حدد مخارج الحريق وأجهزة الإطفاء وحقيبة الإسعافات الأولية. اسأل المضيف إن لم تكن ظاهرة بوضوح.",
           },
           {
             title: "شارك جدولك مع شخص موثوق",
-            body:
-              "أخبر صديقاً أو أحد أفراد عائلتك بمكان إقامتك واسم المضيف وموعد المغادرة المتوقع.",
+            body: "أخبر صديقاً أو أحد أفراد عائلتك بمكان إقامتك واسم المضيف وموعد المغادرة المتوقع.",
           },
           {
             title: "ثق بحدسك",
-            body:
-              "إذا شعرت بشيء غير صحيح عند الوصول — العقار لا يطابق الصور، أو شعرت بعدم الأمان — غادر فوراً وتواصل مع دعم مرحبا.",
+            body: "إذا شعرت بشيء غير صحيح عند الوصول — العقار لا يطابق الصور، أو شعرت بعدم الأمان — غادر فوراً وتواصل مع دعم مرحبا.",
           },
         ],
       },
@@ -350,33 +317,27 @@ const content: Record<Language, SafetyContent> = {
         items: [
           {
             title: "معلومات القائمة الدقيقة",
-            body:
-              "يجب أن تعكس الصور والأوصاف والمرافق العقارَ بصدق تام. القوائم المضللة تنتهك شروط خدمة مرحبا وقد تؤدي إلى تعليق الحساب.",
+            body: "يجب أن تعكس الصور والأوصاف والمرافق العقارَ بصدق تام. القوائم المضللة تنتهك شروط خدمة مرحبا وقد تؤدي إلى تعليق الحساب.",
           },
           {
             title: "معدات السلامة",
-            body:
-              "تأكد من وجود كاشفات دخان تعمل بكفاءة، ومطفأة حريق، وحقيبة إسعافات أولية. استبدل البطاريات وافحص المعدات قبل كل ضيف جديد.",
+            body: "تأكد من وجود كاشفات دخان تعمل بكفاءة، ومطفأة حريق، وحقيبة إسعافات أولية. استبدل البطاريات وافحص المعدات قبل كل ضيف جديد.",
           },
           {
             title: "معلومات الطوارئ الواضحة",
-            body:
-              "زوّد الضيوف بأرقام الطوارئ المحلية (الشرطة، الإسعاف، الإطفاء) وعنوان أقرب مستشفى في دليل الترحيب.",
+            body: "زوّد الضيوف بأرقام الطوارئ المحلية (الشرطة، الإسعاف، الإطفاء) وعنوان أقرب مستشفى في دليل الترحيب.",
           },
           {
             title: "احترام خصوصية الضيف",
-            body:
-              "الكاميرات الخفية أو أجهزة التسجيل بأي شكل محظورة حظراً صارماً. سيُزال المضيفون المخالفون نهائياً من المنصة.",
+            body: "الكاميرات الخفية أو أجهزة التسجيل بأي شكل محظورة حظراً صارماً. سيُزال المضيفون المخالفون نهائياً من المنصة.",
           },
           {
             title: "الوصول الآمن",
-            body:
-              "غيّر رموز الأبواب أو مفاتيح القفل بين كل ضيف وآخر. لا تشارك بيانات الوصول مع أطراف ثالثة.",
+            body: "غيّر رموز الأبواب أو مفاتيح القفل بين كل ضيف وآخر. لا تشارك بيانات الوصول مع أطراف ثالثة.",
           },
           {
             title: "التواصل الفوري",
-            body:
-              "رد على رسائل الضيوف في وقت معقول. إذا كنت غير متاح، ضع رداً تلقائياً وقدّم جهة اتصال للطوارئ.",
+            body: "رد على رسائل الضيوف في وقت معقول. إذا كنت غير متاح، ضع رداً تلقائياً وقدّم جهة اتصال للطوارئ.",
           },
         ],
       },
@@ -386,38 +347,31 @@ const content: Record<Language, SafetyContent> = {
         icon: "💳",
         color: "#d97706",
         title: "سلامة الحجز والمدفوعات",
-        intro:
-          "مرحبا لا تعالج المدفوعات. فهم آلية المعاملات يحمي كلا الطرفين.",
+        intro: "مرحبا لا تعالج المدفوعات. فهم آلية المعاملات يحمي كلا الطرفين.",
         items: [
           {
             title: "المدفوعات مباشرة بين الطرفين",
-            body:
-              "لا تتعامل مرحبا بأي أموال بين الضيوف والمضيفين ولا تحتفظ بها. تُرتَّب جميع ترتيبات الدفع بصورة خاصة ومباشرة بين الطرفين.",
+            body: "لا تتعامل مرحبا بأي أموال بين الضيوف والمضيفين ولا تحتفظ بها. تُرتَّب جميع ترتيبات الدفع بصورة خاصة ومباشرة بين الطرفين.",
           },
           {
             title: "اتفق على شروط الدفع قبل التأكيد",
-            body:
-              "ناقش المبلغ والطريقة والعملة وسياسة الاسترداد مع المضيف قبل تأكيد الحجز. احصل على تأكيد كتابي عبر محادثة مرحبا.",
+            body: "ناقش المبلغ والطريقة والعملة وسياسة الاسترداد مع المضيف قبل تأكيد الحجز. احصل على تأكيد كتابي عبر محادثة مرحبا.",
           },
           {
             title: "احذر من الطلبات خارج المنصة",
-            body:
-              "أي طلب يدعوك للدفع عبر رابط خارجي أو محفظة عملات رقمية أو قناة غير رسمية قبل تأكيد الحجز يُعدّ إشارة تحذير. أبلغ عنه فوراً.",
+            body: "أي طلب يدعوك للدفع عبر رابط خارجي أو محفظة عملات رقمية أو قناة غير رسمية قبل تأكيد الحجز يُعدّ إشارة تحذير. أبلغ عنه فوراً.",
           },
           {
             title: "لا ضمانات استرداد من مرحبا",
-            body:
-              "بما أن مرحبا لا تعالج المدفوعات، فلا يمكنها إصدار استردادات. يكون حل النزاعات مباشرةً بين الضيف والمضيف. وثّق جميع اتفاقيات الدفع كتابةً.",
+            body: "بما أن مرحبا لا تعالج المدفوعات، فلا يمكنها إصدار استردادات. يكون حل النزاعات مباشرةً بين الضيف والمضيف. وثّق جميع اتفاقيات الدفع كتابةً.",
           },
           {
             title: "استخدم طرق دفع قابلة للتتبع",
-            body:
-              "كلما أمكن، استخدم التحويلات المصرفية أو طرق الدفع التي تترك سجلاً واضحاً. تجنّب المدفوعات النقدية الكبيرة دون إيصال.",
+            body: "كلما أمكن، استخدم التحويلات المصرفية أو طرق الدفع التي تترك سجلاً واضحاً. تجنّب المدفوعات النقدية الكبيرة دون إيصال.",
           },
           {
             title: "سياسات الإلغاء",
-            body:
-              "راجع سياسة الإلغاء الخاصة بالمضيف قبل الحجز. يقع على عاتق الضيف فهم هذه الشروط والموافقة عليها قبل التأكيد.",
+            body: "راجع سياسة الإلغاء الخاصة بالمضيف قبل الحجز. يقع على عاتق الضيف فهم هذه الشروط والموافقة عليها قبل التأكيد.",
           },
         ],
       },
@@ -427,46 +381,38 @@ const content: Record<Language, SafetyContent> = {
         icon: "🚨",
         color: "#dc2626",
         title: "الإبلاغ عن الإساءة والحوادث",
-        intro:
-          "نأخذ كل بلاغ بجدية تامة. إليك كيفية الإبلاغ وما يحدث بعد ذلك.",
+        intro: "نأخذ كل بلاغ بجدية تامة. إليك كيفية الإبلاغ وما يحدث بعد ذلك.",
         items: [
           {
             title: "كيفية الإبلاغ عن حادثة أمنية",
-            body:
-              "انتقل إلى لوحة التحكم ← الحجوزات ← اختر الحجز ← 'الإبلاغ عن مشكلة'. صف الحادثة بالتفصيل. يراجع فريقنا جميع البلاغات خلال 48 ساعة.",
+            body: "انتقل إلى لوحة التحكم ← الحجوزات ← اختر الحجز ← 'الإبلاغ عن مشكلة'. صف الحادثة بالتفصيل. يراجع فريقنا جميع البلاغات خلال 48 ساعة.",
           },
           {
             title: "ما الذي يُعدّ حادثة قابلة للإبلاغ",
-            body:
-              "القوائم المضللة، الكاميرات الخفية، التحرش، التهديدات، إتلاف الممتلكات، حالات عدم الحضور، نزاعات الدفع، أو أي سلوك يجعلك تشعر بعدم الأمان.",
+            body: "القوائم المضللة، الكاميرات الخفية، التحرش، التهديدات، إتلاف الممتلكات، حالات عدم الحضور، نزاعات الدفع، أو أي سلوك يجعلك تشعر بعدم الأمان.",
           },
           {
             title: "حالات الطوارئ الأمنية العاجلة",
-            body:
-              "إذا كنت في خطر فوري، تواصل مع خدمات الطوارئ المحلية أولاً (الشرطة: 1515 في ليبيا). ثم تواصل مع دعم مرحبا على safety@mar-haba.ly.",
+            body: "إذا كنت في خطر فوري، تواصل مع خدمات الطوارئ المحلية أولاً (الشرطة: 1515 في ليبيا). ثم تواصل مع دعم مرحبا على safety@mar-haba.ly.",
           },
           {
             title: "ما الذي يحدث بعد تقديم البلاغ",
-            body:
-              "سيُقرّ فريقنا باستلام بلاغك خلال 24 ساعة. حسب درجة الخطورة، قد نعلّق الحساب قيد المراجعة أو نطلب أدلة أو نحيل الأمر للجهات المختصة.",
+            body: "سيُقرّ فريقنا باستلام بلاغك خلال 24 ساعة. حسب درجة الخطورة، قد نعلّق الحساب قيد المراجعة أو نطلب أدلة أو نحيل الأمر للجهات المختصة.",
           },
           {
             title: "البلاغات الكاذبة",
-            body:
-              "تقديم بلاغ كاذب عمداً يُعدّ انتهاكاً لشروط خدمتنا وقد يؤدي إلى تعليق الحساب. يرجى الإبلاغ عن الحوادث الحقيقية فقط.",
+            body: "تقديم بلاغ كاذب عمداً يُعدّ انتهاكاً لشروط خدمتنا وقد يؤدي إلى تعليق الحساب. يرجى الإبلاغ عن الحوادث الحقيقية فقط.",
           },
           {
             title: "الإبلاغ بصورة مجهولة",
-            body:
-              "يمكنك طلب إبقاء هويتك سرية أثناء التحقيق. سنبذل جهوداً معقولة للوفاء بهذا الطلب في حدود ما يسمح به القانون.",
+            body: "يمكنك طلب إبقاء هويتك سرية أثناء التحقيق. سنبذل جهوداً معقولة للوفاء بهذا الطلب في حدود ما يسمح به القانون.",
           },
         ],
       },
     ],
 
     emergencyHeading: "جهات الطوارئ في ليبيا",
-    emergencyNote:
-      "احفظ هذه الأرقام قبل رحلتك. قد يتفاوت التوفر حسب المنطقة.",
+    emergencyNote: "احفظ هذه الأرقام قبل رحلتك. قد يتفاوت التوفر حسب المنطقة.",
 
     emergencies: [
       {
@@ -494,8 +440,7 @@ const content: Record<Language, SafetyContent> = {
     ctaButton: "تواصل مع فريق السلامة",
 
     footer: {
-      desc:
-        "منصة التأجير قصير الأمد الموثوقة في ليبيا تربط المضيفين والمسافرين.",
+      desc: "منصة التأجير قصير الأمد الموثوقة في ليبيا تربط المضيفين والمسافرين.",
       rights: "جميع الحقوق محفوظة.",
       privacy: "سياسة الخصوصية",
       terms: "شروط الخدمة",
@@ -569,10 +514,7 @@ const SafetyPage: React.FC = () => {
   };
 
   return (
-    <div
-      dir={c.dir}
-      className="min-h-screen bg-white text-gray-900"
-    >
+    <div dir={c.dir} className="min-h-screen bg-white text-gray-900">
       {/* ============================================================
           NAVBAR
       ============================================================ */}
@@ -611,15 +553,10 @@ const SafetyPage: React.FC = () => {
             }`}
           >
             {c.title}
-            <span className="font-bold text-[#e8c547]">
-              {" "}
-              {c.title1}
-            </span>
+            <span className="font-bold text-[#e8c547]"> {c.title1}</span>
           </h1>
 
-          <p className="mb-7 text-[15px] text-white/50">
-            {c.subtitle}
-          </p>
+          <p className="mb-7 text-[15px] text-white/50">{c.subtitle}</p>
 
           {/* Stats */}
           <div className="flex flex-wrap gap-3">
@@ -632,9 +569,7 @@ const SafetyPage: React.FC = () => {
                   {stat.value}
                 </span>
 
-                <span className="text-[11px] text-white/40">
-                  {stat.label}
-                </span>
+                <span className="text-[11px] text-white/40">{stat.label}</span>
               </div>
             ))}
           </div>
@@ -671,11 +606,7 @@ const SafetyPage: React.FC = () => {
           const colors = sectionColorMap[section.color];
 
           return (
-            <section
-              key={section.id}
-              id={section.id}
-              className="scroll-mt-24"
-            >
+            <section key={section.id} id={section.id} className="scroll-mt-24">
               {/* Section Header */}
               <div className="mb-6 flex items-start gap-4">
                 <span
@@ -690,9 +621,7 @@ const SafetyPage: React.FC = () => {
                 <div>
                   <h2
                     className={`mb-1 text-[22px] font-semibold leading-tight text-gray-900 ${
-                      isAr
-                        ? "font-['Cairo','Tajawal',sans-serif]"
-                        : ""
+                      isAr ? "font-['Cairo','Tajawal',sans-serif]" : ""
                     }`}
                   >
                     {section.title}
@@ -707,26 +636,19 @@ const SafetyPage: React.FC = () => {
               {/* Accordion */}
               <div className="ms-0 grid grid-cols-1 gap-3 md:ms-16 md:grid-cols-2">
                 {section.items.map((item, index) => {
-                  const itemOpen = isOpen(
-                    section.id,
-                    index
-                  );
+                  const itemOpen = isOpen(section.id, index);
 
                   return (
                     <div
                       key={`${section.id}-${index}`}
                       className="overflow-hidden rounded-2xl border transition-all"
                       style={{
-                        borderColor: itemOpen
-                          ? section.color
-                          : "#e5e7eb",
+                        borderColor: itemOpen ? section.color : "#e5e7eb",
                       }}
                     >
                       <button
                         type="button"
-                        onClick={() =>
-                          toggle(section.id, index)
-                        }
+                        onClick={() => toggle(section.id, index)}
                         aria-expanded={itemOpen}
                         className="flex w-full cursor-pointer items-center justify-between gap-3 border-none bg-white px-5 py-4 text-start"
                       >
@@ -737,9 +659,7 @@ const SafetyPage: React.FC = () => {
 
                           <span
                             className={`text-[13px] font-semibold leading-[1.5] text-gray-900 ${
-                              isAr
-                                ? "font-['Cairo','Tajawal',sans-serif]"
-                                : ""
+                              isAr ? "font-['Cairo','Tajawal',sans-serif]" : ""
                             }`}
                           >
                             {item.title}
@@ -749,9 +669,7 @@ const SafetyPage: React.FC = () => {
                         <span
                           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors"
                           style={{
-                            background: itemOpen
-                              ? section.color
-                              : "#f3f4f6",
+                            background: itemOpen ? section.color : "#f3f4f6",
                           }}
                         >
                           <svg
@@ -766,11 +684,7 @@ const SafetyPage: React.FC = () => {
                           >
                             <path
                               d="M2 3.5l3 3 3-3"
-                              stroke={
-                                itemOpen
-                                  ? "#fff"
-                                  : "#6b7280"
-                              }
+                              stroke={itemOpen ? "#fff" : "#6b7280"}
                               strokeWidth="1.5"
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -812,17 +726,13 @@ const SafetyPage: React.FC = () => {
             <div>
               <h2
                 className={`mb-1 text-[22px] font-semibold leading-tight text-gray-900 ${
-                  isAr
-                    ? "font-['Cairo','Tajawal',sans-serif]"
-                    : ""
+                  isAr ? "font-['Cairo','Tajawal',sans-serif]" : ""
                 }`}
               >
                 {c.emergencyHeading}
               </h2>
 
-              <p className="text-[13px] text-gray-500">
-                {c.emergencyNote}
-              </p>
+              <p className="text-[13px] text-gray-500">{c.emergencyNote}</p>
             </div>
           </div>
 
@@ -898,61 +808,30 @@ const SafetyPage: React.FC = () => {
       {/* ============================================================
           FOOTER
       ============================================================ */}
-      <footer className="bg-[#111] px-6 pb-7 pt-12">
-        <div className="mx-auto max-w-screen-xl">
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-5 border-b border-[#222] pb-8">
-            <Link
-              to="/"
-              className="no-underline"
-              style={{
-                textDecoration: "none",
-                fontFamily: "'Cairo','Tajawal',sans-serif",
-                fontWeight: 500,
-                fontSize: "26px",
-                color: "#fff",
-                letterSpacing: "1px",
-              }}
-            >
-              مر
-              <span
-                style={{
-                  fontWeight: 700,
-                  color: "#e8c547",
-                }}
-              >
-                حبا
-              </span>
-            </Link>
+      <Footer
+        content={{
+          footerDesc: c.footer.desc,
 
-            <p className="max-w-xs text-sm leading-[1.7] text-[#555]">
-              {c.footer.desc}
-            </p>
-          </div>
+          travelersHeading: isAr ? "المسافرون" : "Travelers",
+          howToBook: isAr ? "كيفية الحجز" : "How to Book",
+          paymentMethods: isAr ? "طرق الدفع" : "Payment Methods",
+          travelTips: isAr ? "نصائح السفر" : "Travel Tips",
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-[#444]">
-              &copy; {new Date().getFullYear()} Marhaba.{" "}
-              {c.footer.rights}
-            </p>
+          hostsHeading: isAr ? "المضيفون" : "Hosts",
+          startHosting: isAr ? "ابدأ الاستضافة" : "Start Hosting",
+          hostResources: isAr ? "موارد المضيفين" : "Host Resources",
+          pricingTips: isAr ? "نصائح التسعير" : "Pricing Tips",
 
-            <div className="flex gap-5">
-              <Link
-                to="/privacy"
-                className="text-xs text-[#999] no-underline transition-colors hover:text-yellow-400"
-              >
-                {c.footer.privacy}
-              </Link>
+          supportHeading: isAr ? "الدعم" : "Support",
+          helpCenter: isAr ? "مركز المساعدة" : "Help Center",
+          safetyInfo: isAr ? "معلومات السلامة" : "Safety Information",
+          contactUs: isAr ? "اتصل بنا" : "Contact Us",
 
-              <Link
-                to="/terms"
-                className="text-xs text-[#999] no-underline transition-colors hover:text-yellow-400"
-              >
-                {c.footer.terms}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </footer>
+          rights: c.footer.rights,
+          privacy: c.footer.privacy,
+          terms: c.footer.terms,
+        }}
+      />
     </div>
   );
 };
