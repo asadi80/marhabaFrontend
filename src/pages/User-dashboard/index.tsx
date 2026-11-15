@@ -359,38 +359,65 @@ export default function UserDashboard() {
 
   // The backend decides which listings are inside the radius (no client-side filtering).
   // Example: /listings/nearby?lat=32.88&lng=13.19&radius=10&limit=100
+
   const fetchListings = async (location: Coords, radius: number) => {
     setListingsLoading(true);
 
+    const params = new URLSearchParams({
+      lat: String(location.lat),
+      lng: String(location.lng),
+      radius: String(radius),
+      limit: "100",
+    });
+
+    const url = `${API_BASE}/listings/nearby?${params.toString()}`;
+
+    console.group("📍 FETCH NEARBY LISTINGS");
+    console.log("API_BASE:", API_BASE);
+    console.log("Request URL:", url);
+    console.log("User location:", location);
+    console.log("Search radius:", radius);
+
     try {
-      const params = new URLSearchParams({
-        lat: String(location.lat),
-        lng: String(location.lng),
-        radius: String(radius),
-        limit: "100",
-      });
+      const res = await fetch(url);
 
-      const res = await fetch(
-        `${API_BASE}/listings/nearby?${params.toString()}`,
-      );
+      console.log("HTTP status:", res.status);
+      console.log("HTTP OK:", res.ok);
 
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const responseText = await res.text();
+      console.log("Raw API response:", responseText);
 
-      const payload = await res.json();
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${responseText}`);
+      }
+
+      let payload: any;
+
+      try {
+        payload = JSON.parse(responseText);
+      } catch {
+        throw new Error("API returned invalid JSON");
+      }
+
+      console.log("Parsed payload:", payload);
+
       const rawListings = extractListingsArray(payload);
 
-      const transformed: Listing[] = rawListings.map((item) => {
+      console.log("Extracted listings:", rawListings);
+      console.log("Listings count:", rawListings.length);
+
+      const transformed: Listing[] = rawListings.map((item, index) => {
         const lat =
-          item.latitude !== undefined && item.latitude !== null
+          item.latitude != null
             ? Number(item.latitude)
-            : item.coordinates?.lat !== undefined
+            : item.coordinates?.lat != null
               ? Number(item.coordinates.lat)
               : undefined;
 
         const lng =
-          item.longitude !== undefined && item.longitude !== null
+          item.longitude != null
             ? Number(item.longitude)
-            : item.coordinates?.lng !== undefined
+            : item.coordinates?.lng != null
               ? Number(item.coordinates.lng)
               : undefined;
 
@@ -398,29 +425,68 @@ export default function UserDashboard() {
           lat !== undefined &&
           lng !== undefined &&
           Number.isFinite(lat) &&
-          Number.isFinite(lng)
+          Number.isFinite(lng) &&
+          lat >= -90 &&
+          lat <= 90 &&
+          lng >= -180 &&
+          lng <= 180
             ? { lat, lng }
             : undefined;
 
-        return {
+        console.log(`Listing ${index + 1}:`, {
           id: item.id,
           title: item.title,
-          location: item.location,
-          price: parseFloat(item.price) || 0,
-          images: item.images || [],
-          is_active: item.is_active !== false,
           latitude: item.latitude,
           longitude: item.longitude,
+          originalCoordinates: item.coordinates,
+          parsedCoordinates: coords,
+          is_active: item.is_active,
+        });
+
+        return {
+          id: String(item.id),
+          title: item.title,
+          location: item.location,
+          price: Number.parseFloat(item.price) || 0,
+          images: Array.isArray(item.images) ? item.images : [],
+          is_active: item.is_active !== false,
+
+          // Keep both coordinate formats for map compatibility
+          latitude: lat,
+          longitude: lng,
+
           coordinates: coords,
         };
       });
 
-      setListings(transformed.filter((listing) => listing.is_active !== false));
+      const activeListings = transformed.filter(
+        (listing) => listing.is_active !== false,
+      );
+
+      const listingsWithCoordinates = activeListings.filter(
+        (listing) => listing.coordinates,
+      );
+
+      console.log("Transformed listings:", transformed);
+      console.log("Active listings:", activeListings.length);
+      console.log(
+        "Listings with valid coordinates:",
+        listingsWithCoordinates.length,
+      );
+      console.log(
+        "Listings without valid coordinates:",
+        activeListings.filter((listing) => !listing.coordinates),
+      );
+
+      setListings(activeListings);
+
+      console.log("✅ Nearby listings loaded successfully");
     } catch (error) {
-      console.error("Error fetching nearby listings:", error);
+      console.error("❌ Error fetching nearby listings:", error);
       setListings([]);
     } finally {
       setListingsLoading(false);
+      console.groupEnd();
     }
   };
 
