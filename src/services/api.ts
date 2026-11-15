@@ -1,5 +1,11 @@
-//src/services/api.ts
+
+// src/services/api.ts
+
 const API_URL = "https://api.mar-haba.ly";
+
+// ============================================================
+// TYPES
+// ============================================================
 
 export interface ApiResponse<T = any> {
   error?: string;
@@ -9,30 +15,45 @@ export interface ApiResponse<T = any> {
   code?: string;
 }
 
-interface LoginResponseData {
-  user: {
-    id: string;
-    role: string;
-    name: string;
-    email: string;
-    created_at?: any;
-    requiresIdUpload?: boolean;
-    isHostApproved?: boolean;
-    verificationStatus?: Record<string, any>;
-    [key: string]: any;
-  };
+export type AccountType = "traveler" | "host";
 
-  tokens: {
-    accessToken: string;
-    refreshToken: string;
-  };
+export type GoogleAuthRequest =
+  | {
+      intent: "signup";
+      accountType: AccountType;
+    }
+  | {
+      intent: "login";
+    };
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  account_type: "traveler" | "host" | "admin" | "super_admin";
+  status: string;
+  created_at?: string;
 
   requiresIdUpload?: boolean;
   isHostApproved?: boolean;
+  verificationStatus?: Record<string, any>;
 
-  verificationStatus?: {
-    [key: string]: any;
-  };
+  [key: string]: any;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface LoginResponseData {
+  user: AuthUser;
+  tokens: AuthTokens;
+
+  requiresIdUpload?: boolean;
+  isHostApproved?: boolean;
+  verificationStatus?: Record<string, any>;
 }
 
 interface StoredTokens {
@@ -40,19 +61,22 @@ interface StoredTokens {
   refreshToken: string;
 }
 
+// ============================================================
+// API SERVICE
+// ============================================================
+
 class ApiService {
   private accessToken: string | null = null;
 
   constructor() {
-    // Single source of truth: localStorage["tokens"]
     this.loadStoredAccessToken();
   }
 
-  // ─────────────────────────────────────────────
-  // Load access token from tokens storage
-  // ─────────────────────────────────────────────
+  // ==========================================================
+  // LOAD STORED ACCESS TOKEN
+  // ==========================================================
 
-  private loadStoredAccessToken() {
+  private loadStoredAccessToken(): void {
     try {
       const storedTokens = localStorage.getItem("tokens");
 
@@ -65,31 +89,28 @@ class ApiService {
 
       this.accessToken = parsed?.accessToken || null;
     } catch (error) {
-      console.error("❌ Failed to load stored tokens:", error);
-
+      console.error("Failed to load stored tokens:", error);
       this.accessToken = null;
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Set access token
-  // ─────────────────────────────────────────────
+  // ==========================================================
+  // SET ACCESS TOKEN
+  // ==========================================================
 
-  setAccessToken(token: string | null) {
+  setAccessToken(token: string | null): void {
     this.accessToken = token;
   }
 
-  // ─────────────────────────────────────────────
-  // Get latest access token
-  // ─────────────────────────────────────────────
+  // ==========================================================
+  // GET ACCESS TOKEN
+  // ==========================================================
 
   getAccessToken(): string | null {
-    // Prefer the in-memory token.
     if (this.accessToken) {
       return this.accessToken;
     }
 
-    // Fallback to tokens in localStorage.
     try {
       const storedTokens = localStorage.getItem("tokens");
 
@@ -107,17 +128,17 @@ class ApiService {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // Clear authentication
-  // ─────────────────────────────────────────────
+  // ==========================================================
+  // CLEAR ACCESS TOKEN
+  // ==========================================================
 
-  clearAccessToken() {
+  clearAccessToken(): void {
     this.accessToken = null;
   }
 
-  // ─────────────────────────────────────────────
-  // Generic request
-  // ─────────────────────────────────────────────
+  // ==========================================================
+  // GENERIC REQUEST
+  // ==========================================================
 
   private async request<T>(
     endpoint: string,
@@ -125,21 +146,15 @@ class ApiService {
   ): Promise<ApiResponse<T>> {
     const url = `${API_URL}${endpoint}`;
 
-    /*
-     * Always use the latest access token.
-     */
     const token = this.getAccessToken();
 
-    const isFormData = options.body instanceof FormData;
+    const isFormData =
+      typeof FormData !== "undefined" &&
+      options.body instanceof FormData;
 
     const headers: Record<string, string> = {};
 
-    /*
-     * IMPORTANT:
-     *
-     * Do NOT manually set Content-Type for FormData.
-     * Browser must set multipart/form-data + boundary.
-     */
+    // Do not manually set Content-Type for FormData.
     if (!isFormData) {
       headers["Content-Type"] = "application/json";
     }
@@ -148,9 +163,7 @@ class ApiService {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    /*
-     * Merge custom headers.
-     */
+    // Merge custom headers.
     if (options.headers) {
       const customHeaders = options.headers as Record<string, string>;
 
@@ -165,11 +178,10 @@ class ApiService {
       credentials: "include",
     };
 
-    console.log("🌐 API Request:", {
+    console.log("API Request:", {
       url,
       method: options.method || "GET",
       hasToken: !!token,
-      tokenPreview: token ? `${token.substring(0, 15)}...` : null,
       isFormData,
     });
 
@@ -184,47 +196,45 @@ class ApiService {
         data = {};
       }
 
-      console.log("🌐 API Response:", {
+      console.log("API Response:", {
         url,
         status: response.status,
-        data,
       });
 
-      // ─────────────────────────────────────────
+      // ------------------------------------------------------
       // UNAUTHORIZED
-      // ─────────────────────────────────────────
+      // ------------------------------------------------------
 
       if (response.status === 401) {
-        console.error("❌ API returned 401:", {
-          url,
-          hasToken: !!token,
-          message: data?.message,
-          code: data?.code,
-        });
+        const error = new Error(
+          data?.message || "Unauthorized",
+        );
 
-        const error = new Error(data?.message || "Unauthorized");
-
-        (error as any).code = data?.code || "UNAUTHORIZED";
+        (error as any).code =
+          data?.code || "UNAUTHORIZED";
 
         throw error;
       }
 
-      // ─────────────────────────────────────────
+      // ------------------------------------------------------
       // OTHER HTTP ERRORS
-      // ─────────────────────────────────────────
+      // ------------------------------------------------------
 
       if (!response.ok) {
         return {
           success: false,
-          message: data?.message || data?.error || "Request failed",
+          message:
+            data?.message ||
+            data?.error ||
+            "Request failed",
           code: data?.code,
           data: data?.data,
         };
       }
 
-      // ─────────────────────────────────────────
+      // ------------------------------------------------------
       // SUCCESS
-      // ─────────────────────────────────────────
+      // ------------------------------------------------------
 
       return {
         success: true,
@@ -233,9 +243,7 @@ class ApiService {
         code: data?.code,
       };
     } catch (error) {
-      /*
-       * Preserve HTTP 401 errors so callers can handle them.
-       */
+      // Preserve HTTP 401 errors.
       if (
         error instanceof Error &&
         (error.message === "Unauthorized" ||
@@ -244,46 +252,83 @@ class ApiService {
         throw error;
       }
 
-      console.error("❌ API request failed:", error);
+      console.error("API request failed:", error);
 
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Network error",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Network error",
       };
     }
   }
 
+  // ==========================================================
+  // AUTH — GOOGLE SIGNUP AND LOGIN
+  // ==========================================================
 
-  // ─────────────────────────────────────────────
-  // AUTH — GOOGLE SIGN-IN ONLY
-  // ─────────────────────────────────────────────
+  async loginWithGoogle(
+    idToken: string,
+    authRequest: GoogleAuthRequest,
+  ): Promise<ApiResponse<LoginResponseData>> {
+    if (!idToken) {
+      return {
+        success: false,
+        message: "Google ID token is required.",
+      };
+    }
 
+    // Validate signup account type.
+    if (
+      authRequest.intent === "signup" &&
+      !["traveler", "host"].includes(authRequest.accountType)
+    ) {
+      return {
+        success: false,
+        message: "Invalid account type.",
+      };
+    }
 
-async loginWithGoogle(
-  idToken: string,
-  accountType: "traveler" | "host" = "traveler",
-): Promise<ApiResponse<LoginResponseData>> {
-  return this.request<LoginResponseData>("/api/v1/auth/google", {
-    method: "POST",
-    body: JSON.stringify({
+    const body = {
       idToken,
-      accountType,
-    }),
-  });
-}
+      ...authRequest,
+    };
 
+    return this.request<LoginResponseData>(
+      "/api/v1/auth/google",
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    );
+  }
 
-  async logout() {
+  // ==========================================================
+  // LOGOUT
+  // ==========================================================
+
+  async logout(): Promise<ApiResponse> {
     return this.request("/api/v1/auth/logout", {
       method: "POST",
     });
   }
 
-  async getCurrentUser() {
+  // ==========================================================
+  // CURRENT USER
+  // ==========================================================
+
+  async getCurrentUser(): Promise<ApiResponse> {
     return this.request("/api/v1/auth/me");
   }
 
-  async refreshToken(refreshToken: string) {
+  // ==========================================================
+  // REFRESH TOKEN
+  // ==========================================================
+
+  async refreshToken(
+    refreshToken: string,
+  ): Promise<ApiResponse> {
     return this.request("/api/v1/auth/refresh", {
       method: "POST",
       body: JSON.stringify({
@@ -292,9 +337,9 @@ async loginWithGoogle(
     });
   }
 
-  // ─────────────────────────────────────────────
+  // ==========================================================
   // PROTECTED GET
-  // ─────────────────────────────────────────────
+  // ==========================================================
 
   async getProtectedData<T = any>(
     endpoint: string,
@@ -323,9 +368,9 @@ async loginWithGoogle(
     return this.request<T>(url);
   }
 
-  // ─────────────────────────────────────────────
+  // ==========================================================
   // PROTECTED POST
-  // ─────────────────────────────────────────────
+  // ==========================================================
 
   async postProtectedData<T = any>(
     endpoint: string,
@@ -333,13 +378,16 @@ async loginWithGoogle(
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "POST",
-      body: data instanceof FormData ? data : JSON.stringify(data),
+      body:
+        data instanceof FormData
+          ? data
+          : JSON.stringify(data),
     });
   }
 
-  // ─────────────────────────────────────────────
+  // ==========================================================
   // PROTECTED PUT
-  // ─────────────────────────────────────────────
+  // ==========================================================
 
   async putProtectedData<T = any>(
     endpoint: string,
@@ -347,43 +395,48 @@ async loginWithGoogle(
   ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       method: "PUT",
-      body: data instanceof FormData ? data : JSON.stringify(data),
+      body:
+        data instanceof FormData
+          ? data
+          : JSON.stringify(data),
     });
   }
 
-  // ─────────────────────────────────────────────
+  // ==========================================================
   // PROTECTED DELETE
-  // ─────────────────────────────────────────────
+  // ==========================================================
 
   async deleteProtectedData<T = any>(
     endpoint: string,
     _options?: { userId?: string },
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
+  ): Promise<ApiResponse> {
+    return this.request(endpoint, {
       method: "DELETE",
     });
   }
 
-  // ─────────────────────────────────────────────
+  // ==========================================================
   // PROTECTED PATCH
-  // ─────────────────────────────────────────────
+  // ==========================================================
 
-async patchProtectedData<T = any>(
-  endpoint: string,
-  data?: any,
-): Promise<ApiResponse<T>> {
-  return this.request<T>(endpoint, {
-    method: "PATCH",
-    // Only serialize when data is actually provided.
-    // Passing `undefined` as body means "no body" to fetch.
-    body:
-      data === undefined
-        ? undefined
-        : data instanceof FormData
-          ? data
-          : JSON.stringify(data),
-  });
+  async patchProtectedData<T = any>(
+    endpoint: string,
+    data?: any,
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: "PATCH",
+      body:
+        data === undefined
+          ? undefined
+          : data instanceof FormData
+            ? data
+            : JSON.stringify(data),
+    });
+  }
 }
-}
+
+// ============================================================
+// SINGLE API INSTANCE
+// ============================================================
 
 export const apiService = new ApiService();

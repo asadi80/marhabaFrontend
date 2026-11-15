@@ -78,6 +78,15 @@ export interface Listing {
 // User
 // ─────────────────────────────────────────────────────────────
 
+
+export type AccountType = "traveler" | "host";
+
+export type UserRole =
+  | "user"
+  | "host"
+  | "admin"
+  | "super_admin";
+
 export interface AppUser {
   id: string;
 
@@ -86,12 +95,14 @@ export interface AppUser {
 
   phone_number?: string;
 
-  role?: "user" | "host" | "admin" | "super_admin" | string;
+  // Account selection: Traveler or Host
+  account_type: AccountType;
+
+  // Authorization permissions
+  role: UserRole;
 
   status?: string;
-
   status_reason?: string | null;
-
   host_expiry_date?: string | null;
 
   email_verified?: boolean;
@@ -100,7 +111,15 @@ export interface AppUser {
   createdAt?: string;
 
   updated_at?: string;
+
+  host_details?: Record<string, any>;
+  user_details?: Record<string, any>;
+
+  requiresIdUpload?: boolean;
+  isHostApproved?: boolean;
+  verificationStatus?: Record<string, any>;
 }
+
 
 // ─────────────────────────────────────────────────────────────
 // Booking Status

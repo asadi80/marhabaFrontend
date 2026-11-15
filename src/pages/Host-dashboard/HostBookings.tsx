@@ -257,7 +257,9 @@ const HostBookings: React.FC = () => {
   const isAr = lang === "ar";
   const t: TFn = (en, ar) => (isAr ? ar : en);
   const isAuthorizedHost =
-    isAuthenticated && !!user && toRole(user.role) === HOST_ROLE;
+  isAuthenticated &&
+  !!user &&
+  (user.account_type === "host" || toRole(user.role) === HOST_ROLE);
 
   /* ------------------------------ State -------------------------------- */
 
@@ -337,25 +339,31 @@ const HostBookings: React.FC = () => {
 
   /* ------------------------ Auth + role guard -------------------------- */
 
-  useEffect(() => {
-    if (authLoading) return;
+useEffect(() => {
+  if (authLoading) return;
 
-    if (!isAuthenticated || !user || !hasValidStoredToken()) {
+  if (!isAuthenticated || !user || !hasValidStoredToken()) {
+    navigate("/login", { replace: true });
+    return;
+  }
+
+  const isHostAccount =
+    user.account_type === "host" ||
+    toRole(user.role) === HOST_ROLE;
+
+  if (!isHostAccount) {
+    navigate("/user-dashboard", { replace: true });
+    return;
+  }
+
+  const intervalId = window.setInterval(() => {
+    if (!hasValidStoredToken()) {
       navigate("/login", { replace: true });
-      return;
     }
+  }, 60_000);
 
-    if (toRole(user.role) !== HOST_ROLE) {
-      navigate("/user-dashboard", { replace: true });
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      if (!hasValidStoredToken()) navigate("/login", { replace: true });
-    }, 60_000);
-
-    return () => window.clearInterval(intervalId);
-  }, [authLoading, isAuthenticated, user, navigate]);
+  return () => window.clearInterval(intervalId);
+}, [authLoading, isAuthenticated, user, navigate]);
 
   /* ------------------------- Fetch bookings ---------------------------- */
 

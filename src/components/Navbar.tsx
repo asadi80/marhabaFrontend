@@ -79,11 +79,24 @@ export default function Navbar({
   // Always read from AuthContext instead of trusting the `user` prop.
 
   const user = isAuthenticated ? authUser : null;
-  const role = String(user?.role || "").toLowerCase();
+ const role = String(user?.role || "").toLowerCase();
+const accountType = String(user?.account_type || "").toLowerCase();
 
-  const isHost = role === "host";
-  const isAdmin = role === "admin";
-  const isSuperAdmin = role === "super_admin";
+const isHost = role === "host" || accountType === "host";
+
+const isAdmin =
+  role === "admin" && accountType === "admin";
+
+const isSuperAdmin =
+  role === "admin" && accountType === "super_admin";
+
+const dashboardRole = isHost
+  ? "host"
+  : isSuperAdmin
+    ? "super_admin"
+    : isAdmin
+      ? "admin"
+      : "user";
 
   const roleLabel = isHost
     ? t("Host", "مضيف")
@@ -191,8 +204,7 @@ export default function Navbar({
       return;
     }
 
-    navigate(DASHBOARD_PATHS[role] || DASHBOARD_PATHS.user);
-  };
+navigate(DASHBOARD_PATHS[dashboardRole] || DASHBOARD_PATHS.user);  };
 
   const handleLinkClick = (link: NavLink) => {
     link.onClick?.();

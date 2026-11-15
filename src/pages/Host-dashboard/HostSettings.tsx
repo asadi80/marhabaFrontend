@@ -123,10 +123,34 @@ const MOAMALAT_SCRIPT_URL = "https://tnpg.moamalat.net:6006/js/lightbox.js";
 const SUBSCRIPTION_AMOUNT_LYD = 500;
 
 const NAV_LINKS = [
-  { id: "dashboard", label: "Home", labelAr: "الرئيسية", href: "/host-dashboard", icon: "🏡" },
-  { id: "listings", label: "Listings", labelAr: "إعلاناتي", href: "/host/listings", icon: "🏠" },
-  { id: "bookings", label: "Bookings", labelAr: "الحجوزات", href: "/host/bookings", icon: "📅" },
-  { id: "settings", label: "Settings", labelAr: "الإعدادات", href: "/host/settings", icon: "⚙️" },
+  {
+    id: "dashboard",
+    label: "Home",
+    labelAr: "الرئيسية",
+    href: "/host-dashboard",
+    icon: "🏡",
+  },
+  {
+    id: "listings",
+    label: "Listings",
+    labelAr: "إعلاناتي",
+    href: "/host/listings",
+    icon: "🏠",
+  },
+  {
+    id: "bookings",
+    label: "Bookings",
+    labelAr: "الحجوزات",
+    href: "/host/bookings",
+    icon: "📅",
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    labelAr: "الإعدادات",
+    href: "/host/settings",
+    icon: "⚙️",
+  },
 ];
 
 const UPLOAD_ENDPOINTS: Record<UploadKind, string> = {
@@ -141,28 +165,64 @@ const NO_IMAGE_SVG =
    MOAMALAT RESPONSE CODE → FRIENDLY MESSAGE
 ========================================================================== */
 
-const getMoamalatMessage = (code: string | null | undefined, isArabic: boolean) => {
+const getMoamalatMessage = (
+  code: string | null | undefined,
+  isArabic: boolean,
+) => {
   if (!code) return null;
 
   const messages: Record<string, { ar: string; en: string }> = {
-    "05": { ar: "تم رفض العملية من قبل البنك.", en: "Transaction declined by the bank." },
+    "05": {
+      ar: "تم رفض العملية من قبل البنك.",
+      en: "Transaction declined by the bank.",
+    },
     "13": { ar: "المبلغ غير صالح.", en: "Invalid amount." },
     "14": { ar: "رقم البطاقة غير صحيح.", en: "Invalid card number." },
-    "16": { ar: "رصيد غير كافٍ في حسابك.", en: "Insufficient funds in your account." },
-    "17": { ar: "تم إلغاء العملية.", en: "Transaction cancelled by the customer." },
+    "16": {
+      ar: "رصيد غير كافٍ في حسابك.",
+      en: "Insufficient funds in your account.",
+    },
+    "17": {
+      ar: "تم إلغاء العملية.",
+      en: "Transaction cancelled by the customer.",
+    },
     "51": { ar: "رصيد غير كافٍ.", en: "Insufficient funds." },
     "54": { ar: "البطاقة منتهية الصلاحية.", en: "Card has expired." },
     "55": { ar: "الرقم السري غير صحيح.", en: "Incorrect PIN." },
-    "57": { ar: "العملية غير مسموح بها لهذه البطاقة.", en: "Transaction not permitted for this card." },
-    "58": { ar: "العملية غير مسموح بها في هذا المتجر.", en: "Transaction not allowed at this terminal." },
+    "57": {
+      ar: "العملية غير مسموح بها لهذه البطاقة.",
+      en: "Transaction not permitted for this card.",
+    },
+    "58": {
+      ar: "العملية غير مسموح بها في هذا المتجر.",
+      en: "Transaction not allowed at this terminal.",
+    },
     "59": { ar: "يُشتبه في أنها عملية احتيال.", en: "Suspected fraud." },
-    "61": { ar: "تم تجاوز الحد المسموح به.", en: "Activity amount limit exceeded." },
+    "61": {
+      ar: "تم تجاوز الحد المسموح به.",
+      en: "Activity amount limit exceeded.",
+    },
     "62": { ar: "بطاقة مقيّدة.", en: "Restricted card." },
-    "65": { ar: "تم تجاوز عدد العمليات المسموح بها.", en: "Activity count limit exceeded." },
-    "75": { ar: "تم تجاوز عدد محاولات إدخال الرقم السري.", en: "Too many PIN attempts." },
-    "82": { ar: "فشل التحقق من بيانات البطاقة.", en: "Card authentication failed." },
-    "91": { ar: "البنك المُصدر غير متاح حالياً. حاول لاحقاً.", en: "Issuer bank unavailable. Try again later." },
-    "96": { ar: "خطأ في النظام. حاول لاحقاً.", en: "System malfunction. Please try again later." },
+    "65": {
+      ar: "تم تجاوز عدد العمليات المسموح بها.",
+      en: "Activity count limit exceeded.",
+    },
+    "75": {
+      ar: "تم تجاوز عدد محاولات إدخال الرقم السري.",
+      en: "Too many PIN attempts.",
+    },
+    "82": {
+      ar: "فشل التحقق من بيانات البطاقة.",
+      en: "Card authentication failed.",
+    },
+    "91": {
+      ar: "البنك المُصدر غير متاح حالياً. حاول لاحقاً.",
+      en: "Issuer bank unavailable. Try again later.",
+    },
+    "96": {
+      ar: "خطأ في النظام. حاول لاحقاً.",
+      en: "System malfunction. Please try again later.",
+    },
   };
 
   const entry = messages[code];
@@ -197,17 +257,22 @@ const PILL_TONES = {
 
 type Tone = keyof typeof PILL_TONES;
 
-const Pill: React.FC<{ tone: Tone; children: React.ReactNode }> = ({ tone, children }) => (
-  <span className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${PILL_TONES[tone]}`}>
+const Pill: React.FC<{ tone: Tone; children: React.ReactNode }> = ({
+  tone,
+  children,
+}) => (
+  <span
+    className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${PILL_TONES[tone]}`}
+  >
     {children}
   </span>
 );
 
-const Notice: React.FC<{ tone: "green" | "red" | "yellow"; icon: string; children: React.ReactNode }> = ({
-  tone,
-  icon,
-  children,
-}) => {
+const Notice: React.FC<{
+  tone: "green" | "red" | "yellow";
+  icon: string;
+  children: React.ReactNode;
+}> = ({ tone, icon, children }) => {
   const cls = {
     green: "bg-emerald-50 text-emerald-800",
     red: "bg-red-50 text-red-800",
@@ -222,12 +287,12 @@ const Notice: React.FC<{ tone: "green" | "red" | "yellow"; icon: string; childre
   );
 };
 
-const Card: React.FC<{ title: string; subtitle?: string; right?: React.ReactNode; children: React.ReactNode }> = ({
-  title,
-  subtitle,
-  right,
-  children,
-}) => (
+const Card: React.FC<{
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ title, subtitle, right, children }) => (
   <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
     <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-4">
       <div>
@@ -240,11 +305,11 @@ const Card: React.FC<{ title: string; subtitle?: string; right?: React.ReactNode
   </section>
 );
 
-const Field: React.FC<{ label: string; children: React.ReactNode; capitalize?: boolean }> = ({
-  label,
-  children,
-  capitalize,
-}) => (
+const Field: React.FC<{
+  label: string;
+  children: React.ReactNode;
+  capitalize?: boolean;
+}> = ({ label, children, capitalize }) => (
   <div>
     <p className="mb-1 text-xs font-medium text-gray-500">{label}</p>
     <div
@@ -257,7 +322,11 @@ const Field: React.FC<{ label: string; children: React.ReactNode; capitalize?: b
   </div>
 );
 
-const Detail: React.FC<{ label: string; children: React.ReactNode; wide?: boolean }> = ({ label, children, wide }) => (
+const Detail: React.FC<{
+  label: string;
+  children: React.ReactNode;
+  wide?: boolean;
+}> = ({ label, children, wide }) => (
   <div className={wide ? "col-span-2" : ""}>
     <p className="text-xs text-gray-500">{label}</p>
     <p className="break-words text-sm font-medium text-gray-900">{children}</p>
@@ -280,18 +349,30 @@ const HostSettings: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { user, isAuthenticated, isLoading: authLoading, updateVerificationStatus } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    isLoading: authLoading,
+    updateUser,
+    updateVerificationStatus,
+  } = useAuth();
   const { lang, toggleLanguage } = useLanguage();
 
   const isArabic = lang === "ar";
   const t: TFn = (en, ar) => (isArabic ? ar : en);
+
+  const isAuthorizedHost =
+    !!user &&
+    (user.account_type === "host" ||
+      String(user.role || "").toLowerCase() === "host");
 
   const idInputRef = useRef<HTMLInputElement | null>(null);
   const paymentInputRef = useRef<HTMLInputElement | null>(null);
 
   /* ------------------------------ State -------------------------------- */
 
-  const [verificationStatus, setVerificationStatus] = useState<VerificationStatus | null>(null);
+  const [verificationStatus, setVerificationStatus] =
+    useState<VerificationStatus | null>(null);
   const [loadingVerification, setLoadingVerification] = useState(true);
 
   const [uploading, setUploading] = useState<UploadKind | null>(null);
@@ -302,6 +383,75 @@ const HostSettings: React.FC = () => {
   const [moamalatReady, setMoamalatReady] = useState(false);
   const [moamalatLoading, setMoamalatLoading] = useState(false);
   const [moamalatError, setMoamalatError] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneSuccess, setPhoneSuccess] = useState("");
+  const handleSavePhone = async () => {
+    setPhoneError("");
+    setPhoneSuccess("");
+
+    const normalizedPhone = phoneNumber.trim();
+
+    // Allow an empty value to clear the phone number.
+    if (normalizedPhone && !/^\+?[0-9\s\-()]{6,20}$/.test(normalizedPhone)) {
+      setPhoneError(
+        t("Please enter a valid phone number.", "يرجى إدخال رقم هاتف صحيح."),
+      );
+      return;
+    }
+
+    try {
+      setSavingPhone(true);
+
+      const response = await apiService.putProtectedData("/api/v1/auth/me", {
+        phone_number: normalizedPhone || null,
+      });
+
+      if (!response.success) {
+        throw new Error(
+          response.message ||
+            t("Failed to update phone number.", "فشل تحديث رقم الهاتف."),
+        );
+      }
+
+      const updatedUser = response.data?.user;
+
+      if (!updatedUser) {
+        throw new Error(
+          t(
+            "Phone number was saved, but the updated profile was not returned. Please refresh.",
+            "تم حفظ رقم الهاتف، لكن لم يتم إرجاع بيانات الحساب المحدثة. يرجى تحديث الصفحة.",
+          ),
+        );
+      }
+
+      // Update the authenticated user in AuthContext.
+      updateUser(updatedUser);
+
+      setPhoneNumber(updatedUser.phone_number || "");
+
+      setPhoneSuccess(
+        t("Phone number updated successfully.", "تم تحديث رقم الهاتف بنجاح."),
+      );
+    } catch (error: any) {
+      console.error("Phone number update failed:", error);
+
+      setPhoneError(
+        error?.message ||
+          t(
+            "Unable to update phone number. Please try again.",
+            "تعذر تحديث رقم الهاتف. يرجى المحاولة مرة أخرى.",
+          ),
+      );
+    } finally {
+      setSavingPhone(false);
+    }
+  };
+
+  useEffect(() => {
+    setPhoneNumber(user?.phone_number || "");
+  }, [user?.phone_number]);
 
   // Tracks whether the current Moamalat attempt has completed, so a
   // cancelCallback fired when the Lightbox closes is ignored.
@@ -317,11 +467,10 @@ const HostSettings: React.FC = () => {
       return;
     }
 
-    if (String(user.role).toLowerCase() !== "host") {
+    if (!isAuthorizedHost) {
       navigate("/user-dashboard", { replace: true });
     }
-  }, [authLoading, isAuthenticated, user, navigate]);
-
+  }, [authLoading, isAuthenticated, user, isAuthorizedHost, navigate]);
   /* ---------------------- Fetch verification status -------------------- */
 
   // silent = refresh without bringing the skeletons back
@@ -329,10 +478,14 @@ const HostSettings: React.FC = () => {
     try {
       if (!silent) setLoadingVerification(true);
 
-      const response = await apiService.getProtectedData<VerificationStatus>("/api/v1/auth/host-verification-status");
+      const response = await apiService.getProtectedData<VerificationStatus>(
+        "/api/v1/auth/host-verification-status",
+      );
 
       if (!response.success || !response.data) {
-        throw new Error(response.message || "Failed to load verification status");
+        throw new Error(
+          response.message || "Failed to load verification status",
+        );
       }
 
       setVerificationStatus(response.data);
@@ -350,12 +503,12 @@ const HostSettings: React.FC = () => {
   };
 
   useEffect(() => {
-    if (authLoading || !isAuthenticated || !user) return;
-    if (String(user.role || "").toLowerCase() !== "host") return;
+    if (authLoading || !isAuthenticated || !isAuthorizedHost) return;
 
     fetchVerificationStatus();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, isAuthenticated, user?.id, user?.role]);
+  }, [authLoading, isAuthenticated, isAuthorizedHost, user?.id]);
 
   /* ------------------------ Load Moamalat SDK -------------------------- */
 
@@ -365,7 +518,9 @@ const HostSettings: React.FC = () => {
       return;
     }
 
-    const existing = document.querySelector(`script[src="${MOAMALAT_SCRIPT_URL}"]`) as HTMLScriptElement | null;
+    const existing = document.querySelector(
+      `script[src="${MOAMALAT_SCRIPT_URL}"]`,
+    ) as HTMLScriptElement | null;
 
     if (existing) {
       const handleLoad = () => setMoamalatReady(true);
@@ -378,7 +533,9 @@ const HostSettings: React.FC = () => {
     script.async = true;
     script.onload = () => setMoamalatReady(true);
     script.onerror = () => {
-      setMoamalatError(isArabic ? "فشل تحميل بوابة الدفع." : "Failed to load payment gateway.");
+      setMoamalatError(
+        isArabic ? "فشل تحميل بوابة الدفع." : "Failed to load payment gateway.",
+      );
     };
     document.body.appendChild(script);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -400,7 +557,8 @@ const HostSettings: React.FC = () => {
   };
 
   const formatCurrency = (amount: number | string | null | undefined) => {
-    if (amount === null || amount === undefined) return t("Not specified", "غير محدد");
+    if (amount === null || amount === undefined)
+      return t("Not specified", "غير محدد");
     const num = typeof amount === "string" ? parseFloat(amount) : amount;
     if (Number.isNaN(num)) return t("Not specified", "غير محدد");
 
@@ -432,7 +590,9 @@ const HostSettings: React.FC = () => {
   };
 
   const getPaymentTypeLabel = (p: HostSubscriptionPayment) =>
-    isMoamalatPayment(p) ? t("Moamalat (Card)", "معاملات (بطاقة)") : t("Bank Transfer", "تحويل مصرفي");
+    isMoamalatPayment(p)
+      ? t("Moamalat (Card)", "معاملات (بطاقة)")
+      : t("Bank Transfer", "تحويل مصرفي");
 
   const validateFile = (file: File) => {
     if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
@@ -442,7 +602,10 @@ const HostSettings: React.FC = () => {
       );
     }
     if (file.size > MAX_FILE_SIZE) {
-      return t("File size must not exceed 10 MB.", "حجم الملف يجب ألا يتجاوز 10 ميجابايت.");
+      return t(
+        "File size must not exceed 10 MB.",
+        "حجم الملف يجب ألا يتجاوز 10 ميجابايت.",
+      );
     }
     return null;
   };
@@ -450,80 +613,108 @@ const HostSettings: React.FC = () => {
   /* ---------------------------- File uploads --------------------------- */
 
   // One handler for both identity documents and bank receipts
-  const handleUpload = (kind: UploadKind) => async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleUpload =
+    (kind: UploadKind) =>
+    async (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
 
-    const setError = kind === "id" ? setIdError : setPaymentError;
-    const inputRef = kind === "id" ? idInputRef : paymentInputRef;
+      const setError = kind === "id" ? setIdError : setPaymentError;
+      const inputRef = kind === "id" ? idInputRef : paymentInputRef;
 
-    setError("");
-    setSuccessMessage("");
+      setError("");
+      setSuccessMessage("");
 
-    const validationError = validateFile(file);
-    if (validationError) {
-      setError(validationError);
-      if (inputRef.current) inputRef.current.value = "";
-      return;
-    }
-
-    if (!user?.id) {
-      setError(t("User ID was not found.", "لم يتم العثور على معرف المستخدم."));
-      return;
-    }
-
-    try {
-      setUploading(kind);
-
-      let fileToUpload: File = file;
-
-      if (file.type.startsWith("image/") && file.type !== "image/heic" && file.type !== "image/heif") {
-        try {
-          fileToUpload = await compressImage(file);
-        } catch (compressionError) {
-          console.warn("Image compression failed. Uploading original:", compressionError);
-          fileToUpload = file;
-        }
+      const validationError = validateFile(file);
+      if (validationError) {
+        setError(validationError);
+        if (inputRef.current) inputRef.current.value = "";
+        return;
       }
 
-      const formData = new FormData();
-      formData.append("image", fileToUpload);
-      formData.append("user_id", user.id);
-
-      const response = await apiService.postProtectedData(UPLOAD_ENDPOINTS[kind], formData);
-
-      if (!response.success) {
-        throw new Error(
-          response.message ||
-            (kind === "id" ? "Failed to upload identity document." : "Failed to upload payment receipt."),
+      if (!user?.id) {
+        setError(
+          t("User ID was not found.", "لم يتم العثور على معرف المستخدم."),
         );
+        return;
       }
 
-      setSuccessMessage(
-        kind === "id"
-          ? t("Identity document uploaded successfully.", "تم رفع وثيقة الهوية بنجاح.")
-          : t("Payment receipt uploaded successfully.", "تم رفع إيصال الدفع بنجاح."),
-      );
+      try {
+        setUploading(kind);
 
-      await fetchVerificationStatus(true);
-    } catch (error: any) {
-      console.error(`${kind} upload failed:`, error);
-      setError(
-        error?.response?.data?.message ||
-          error?.message ||
-          (kind === "id"
-            ? t("Failed to upload identity document.", "فشل رفع وثيقة الهوية.")
-            : t("Failed to upload payment receipt.", "فشل رفع إيصال الدفع.")),
-      );
-    } finally {
-      setUploading(null);
-      if (inputRef.current) inputRef.current.value = "";
-    }
-  };
+        let fileToUpload: File = file;
+
+        if (
+          file.type.startsWith("image/") &&
+          file.type !== "image/heic" &&
+          file.type !== "image/heif"
+        ) {
+          try {
+            fileToUpload = await compressImage(file);
+          } catch (compressionError) {
+            console.warn(
+              "Image compression failed. Uploading original:",
+              compressionError,
+            );
+            fileToUpload = file;
+          }
+        }
+
+        const formData = new FormData();
+        formData.append("image", fileToUpload);
+        formData.append("user_id", user.id);
+
+        const response = await apiService.postProtectedData(
+          UPLOAD_ENDPOINTS[kind],
+          formData,
+        );
+
+        if (!response.success) {
+          throw new Error(
+            response.message ||
+              (kind === "id"
+                ? "Failed to upload identity document."
+                : "Failed to upload payment receipt."),
+          );
+        }
+
+        setSuccessMessage(
+          kind === "id"
+            ? t(
+                "Identity document uploaded successfully.",
+                "تم رفع وثيقة الهوية بنجاح.",
+              )
+            : t(
+                "Payment receipt uploaded successfully.",
+                "تم رفع إيصال الدفع بنجاح.",
+              ),
+        );
+
+        await fetchVerificationStatus(true);
+      } catch (error: any) {
+        console.error(`${kind} upload failed:`, error);
+        setError(
+          error?.response?.data?.message ||
+            error?.message ||
+            (kind === "id"
+              ? t(
+                  "Failed to upload identity document.",
+                  "فشل رفع وثيقة الهوية.",
+                )
+              : t("Failed to upload payment receipt.", "فشل رفع إيصال الدفع.")),
+        );
+      } finally {
+        setUploading(null);
+        if (inputRef.current) inputRef.current.value = "";
+      }
+    };
 
   /* --------------------------- Moamalat payment ------------------------ */
 
-  const handleMoamalatCallback = async (data: any, outcome: "completed" | "cancelled" | "failed") => {
+  const handleMoamalatCallback = async (
+    data: any,
+    outcome: "completed" | "cancelled" | "failed",
+  ) => {
     try {
       const verifyResponse = await apiService.postProtectedData<{
         status: string;
@@ -551,7 +742,9 @@ const HostSettings: React.FC = () => {
         paymentCompletedRef.current = false;
 
         setMoamalatError(
-          friendlyMessage || verifyResponse.message || t("Payment verification failed.", "فشل التحقق من الدفع."),
+          friendlyMessage ||
+            verifyResponse.message ||
+            t("Payment verification failed.", "فشل التحقق من الدفع."),
         );
         return;
       }
@@ -569,7 +762,10 @@ const HostSettings: React.FC = () => {
 
       paymentCompletedRef.current = false;
 
-      const code = error?.response?.data?.responseCode || error?.response?.data?.data?.responseCode || null;
+      const code =
+        error?.response?.data?.responseCode ||
+        error?.response?.data?.data?.responseCode ||
+        null;
 
       setMoamalatError(
         getMoamalatMessage(code, isArabic) ||
@@ -591,13 +787,18 @@ const HostSettings: React.FC = () => {
     paymentCompletedRef.current = false;
 
     if (!user?.id) {
-      setMoamalatError(t("User ID was not found.", "لم يتم العثور على معرف المستخدم."));
+      setMoamalatError(
+        t("User ID was not found.", "لم يتم العثور على معرف المستخدم."),
+      );
       return;
     }
 
     if (!moamalatReady || !window.Lightbox) {
       setMoamalatError(
-        t("Payment gateway is not ready yet. Please try again.", "بوابة الدفع غير جاهزة بعد. يرجى المحاولة مرة أخرى."),
+        t(
+          "Payment gateway is not ready yet. Please try again.",
+          "بوابة الدفع غير جاهزة بعد. يرجى المحاولة مرة أخرى.",
+        ),
       );
       return;
     }
@@ -618,7 +819,10 @@ const HostSettings: React.FC = () => {
       });
 
       if (!configResponse.success || !configResponse.data) {
-        throw new Error(configResponse.message || t("Failed to initiate payment.", "فشل بدء عملية الدفع."));
+        throw new Error(
+          configResponse.message ||
+            t("Failed to initiate payment.", "فشل بدء عملية الدفع."),
+        );
       }
 
       const config = configResponse.data;
@@ -633,7 +837,8 @@ const HostSettings: React.FC = () => {
 
         completeCallback: async (data: any) => {
           const inlineCode = data?.ResponseCode || data?.Response?.Code || null;
-          const inlineMessage = data?.ResponseMessage || data?.Response?.Message || null;
+          const inlineMessage =
+            data?.ResponseMessage || data?.Response?.Message || null;
 
           if (inlineCode && inlineCode !== "00") {
             setMoamalatError(
@@ -657,7 +862,9 @@ const HostSettings: React.FC = () => {
           setTimeout(() => {
             if (paymentCompletedRef.current) return;
 
-            setMoamalatError(t("Payment was cancelled.", "تم إلغاء عملية الدفع."));
+            setMoamalatError(
+              t("Payment was cancelled.", "تم إلغاء عملية الدفع."),
+            );
             setMoamalatLoading(false);
           }, 800);
         },
@@ -667,7 +874,12 @@ const HostSettings: React.FC = () => {
 
           if (paymentCompletedRef.current) return;
 
-          setMoamalatError(t("An error occurred during payment.", "حدث خطأ أثناء عملية الدفع."));
+          setMoamalatError(
+            t(
+              "An error occurred during payment.",
+              "حدث خطأ أثناء عملية الدفع.",
+            ),
+          );
           setMoamalatLoading(false);
         },
       };
@@ -676,7 +888,9 @@ const HostSettings: React.FC = () => {
     } catch (error: any) {
       console.error("Moamalat initiation failed:", error);
       setMoamalatError(
-        error?.response?.data?.message || error?.message || t("Failed to initiate payment.", "فشل بدء عملية الدفع."),
+        error?.response?.data?.message ||
+          error?.message ||
+          t("Failed to initiate payment.", "فشل بدء عملية الدفع."),
       );
       setMoamalatLoading(false);
     }
@@ -685,21 +899,19 @@ const HostSettings: React.FC = () => {
   /* ---------------------------- Guards --------------------------------- */
 
   // Only wait for auth. Verification data never blocks the page.
-  if (authLoading || !isAuthenticated || !user) return null;
-
+  if (authLoading || !isAuthenticated || !isAuthorizedHost) return null;
   /* ------------------------- Derived display data ---------------------- */
 
   const idInfo = verificationStatus?.id;
   const idDocs = idInfo?.documents ?? [];
 
-  const idPill =
-    idInfo?.verified
-      ? { tone: "green" as Tone, text: t("Verified", "تم التحقق") }
-      : idInfo?.rejected
-        ? { tone: "red" as Tone, text: t("Rejected", "مرفوض") }
-        : idInfo?.uploaded
-          ? { tone: "yellow" as Tone, text: t("Under Review", "قيد المراجعة") }
-          : { tone: "gray" as Tone, text: t("Not Uploaded", "لم يتم الرفع") };
+  const idPill = idInfo?.verified
+    ? { tone: "green" as Tone, text: t("Verified", "تم التحقق") }
+    : idInfo?.rejected
+      ? { tone: "red" as Tone, text: t("Rejected", "مرفوض") }
+      : idInfo?.uploaded
+        ? { tone: "yellow" as Tone, text: t("Under Review", "قيد المراجعة") }
+        : { tone: "gray" as Tone, text: t("Not Uploaded", "لم يتم الرفع") };
 
   const payInfo = verificationStatus?.payment;
   const payStatus = payInfo?.status;
@@ -719,7 +931,9 @@ const HostSettings: React.FC = () => {
   const bankTransferPayments = allPayments.filter((p) => !isMoamalatPayment(p));
 
   const userStatus = String(user.status || "pending").toLowerCase();
-  const userStatusTone: Tone = ["verified", "active", "approved"].includes(userStatus)
+  const userStatusTone: Tone = ["verified", "active", "approved"].includes(
+    userStatus,
+  )
     ? "green"
     : ["suspended", "expired", "rejected"].includes(userStatus)
       ? "red"
@@ -754,7 +968,9 @@ const HostSettings: React.FC = () => {
         ) : (
           <div className="flex flex-col items-center py-6 text-center">
             <div className="mb-2 text-4xl">📄</div>
-            <p className="font-semibold text-gray-800">{doc.file_name || "Document"}</p>
+            <p className="font-semibold text-gray-800">
+              {doc.file_name || "Document"}
+            </p>
             <p className="text-sm text-gray-500">{doc.file_type || "File"}</p>
             <a
               href={doc.file_url}
@@ -790,7 +1006,9 @@ const HostSettings: React.FC = () => {
 
       {/* Mobile top bar */}
       <header className="sticky top-0 z-30 flex items-center justify-between bg-[#1a1a2e] px-4 pb-3 pt-[calc(env(safe-area-inset-top)+12px)] md:hidden">
-        <h1 className="text-lg font-semibold text-white">{t("Host Settings", "إعدادات المضيف")}</h1>
+        <h1 className="text-lg font-semibold text-white">
+          {t("Host Settings", "إعدادات المضيف")}
+        </h1>
         <button
           onClick={toggleLanguage}
           className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-medium text-white active:bg-white/10"
@@ -803,13 +1021,20 @@ const HostSettings: React.FC = () => {
         {/* Desktop header */}
         <div className="hidden md:block">
           <div className="mb-2 flex items-center gap-3 text-sm">
-            <Link to="/host-dashboard" className="font-medium text-gray-500 hover:text-[#1a1a2e]">
+            <Link
+              to="/host-dashboard"
+              className="font-medium text-gray-500 hover:text-[#1a1a2e]"
+            >
               {t("Dashboard", "لوحة التحكم")}
             </Link>
             <span className="text-gray-300">/</span>
-            <span className="font-medium text-gray-900">{t("Settings", "الإعدادات")}</span>
+            <span className="font-medium text-gray-900">
+              {t("Settings", "الإعدادات")}
+            </span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-[#1a1a2e]">{t("Host Settings", "إعدادات المضيف")}</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-[#1a1a2e]">
+            {t("Host Settings", "إعدادات المضيف")}
+          </h1>
           <p className="mt-2 text-gray-500">
             {t(
               "Manage your account information and verification documents.",
@@ -820,12 +1045,17 @@ const HostSettings: React.FC = () => {
 
         {/* Mobile intro */}
         <p className="text-sm text-gray-500 md:hidden">
-          {t("Manage your account information and verification documents.", "إدارة معلومات حسابك ووثائق التحقق.")}
+          {t(
+            "Manage your account information and verification documents.",
+            "إدارة معلومات حسابك ووثائق التحقق.",
+          )}
         </p>
 
         {successMessage && (
           <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3.5 text-sm font-medium text-emerald-700">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100">✓</span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-100">
+              ✓
+            </span>
             <span>{successMessage}</span>
           </div>
         )}
@@ -833,7 +1063,10 @@ const HostSettings: React.FC = () => {
         {/* ========================= 1. ACCOUNT INFORMATION ========================= */}
         <Card
           title={t("Account Information", "معلومات الحساب")}
-          subtitle={t("Your basic account information.", "المعلومات الأساسية لحسابك.")}
+          subtitle={t(
+            "Your basic account information.",
+            "المعلومات الأساسية لحسابك.",
+          )}
         >
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1a1a2e] text-lg font-bold text-[#e8c547]">
@@ -847,12 +1080,65 @@ const HostSettings: React.FC = () => {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t("Name", "الاسم")}>{user.name || "-"}</Field>
-            <Field label={t("Email", "البريد الإلكتروني")}>{user.email || "-"}</Field>
-            <Field label={t("Phone Number", "رقم الهاتف")}>
-              <span dir="ltr">{user.phone_number || "-"}</span>
+            <Field label={t("Email", "البريد الإلكتروني")}>
+              {user.email || "-"}
             </Field>
+            <div>
+              <p className="mb-1 text-xs font-medium text-gray-500">
+                {t("Phone Number", "رقم الهاتف")}
+              </p>
+
+              <div className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => {
+                      setPhoneNumber(e.target.value);
+                      setPhoneError("");
+                      setPhoneSuccess("");
+                    }}
+                    placeholder={t("Enter your phone number", "أدخل رقم هاتفك")}
+                    dir="ltr"
+                    disabled={savingPhone}
+                    className="min-w-0 flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm outline-none transition focus:border-[#1a1a2e] focus:bg-white disabled:opacity-60"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleSavePhone}
+                    disabled={
+                      savingPhone ||
+                      phoneNumber.trim() === (user.phone_number || "")
+                    }
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1a1a2e] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#292943] disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {savingPhone ? (
+                      <>
+                        <Spinner light />
+                        {t("Saving...", "جاري الحفظ...")}
+                      </>
+                    ) : (
+                      <>✓ {t("Save", "حفظ")}</>
+                    )}
+                  </button>
+                </div>
+
+                {phoneError && (
+                  <p className="mt-2 text-sm font-medium text-red-600">
+                    {phoneError}
+                  </p>
+                )}
+
+                {phoneSuccess && (
+                  <p className="mt-2 text-sm font-medium text-emerald-600">
+                    ✓ {phoneSuccess}
+                  </p>
+                )}
+              </div>
+            </div>
             <Field label={t("Account Type", "نوع الحساب")} capitalize>
-              {user.role || "host"}
+              {user.account_type || "host"}
             </Field>
           </div>
         </Card>
@@ -860,9 +1146,16 @@ const HostSettings: React.FC = () => {
         {/* ========================= 2. IDENTITY DOCUMENTS ========================= */}
         <Card
           title={t("Identity Documents", "وثائق الهوية")}
-          subtitle={t("All uploaded identity documents.", "جميع وثائق الهوية المرفوعة.")}
+          subtitle={t(
+            "All uploaded identity documents.",
+            "جميع وثائق الهوية المرفوعة.",
+          )}
           right={
-            loadingVerification ? <Skeleton className="h-6 w-20 rounded-full" /> : <Pill tone={idPill.tone}>{idPill.text}</Pill>
+            loadingVerification ? (
+              <Skeleton className="h-6 w-20 rounded-full" />
+            ) : (
+              <Pill tone={idPill.tone}>{idPill.text}</Pill>
+            )
           }
         >
           <div className="space-y-4">
@@ -893,31 +1186,53 @@ const HostSettings: React.FC = () => {
                     >
                       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-gray-700">#{index + 1}</span>
+                          <span className="text-sm font-semibold text-gray-700">
+                            #{index + 1}
+                          </span>
                           {doc.side && (
                             <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700">
                               {doc.side}
                             </span>
                           )}
-                          {isLatest && !isRejected && <Pill tone="blue">{t("Latest", "الأحدث")}</Pill>}
+                          {isLatest && !isRejected && (
+                            <Pill tone="blue">{t("Latest", "الأحدث")}</Pill>
+                          )}
                         </div>
 
-                        <Pill tone={statusTone(doc.status)}>{doc.status ? statusText(doc.status) : t("Unknown", "غير معروف")}</Pill>
+                        <Pill tone={statusTone(doc.status)}>
+                          {doc.status
+                            ? statusText(doc.status)
+                            : t("Unknown", "غير معروف")}
+                        </Pill>
                       </div>
 
                       {renderDocumentPreview(doc, isRejected)}
 
                       <div className="mt-3 grid grid-cols-2 gap-3">
-                        <Detail label={t("File Name", "اسم الملف")}>{doc.file_name || "-"}</Detail>
-                        <Detail label={t("File Type", "نوع الملف")}>{doc.file_type || "-"}</Detail>
-                        <Detail label={t("Upload Date", "تاريخ الرفع")}>{formatDate(doc.created_at) || "-"}</Detail>
-                        {doc.reviewed_at && <Detail label={t("Review Date", "تاريخ المراجعة")}>{formatDate(doc.reviewed_at)}</Detail>}
+                        <Detail label={t("File Name", "اسم الملف")}>
+                          {doc.file_name || "-"}
+                        </Detail>
+                        <Detail label={t("File Type", "نوع الملف")}>
+                          {doc.file_type || "-"}
+                        </Detail>
+                        <Detail label={t("Upload Date", "تاريخ الرفع")}>
+                          {formatDate(doc.created_at) || "-"}
+                        </Detail>
+                        {doc.reviewed_at && (
+                          <Detail label={t("Review Date", "تاريخ المراجعة")}>
+                            {formatDate(doc.reviewed_at)}
+                          </Detail>
+                        )}
                       </div>
 
                       {doc.rejection_reason && (
                         <div className="mt-3 rounded-lg border border-red-200 bg-red-100/50 p-3">
-                          <p className="text-xs font-semibold text-red-800">{t("Rejection Reason", "سبب الرفض")}</p>
-                          <p className="text-sm text-red-700">{doc.rejection_reason}</p>
+                          <p className="text-xs font-semibold text-red-800">
+                            {t("Rejection Reason", "سبب الرفض")}
+                          </p>
+                          <p className="text-sm text-red-700">
+                            {doc.rejection_reason}
+                          </p>
                         </div>
                       )}
 
@@ -928,7 +1243,11 @@ const HostSettings: React.FC = () => {
                           rel="noopener noreferrer"
                           className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-[#1a1a2e] underline"
                         >
-                          🔗 {t("Open document in new tab", "فتح الوثيقة في علامة تبويب جديدة")}
+                          🔗{" "}
+                          {t(
+                            "Open document in new tab",
+                            "فتح الوثيقة في علامة تبويب جديدة",
+                          )}
                         </a>
                       )}
                     </div>
@@ -939,17 +1258,28 @@ const HostSettings: React.FC = () => {
 
             {!loadingVerification && idDocs.length === 0 && (
               <div className="rounded-xl bg-gray-50 p-8 text-center text-sm text-gray-500">
-                {t("No identity documents uploaded yet.", "لم يتم رفع أي وثيقة هوية بعد.")}
+                {t(
+                  "No identity documents uploaded yet.",
+                  "لم يتم رفع أي وثيقة هوية بعد.",
+                )}
               </div>
             )}
 
             {!loadingVerification && (
               <div>
-                <input ref={idInputRef} type="file" accept={FILE_ACCEPT} onChange={handleUpload("id")} className="hidden" />
+                <input
+                  ref={idInputRef}
+                  type="file"
+                  accept={FILE_ACCEPT}
+                  onChange={handleUpload("id")}
+                  className="hidden"
+                />
 
                 <button
                   type="button"
-                  onClick={() => uploading === null && idInputRef.current?.click()}
+                  onClick={() =>
+                    uploading === null && idInputRef.current?.click()
+                  }
                   disabled={uploading === "id"}
                   className={`w-full rounded-xl border-2 border-dashed p-5 text-center transition active:scale-[0.99] disabled:cursor-not-allowed ${
                     uploading === "id"
@@ -962,7 +1292,9 @@ const HostSettings: React.FC = () => {
                   {uploading === "id" ? (
                     <>
                       <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#1a1a2e]" />
-                      <p className="font-semibold text-gray-700">{t("Uploading...", "جاري الرفع...")}</p>
+                      <p className="font-semibold text-gray-700">
+                        {t("Uploading...", "جاري الرفع...")}
+                      </p>
                     </>
                   ) : (
                     <>
@@ -973,7 +1305,10 @@ const HostSettings: React.FC = () => {
                           : t("Upload identity document", "رفع وثيقة هوية")}
                       </p>
                       <p className="mt-1 text-xs text-gray-500">
-                        {t("JPG, PNG, WEBP, PDF — up to 10 MB", "JPG, PNG, WEBP, PDF — حتى 10 ميجابايت")}
+                        {t(
+                          "JPG, PNG, WEBP, PDF — up to 10 MB",
+                          "JPG, PNG, WEBP, PDF — حتى 10 ميجابايت",
+                        )}
                       </p>
                     </>
                   )}
@@ -997,7 +1332,11 @@ const HostSettings: React.FC = () => {
             "ادفع عبر معاملات مباشرة أو ارفع إيصال التحويل.",
           )}
           right={
-            loadingVerification ? <Skeleton className="h-6 w-20 rounded-full" /> : <Pill tone={payPill.tone}>{payPill.text}</Pill>
+            loadingVerification ? (
+              <Skeleton className="h-6 w-20 rounded-full" />
+            ) : (
+              <Pill tone={payPill.tone}>{payPill.text}</Pill>
+            )
           }
         >
           {loadingVerification ? (
@@ -1021,8 +1360,14 @@ const HostSettings: React.FC = () => {
                     <div className="flex-1">
                       <h4 className="font-bold text-[#1a1a2e]">
                         {isApproved
-                          ? t("Renew Subscription via Moamalat", "تجديد الاشتراك عبر معاملات")
-                          : t("Pay Online via Moamalat", "الدفع الإلكتروني عبر معاملات")}
+                          ? t(
+                              "Renew Subscription via Moamalat",
+                              "تجديد الاشتراك عبر معاملات",
+                            )
+                          : t(
+                              "Pay Online via Moamalat",
+                              "الدفع الإلكتروني عبر معاملات",
+                            )}
                       </h4>
                       <p className="mt-1 text-sm text-gray-600">
                         {isApproved
@@ -1039,8 +1384,12 @@ const HostSettings: React.FC = () => {
                   </div>
 
                   <div className="mb-4 flex items-center justify-between rounded-xl border border-blue-200 bg-white px-4 py-3">
-                    <span className="text-sm font-medium text-gray-600">{t("Amount Due", "المبلغ المطلوب")}</span>
-                    <span className="text-lg font-bold text-[#1a1a2e]">{formatCurrency(SUBSCRIPTION_AMOUNT_LYD)}</span>
+                    <span className="text-sm font-medium text-gray-600">
+                      {t("Amount Due", "المبلغ المطلوب")}
+                    </span>
+                    <span className="text-lg font-bold text-[#1a1a2e]">
+                      {formatCurrency(SUBSCRIPTION_AMOUNT_LYD)}
+                    </span>
                   </div>
 
                   {isApproved && (
@@ -1082,8 +1431,14 @@ const HostSettings: React.FC = () => {
                         <span>💳</span>
                         <span>
                           {isApproved
-                            ? t("Renew with Moamalat", "تجديد الاشتراك عبر معاملات")
-                            : t("Pay Now with Moamalat", "الدفع الآن عبر معاملات")}
+                            ? t(
+                                "Renew with Moamalat",
+                                "تجديد الاشتراك عبر معاملات",
+                              )
+                            : t(
+                                "Pay Now with Moamalat",
+                                "الدفع الآن عبر معاملات",
+                              )}
                         </span>
                       </>
                     )}
@@ -1099,19 +1454,33 @@ const HostSettings: React.FC = () => {
                 {moamalatPayments.length > 0 && (
                   <div className="mt-4 space-y-3">
                     <p className="text-sm font-semibold text-gray-700">
-                      {t("Previous Moamalat Payments", "مدفوعات معاملات السابقة")}
+                      {t(
+                        "Previous Moamalat Payments",
+                        "مدفوعات معاملات السابقة",
+                      )}
                     </p>
 
                     {moamalatPayments.map((p) => (
-                      <div key={p.id} className="rounded-xl border border-blue-100 bg-blue-50/40 p-3">
+                      <div
+                        key={p.id}
+                        className="rounded-xl border border-blue-100 bg-blue-50/40 p-3"
+                      >
                         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-[#1a1a2e]">💳 {getPaymentTypeLabel(p)}</span>
-                          <Pill tone={statusTone(p.status)}>{statusText(p.status)}</Pill>
+                          <span className="text-sm font-semibold text-[#1a1a2e]">
+                            💳 {getPaymentTypeLabel(p)}
+                          </span>
+                          <Pill tone={statusTone(p.status)}>
+                            {statusText(p.status)}
+                          </Pill>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                          <Detail label={t("Amount", "المبلغ")}>{formatCurrency(p.amount)}</Detail>
-                          <Detail label={t("Date", "التاريخ")}>{formatDate(p.created_at)}</Detail>
+                          <Detail label={t("Amount", "المبلغ")}>
+                            {formatCurrency(p.amount)}
+                          </Detail>
+                          <Detail label={t("Date", "التاريخ")}>
+                            {formatDate(p.created_at)}
+                          </Detail>
                           {p.reference && (
                             <Detail label={t("Reference", "المرجع")} wide>
                               <span className="font-mono text-xs" dir="ltr">
@@ -1134,7 +1503,9 @@ const HostSettings: React.FC = () => {
               {/* ---------- Divider ---------- */}
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-gray-300" />
-                <span className="text-xs font-semibold text-gray-500">{t("OR", "أو")}</span>
+                <span className="text-xs font-semibold text-gray-500">
+                  {t("OR", "أو")}
+                </span>
                 <div className="h-px flex-1 bg-gray-300" />
               </div>
 
@@ -1156,22 +1527,33 @@ const HostSettings: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => uploading === null && paymentInputRef.current?.click()}
+                      onClick={() =>
+                        uploading === null && paymentInputRef.current?.click()
+                      }
                       disabled={uploading === "payment"}
                       className="w-full rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-5 text-center transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {uploading === "payment" ? (
                         <>
                           <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-[#1a1a2e]" />
-                          <p className="font-semibold text-gray-700">{t("Uploading...", "جاري الرفع...")}</p>
+                          <p className="font-semibold text-gray-700">
+                            {t("Uploading...", "جاري الرفع...")}
+                          </p>
                         </>
                       ) : (
                         <>
                           <p className="font-semibold text-gray-800">
-                            📤 {t("Upload bank transfer receipt", "رفع إيصال التحويل المصرفي")}
+                            📤{" "}
+                            {t(
+                              "Upload bank transfer receipt",
+                              "رفع إيصال التحويل المصرفي",
+                            )}
                           </p>
                           <p className="mt-1 text-xs text-gray-500">
-                            {t("JPG, PNG, WEBP, PDF — up to 10 MB", "JPG, PNG, WEBP, PDF — حتى 10 ميجابايت")}
+                            {t(
+                              "JPG, PNG, WEBP, PDF — up to 10 MB",
+                              "JPG, PNG, WEBP, PDF — حتى 10 ميجابايت",
+                            )}
                           </p>
                         </>
                       )}
@@ -1187,7 +1569,9 @@ const HostSettings: React.FC = () => {
 
                 {bankTransferPayments.length > 0 && (
                   <div className="mt-4 space-y-3">
-                    <p className="text-sm font-semibold text-gray-700">{t("Uploaded Bank Receipts", "إيصالات التحويل المرفوعة")}</p>
+                    <p className="text-sm font-semibold text-gray-700">
+                      {t("Uploaded Bank Receipts", "إيصالات التحويل المرفوعة")}
+                    </p>
 
                     {bankTransferPayments.map((p) => (
                       <div
@@ -1201,13 +1585,21 @@ const HostSettings: React.FC = () => {
                         }`}
                       >
                         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-[#1a1a2e]">🏦 {getPaymentTypeLabel(p)}</span>
-                          <Pill tone={statusTone(p.status)}>{statusText(p.status)}</Pill>
+                          <span className="text-sm font-semibold text-[#1a1a2e]">
+                            🏦 {getPaymentTypeLabel(p)}
+                          </span>
+                          <Pill tone={statusTone(p.status)}>
+                            {statusText(p.status)}
+                          </Pill>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
-                          <Detail label={t("Amount", "المبلغ")}>{formatCurrency(p.amount)}</Detail>
-                          <Detail label={t("Date", "التاريخ")}>{formatDate(p.created_at)}</Detail>
+                          <Detail label={t("Amount", "المبلغ")}>
+                            {formatCurrency(p.amount)}
+                          </Detail>
+                          <Detail label={t("Date", "التاريخ")}>
+                            {formatDate(p.created_at)}
+                          </Detail>
                           {p.notes && (
                             <Detail label={t("Notes", "ملاحظات")} wide>
                               {p.notes}
@@ -1250,10 +1642,13 @@ const HostSettings: React.FC = () => {
                     ✓
                   </div>
                   <div>
-                    <h4 className="font-bold text-emerald-800">{t("Payment approved", "تمت الموافقة على الدفع")}</h4>
+                    <h4 className="font-bold text-emerald-800">
+                      {t("Payment approved", "تمت الموافقة على الدفع")}
+                    </h4>
                     {payInfo?.approved_at && (
                       <p className="mt-1 text-sm text-emerald-700">
-                        {t("Approved on", "تمت الموافقة في")} {formatDate(payInfo.approved_at)}
+                        {t("Approved on", "تمت الموافقة في")}{" "}
+                        {formatDate(payInfo.approved_at)}
                       </p>
                     )}
                   </div>
@@ -1266,9 +1661,13 @@ const HostSettings: React.FC = () => {
                     !
                   </div>
                   <div>
-                    <h4 className="font-bold text-red-800">{t("Payment rejected", "تم رفض الدفع")}</h4>
+                    <h4 className="font-bold text-red-800">
+                      {t("Payment rejected", "تم رفض الدفع")}
+                    </h4>
                     {payInfo?.rejection_reason && (
-                      <p className="mt-2 text-sm leading-6 text-red-700">{payInfo.rejection_reason}</p>
+                      <p className="mt-2 text-sm leading-6 text-red-700">
+                        {payInfo.rejection_reason}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -1280,10 +1679,13 @@ const HostSettings: React.FC = () => {
                     ⏳
                   </div>
                   <div>
-                    <h4 className="font-bold text-yellow-800">{t("Under Review", "قيد المراجعة")}</h4>
+                    <h4 className="font-bold text-yellow-800">
+                      {t("Under Review", "قيد المراجعة")}
+                    </h4>
                     {payInfo?.submitted_at && (
                       <p className="mt-1 text-sm text-yellow-700">
-                        {t("Submitted on", "تم الإرسال في")} {formatDate(payInfo.submitted_at)}
+                        {t("Submitted on", "تم الإرسال في")}{" "}
+                        {formatDate(payInfo.submitted_at)}
                       </p>
                     )}
                   </div>
@@ -1297,24 +1699,36 @@ const HostSettings: React.FC = () => {
         <Card title={t("Account Status", "حالة الحساب")}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm text-gray-500">{t("Current host status", "حالة المضيف الحالية")}</p>
-              <p className="mt-1 text-lg font-bold capitalize">{user.status || "pending"}</p>
+              <p className="text-sm text-gray-500">
+                {t("Current host status", "حالة المضيف الحالية")}
+              </p>
+              <p className="mt-1 text-lg font-bold capitalize">
+                {user.status || "pending"}
+              </p>
             </div>
 
             {user.host_expiry_date && (
               <div className="text-end">
-                <p className="text-sm text-gray-500">{t("Host Expiry Date", "تاريخ انتهاء الاستضافة")}</p>
-                <p className="mt-1 font-semibold">{formatDate(user.host_expiry_date)}</p>
+                <p className="text-sm text-gray-500">
+                  {t("Host Expiry Date", "تاريخ انتهاء الاستضافة")}
+                </p>
+                <p className="mt-1 font-semibold">
+                  {formatDate(user.host_expiry_date)}
+                </p>
               </div>
             )}
           </div>
 
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
-            <p className="text-sm font-semibold text-gray-700">{t("Verification Summary", "ملخص التحقق")}</p>
+            <p className="text-sm font-semibold text-gray-700">
+              {t("Verification Summary", "ملخص التحقق")}
+            </p>
 
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5">
-                <span className="text-sm text-gray-600">{t("ID Documents", "وثائق الهوية")}</span>
+                <span className="text-sm text-gray-600">
+                  {t("ID Documents", "وثائق الهوية")}
+                </span>
                 {loadingVerification ? (
                   <Skeleton className="h-4 w-6" />
                 ) : (
@@ -1323,7 +1737,9 @@ const HostSettings: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5">
-                <span className="text-sm text-gray-600">{t("Payment Status", "حالة الدفع")}</span>
+                <span className="text-sm text-gray-600">
+                  {t("Payment Status", "حالة الدفع")}
+                </span>
                 {loadingVerification ? (
                   <Skeleton className="h-4 w-16" />
                 ) : (
@@ -1342,7 +1758,9 @@ const HostSettings: React.FC = () => {
               </div>
 
               <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2.5">
-                <span className="text-sm text-gray-600">{t("Overall Status", "الحالة العامة")}</span>
+                <span className="text-sm text-gray-600">
+                  {t("Overall Status", "الحالة العامة")}
+                </span>
                 {loadingVerification ? (
                   <Skeleton className="h-4 w-16" />
                 ) : (
@@ -1369,9 +1787,15 @@ const HostSettings: React.FC = () => {
                     active ? "text-[#1a1a2e]" : "text-gray-400"
                   }`}
                 >
-                  <span className={`text-xl ${active ? "" : "opacity-60 grayscale"}`}>{item.icon}</span>
+                  <span
+                    className={`text-xl ${active ? "" : "opacity-60 grayscale"}`}
+                  >
+                    {item.icon}
+                  </span>
                   {isArabic ? item.labelAr : item.label}
-                  <span className={`h-1 w-1 rounded-full ${active ? "bg-[#e8c547]" : "bg-transparent"}`} />
+                  <span
+                    className={`h-1 w-1 rounded-full ${active ? "bg-[#e8c547]" : "bg-transparent"}`}
+                  />
                 </Link>
               </li>
             );

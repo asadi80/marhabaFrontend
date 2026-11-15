@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useLanguage } from "../../hooks/useLanguage";
@@ -41,6 +40,8 @@ declare global {
   }
 }
 
+type AccountType = "traveler" | "host";
+
 // ============================================================
 // MAIN COMPONENT
 // ============================================================
@@ -54,16 +55,14 @@ export default function Signup() {
   const fontClass = isAr ? "font-arabic" : "font-sans";
 
   const googleButtonRef = useRef<HTMLDivElement>(null);
-  const accountTypeRef = useRef<"traveler" | "host">("traveler");
+  const accountTypeRef = useRef<AccountType>("traveler");
 
-  const [accountType, setAccountType] = useState<
-    "traveler" | "host"
-  >("traveler");
+  const [accountType, setAccountType] = useState<AccountType>("traveler");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Keep the selected account type available to Google's callback.
+  // Keep selected account type synchronized.
   useEffect(() => {
     accountTypeRef.current = accountType;
   }, [accountType]);
@@ -112,30 +111,14 @@ export default function Signup() {
     ],
 
     createAccount: isAr ? "إنشاء حساب" : "Create account",
-
-    alreadyHave: isAr
-      ? "لديك حساب بالفعل؟"
-      : "Already have an account?",
-
+    alreadyHave: isAr ? "لديك حساب بالفعل؟" : "Already have an account?",
     signIn: isAr ? "تسجيل الدخول" : "Sign in",
-
     joinAs: isAr ? "أريد الانضمام كـ" : "I want to join as",
-
     traveler: isAr ? "مسافر" : "Traveler",
-
-    travelerDesc: isAr
-      ? "تصفح وحجز الإقامات"
-      : "Browse & book stays",
-
+    travelerDesc: isAr ? "تصفح وحجز الإقامات" : "Browse & book stays",
     host: isAr ? "مضيف" : "Host",
-
-    hostDesc: isAr
-      ? "أدرج وأدر العقارات"
-      : "List & manage properties",
-
-    googleSignup: isAr
-      ? "المتابعة باستخدام Google"
-      : "Continue with Google",
+    hostDesc: isAr ? "أدرج وأدر العقارات" : "List & manage properties",
+    googleSignup: isAr ? "المتابعة باستخدام Google" : "Continue with Google",
 
     googleInfo: isAr
       ? "استخدم حساب Google لإنشاء حسابك بأمان."
@@ -146,16 +129,10 @@ export default function Signup() {
       : "By signing up you agree to our",
 
     termsLink: isAr ? "الشروط" : "Terms",
-
     and: isAr ? "و" : "and",
+    privacyLink: isAr ? "سياسة الخصوصية" : "Privacy Policy",
 
-    privacyLink: isAr
-      ? "سياسة الخصوصية"
-      : "Privacy Policy",
-
-    loading: isAr
-      ? "جارٍ تسجيل الدخول..."
-      : "Signing you in...",
+    loading: isAr ? "جارٍ تسجيل الدخول..." : "Signing you in...",
 
     langToggle: isAr ? "🇬🇧" : "🇱🇾",
 
@@ -168,6 +145,30 @@ export default function Signup() {
       : "Something went wrong during signup. Please try again.",
   };
 
+  const copyRef = useRef(copy);
+
+  useEffect(() => {
+    copyRef.current = copy;
+  }, [copy]);
+
+  // ============================================================
+  // REDIRECT USER
+  // ============================================================
+
+  const redirectUser = (user: User) => {
+    if (user.account_type === "host" && user.role === "user") {
+      navigate("/host-dashboard", { replace: true });
+      return;
+    }
+
+    if (user.account_type === "traveler" && user.role === "user") {
+      navigate("/user-dashboard", { replace: true });
+      return;
+    }
+
+    setError("This account cannot use public signup.");
+  };
+
   // ============================================================
   // GOOGLE AUTHENTICATION
   // ============================================================
@@ -178,9 +179,7 @@ export default function Signup() {
     const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
     if (!clientId) {
-      setError(
-        "Google Client ID is missing. Check VITE_GOOGLE_CLIENT_ID.",
-      );
+      setError("Google Client ID is missing. Check VITE_GOOGLE_CLIENT_ID.");
       return;
     }
 
@@ -189,13 +188,12 @@ export default function Signup() {
         return;
       }
 
-      // Initialize Google Identity Services.
       window.google.accounts.id.initialize({
         client_id: clientId,
 
         callback: async (response) => {
           if (!response.credential) {
-            setError(copy.authError);
+            setError(copyRef.current.authError);
             return;
           }
 
@@ -203,47 +201,50 @@ export default function Signup() {
           setError("");
 
           try {
-            // Login and signup use the same backend endpoint.
-            // A new account is created automatically if needed.
+            // Send Google token and selected account type.
             const result = await apiService.loginWithGoogle(
               response.credential,
-              accountTypeRef.current,
+              {
+                intent: "signup",
+                accountType: accountTypeRef.current,
+              },
             );
 
             if (!result.success || !result.data?.user || !result.data?.tokens) {
-              throw new Error(
-                result.message || copy.authError,
-              );
+              throw new Error(result.message || copy.authError);
             }
 
             const { user, tokens } = result.data;
 
-            // Preserve any additional verification information.
+            // Only Traveler and Host accounts are allowed here.
+            const validTraveler =
+              user.account_type === "traveler" && user.role === "user";
+
+            const validHost =
+              user.account_type === "host" && user.role === "user";
+
+            if (!validTraveler && !validHost) {
+              throw new Error("This account cannot use public signup.");
+            }
+
+            // Preserve verification information.
             const completeUser = {
               ...user,
               verificationStatus:
-                result.data.verificationStatus ??
-                user.verificationStatus,
+                result.data.verificationStatus ?? user.verificationStatus,
               requiresIdUpload:
-                result.data.requiresIdUpload ??
-                user.requiresIdUpload,
-              isHostApproved:
-                result.data.isHostApproved ??
-                user.isHostApproved,
+                result.data.requiresIdUpload ?? user.requiresIdUpload,
+              isHostApproved: result.data.isHostApproved ?? user.isHostApproved,
             };
 
-            // Update the application's authentication state.
+            // Save authentication only after validation.
             login(completeUser as User, tokens);
 
-            // Let the application route the authenticated user.
-            navigate("/", { replace: true });
+            redirectUser(completeUser as User);
           } catch (err) {
             console.error("Google signup error:", err);
 
-            const message =
-              err instanceof Error
-                ? err.message
-                : copy.authError;
+            const message = err instanceof Error ? err.message : copy.authError;
 
             setError(message);
             setLoading(false);
@@ -254,17 +255,14 @@ export default function Signup() {
       // Render Google's official button.
       googleButtonRef.current.innerHTML = "";
 
-      window.google.accounts.id.renderButton(
-        googleButtonRef.current,
-        {
-          theme: "outline",
-          size: "large",
-          text: "signup_with",
-          shape: "rectangular",
-          width: 400,
-          logo_alignment: "center",
-        },
-      );
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        theme: "outline",
+        size: "large",
+        text: "signup_with",
+        shape: "rectangular",
+        width: 400,
+        logo_alignment: "center",
+      });
     };
 
     // Load Google Identity Services.
@@ -275,16 +273,14 @@ export default function Signup() {
     if (window.google) {
       initializeGoogle();
     } else if (existingScript) {
-      existingScript.addEventListener(
-        "load",
-        initializeGoogle,
-        { once: true },
-      );
+      existingScript.addEventListener("load", initializeGoogle, { once: true });
 
       existingScript.addEventListener(
         "error",
         () => {
-          if (!cancelled) setError(copy.googleError);
+          if (!cancelled) {
+            setError(copy.googleError);
+          }
         },
         { once: true },
       );
@@ -293,6 +289,7 @@ export default function Signup() {
 
       script.id = "google-identity-services";
       script.src = "https://accounts.google.com/gsi/client";
+
       script.async = true;
       script.defer = true;
 
@@ -316,9 +313,7 @@ export default function Signup() {
   // SELECT ACCOUNT TYPE
   // ============================================================
 
-  const handleAccountTypeChange = (
-    type: "traveler" | "host",
-  ) => {
+  const handleAccountTypeChange = (type: AccountType) => {
     setAccountType(type);
     accountTypeRef.current = type;
     setError("");
@@ -366,12 +361,9 @@ export default function Signup() {
         dir={isAr ? "rtl" : "ltr"}
         className={`min-h-screen flex bg-[#f7f6f2] ${fontClass}`}
       >
-        {/* =====================================================
-            LEFT PANEL
-        ===================================================== */}
+        {/* LEFT PANEL */}
 
         <aside className="hidden lg:flex flex-col justify-between w-[380px] shrink-0 bg-[#1a1a2e] px-12 py-10 border-r border-[#e8c547]/10 relative overflow-hidden">
-
           <div
             className="absolute inset-0 pointer-events-none opacity-[0.035]"
             style={{
@@ -383,17 +375,12 @@ export default function Signup() {
           <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_20%_50%,rgba(232,197,71,0.12)_0%,transparent_60%)]" />
 
           <div className="relative space-y-8">
-
-            {/* Logo */}
-
             <Link
               to="/"
               className="font-arabic font-medium text-[26px] text-white/90 tracking-wide no-underline"
             >
               مر<span className="font-bold text-[#e8c547]">حبا</span>
             </Link>
-
-            {/* Dot grid */}
 
             <div className="grid grid-cols-6 gap-2.5 w-fit opacity-[0.08]">
               {Array.from({ length: 24 }).map((_, i) => (
@@ -403,8 +390,6 @@ export default function Signup() {
                 />
               ))}
             </div>
-
-            {/* Hero */}
 
             <div>
               <h2
@@ -420,8 +405,6 @@ export default function Signup() {
               </p>
             </div>
           </div>
-
-          {/* Stats */}
 
           <div className="flex flex-col gap-5 relative">
             {copy.stats.map(({ stat, label, color }) => (
@@ -446,18 +429,13 @@ export default function Signup() {
           </div>
         </aside>
 
-        {/* =====================================================
-            RIGHT PANEL
-        ===================================================== */}
+        {/* RIGHT PANEL */}
 
         <main className="flex-1 flex items-center justify-center px-6 py-8 overflow-y-auto">
-
           <div className="w-full max-w-[460px] animate-fadeUp">
-
-            {/* Top bar */}
+            {/* TOP BAR */}
 
             <div className="flex items-center justify-between mb-8">
-
               <Link
                 to="/"
                 className="font-arabic font-medium text-[26px] text-[#1a1a2e] tracking-wide no-underline"
@@ -468,21 +446,13 @@ export default function Signup() {
               <button
                 type="button"
                 onClick={toggleLanguage}
-                className="
-                  bg-[#1a1a2e]/[0.07]
-                  border border-[#1a1a2e]/[0.12]
-                  rounded-2xl px-3.5 py-1
-                  text-[12px] font-medium text-[#1a1a2e]
-                  cursor-pointer transition-colors duration-150
-                  hover:bg-[#1a1a2e]/[0.12]
-                  ms-auto
-                "
+                className="bg-[#1a1a2e]/[0.07] border border-[#1a1a2e]/[0.12] rounded-2xl px-3.5 py-1 text-[12px] font-medium text-[#1a1a2e] cursor-pointer transition-colors duration-150 hover:bg-[#1a1a2e]/[0.12] ms-auto"
               >
                 {copy.langToggle}
               </button>
             </div>
 
-            {/* Heading */}
+            {/* HEADING */}
 
             <div className="mb-7">
               <h1
@@ -495,7 +465,6 @@ export default function Signup() {
 
               <p className="text-[12px] text-[#999]">
                 {copy.alreadyHave}{" "}
-
                 <Link
                   to="/login"
                   className="text-[#185FA5] no-underline font-medium"
@@ -505,18 +474,14 @@ export default function Signup() {
               </p>
             </div>
 
-            {/* =================================================
-                ACCOUNT TYPE
-            ================================================= */}
+            {/* ACCOUNT TYPE */}
 
             <div className="mb-7">
-
               <p className="text-[10px] tracking-widest uppercase text-[#999] mb-2">
                 {copy.joinAs}
               </p>
 
               <div className="grid grid-cols-2 gap-2">
-
                 {[
                   {
                     value: "traveler" as const,
@@ -551,9 +516,7 @@ export default function Signup() {
                     >
                       <div
                         className={`text-[13px] font-semibold mb-0.5 ${
-                          active
-                            ? "text-[#e8c547]"
-                            : "text-[#111118]"
+                          active ? "text-[#e8c547]" : "text-[#111118]"
                         }`}
                       >
                         {label}
@@ -561,9 +524,7 @@ export default function Signup() {
 
                       <div
                         className={`text-[11px] ${
-                          active
-                            ? "text-[#e8c547]/65"
-                            : "text-[#aaa]"
+                          active ? "text-[#e8c547]/65" : "text-[#aaa]"
                         }`}
                       >
                         {desc}
@@ -574,17 +535,12 @@ export default function Signup() {
               </div>
             </div>
 
-            {/* =================================================
-                GOOGLE SIGNUP
-            ================================================= */}
+            {/* GOOGLE SIGNUP */}
 
             <div className="space-y-4">
-
               <p className="text-[12px] text-[#999] text-center">
                 {copy.googleInfo}
               </p>
-
-              {/* Google button */}
 
               <div
                 className={`
@@ -594,17 +550,12 @@ export default function Signup() {
                 ref={googleButtonRef}
               />
 
-              {/* Loading */}
-
               {loading && (
                 <div className="flex items-center justify-center gap-2 text-[#185FA5] text-[12px]">
                   <span className="inline-block w-3.5 h-3.5 rounded-full border-2 border-[#185FA5]/30 border-t-[#185FA5] animate-spin" />
-
                   {copy.loading}
                 </div>
               )}
-
-              {/* Error */}
 
               {error && (
                 <div className="px-3.5 py-2.5 bg-[#FCEBEB] border border-[#a32d2d]/15 rounded-lg text-[12px] text-[#791F1F]">
@@ -613,22 +564,17 @@ export default function Signup() {
               )}
             </div>
 
-            {/* =================================================
-                LEGAL
-            ================================================= */}
+            {/* LEGAL */}
 
             <p className="text-[11px] text-[#bbb] text-center mt-7 leading-relaxed">
               {copy.terms}{" "}
-
               <Link
                 to="/terms"
                 className="text-[#185FA5] cursor-pointer no-underline hover:underline"
               >
                 {copy.termsLink}
               </Link>{" "}
-
               {copy.and}{" "}
-
               <Link
                 to="/privacy"
                 className="text-[#185FA5] cursor-pointer no-underline hover:underline"
@@ -636,7 +582,6 @@ export default function Signup() {
                 {copy.privacyLink}
               </Link>
             </p>
-
           </div>
         </main>
       </div>

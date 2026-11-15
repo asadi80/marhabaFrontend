@@ -321,7 +321,9 @@ const HostListings: React.FC = () => {
   const t: TFn = (en, ar) => (isAr ? ar : en);
 
   const isAuthorizedHost =
-    isAuthenticated && !!user && toRole(user.role) === HOST_ROLE;
+    isAuthenticated &&
+    !!user &&
+    (user.account_type === "host" || toRole(user.role) === HOST_ROLE);
 
   /* ------------------------------------------------------------------------
      STATE
@@ -614,7 +616,10 @@ const HostListings: React.FC = () => {
       return;
     }
 
-    if (toRole(user.role) !== HOST_ROLE) {
+    const isHostAccount =
+      user.account_type === "host" || toRole(user.role) === HOST_ROLE;
+
+    if (!isHostAccount) {
       navigate("/user-dashboard", { replace: true });
       return;
     }
@@ -1377,7 +1382,6 @@ const HostListings: React.FC = () => {
 
           validateImageFile(file);
 
-      
           /*
            * compressImage may return a Blob instead of a File.
            * Convert it to a File so the pending Map has a consistent type.

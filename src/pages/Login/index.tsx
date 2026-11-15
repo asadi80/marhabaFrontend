@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useLanguage } from "../../hooks/useLanguage";
@@ -27,15 +26,31 @@ export default function LoginPage() {
   // Redirect user according to role
   // --------------------------------------------------
 
-  const redirectByRole = (user: User) => {
-    if (user.role === "admin" || user.role === "super_admin") {
-      navigate("/admin");
-    } else if (user.role === "host") {
-      navigate("/host-dashboard");
-    } else {
-      navigate("/user-dashboard");
-    }
-  };
+  const redirectByRole = useCallback(
+    (user: User) => {
+      if (user.role !== "user") {
+        setError(
+          isAr
+            ? "هذا الحساب لا يمكنه تسجيل الدخول من هذه الصفحة."
+            : "This account cannot sign in through this page.",
+        );
+        return;
+      }
+
+      if (user.account_type === "host") {
+        navigate("/host-dashboard", { replace: true });
+        return;
+      }
+
+      if (user.account_type === "traveler") {
+        navigate("/user-dashboard", { replace: true });
+        return;
+      }
+
+      setError(isAr ? "نوع الحساب غير صالح." : "Invalid account type.");
+    },
+    [isAr, navigate],
+  );
 
   // --------------------------------------------------
   // Handle Google authentication response
@@ -47,7 +62,7 @@ export default function LoginPage() {
         setError(
           isAr
             ? "لم نتمكن من الحصول على بيانات حساب Google"
-            : "Unable to retrieve your Google account credentials."
+            : "Unable to retrieve your Google account credentials.",
         );
         return;
       }
@@ -56,62 +71,78 @@ export default function LoginPage() {
       setError("");
 
       try {
+        // Login intent: do not assume the account is a Traveler.
         const response = await apiService.loginWithGoogle(
-          googleResponse.credential
+          googleResponse.credential,
+          {
+            intent: "login",
+          },
         );
 
         if (!response.success || !response.data) {
-          setError(
+          throw new Error(
             response.message ||
-              (isAr ? "فشل تسجيل الدخول" : "Google sign-in failed")
+              (isAr ? "فشل تسجيل الدخول" : "Google sign-in failed"),
           );
-          return;
         }
 
         const userData = response.data.user;
         const tokens = response.data.tokens;
-        const verificationStatus = response.data.verificationStatus;
 
-        if (!userData || !tokens) {
+        if (!userData || !tokens?.accessToken || !tokens?.refreshToken) {
           throw new Error(
             isAr
               ? "بيانات تسجيل الدخول غير مكتملة"
-              : "Incomplete authentication response"
+              : "Incomplete authentication response.",
           );
         }
 
-        if (!tokens.accessToken || !tokens.refreshToken) {
+        // Public login is only for Traveler and Host accounts.
+        const isTraveler =
+          userData.account_type === "traveler" && userData.role === "user";
+
+        const isHost =
+          userData.account_type === "host" && userData.role === "user";
+
+        if (!isTraveler && !isHost) {
           throw new Error(
             isAr
-              ? "بيانات المصادقة غير صالحة"
-              : "Invalid authentication tokens"
+              ? "هذا الحساب لا يمكنه تسجيل الدخول من هذه الصفحة."
+              : "This account cannot sign in through this page.",
           );
         }
 
         const completeUser: User = {
           ...userData,
-          ...(userData.role === "host" && verificationStatus
-            ? { verificationStatus }
+
+          ...(isHost
+            ? {
+                verificationStatus: response.data.verificationStatus,
+                requiresIdUpload: response.data.requiresIdUpload,
+                isHostApproved: response.data.isHostApproved,
+              }
             : {}),
         };
 
-        // Save user and tokens through AuthContext.
+        // Save authentication only after validation.
         login(completeUser, tokens);
 
-        // Redirect based on the existing Marhaba role.
         redirectByRole(completeUser);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Google login error:", err);
 
         setError(
-          err?.message ||
-            (isAr ? "فشل تسجيل الدخول" : "Google sign-in failed")
+          err instanceof Error
+            ? err.message
+            : isAr
+              ? "فشل تسجيل الدخول"
+              : "Google sign-in failed",
         );
       } finally {
         setLoading(false);
       }
     },
-    [isAr, login, navigate]
+    [isAr, login, redirectByRole],
   );
 
   // --------------------------------------------------
@@ -123,7 +154,7 @@ export default function LoginPage() {
       setError(
         isAr
           ? "إعداد تسجيل الدخول عبر Google غير مكتمل"
-          : "Google sign-in is not configured."
+          : "Google sign-in is not configured.",
       );
       return;
     }
@@ -162,7 +193,7 @@ export default function LoginPage() {
     };
 
     const existingScript = document.querySelector(
-      'script[src="https://accounts.google.com/gsi/client"]'
+      'script[src="https://accounts.google.com/gsi/client"]',
     ) as HTMLScriptElement | null;
 
     if ((window as any).google?.accounts?.id) {
@@ -180,9 +211,7 @@ export default function LoginPage() {
       script.onerror = () => {
         if (!cancelled) {
           setError(
-            isAr
-              ? "تعذر تحميل خدمة Google"
-              : "Could not load Google sign-in."
+            isAr ? "تعذر تحميل خدمة Google" : "Could not load Google sign-in.",
           );
         }
       };
@@ -252,10 +281,8 @@ export default function LoginPage() {
       : "Protected by industry-standard encryption",
 
     langToggle: isAr ? "🇬🇧" : "🇱🇾",
-    alreadyHave: isAr
-      ? "لديك حساب بالفعل؟"
-      : "You do not have an account?",
-      signUp: isAr ? "تسجيل الدخول" : "Sign up",
+    alreadyHave: isAr ? "لديك حساب بالفعل؟" : "You do not have an account?",
+    signUp: isAr ? "تسجيل الدخول" : "Sign up",
   };
 
   // --------------------------------------------------
@@ -347,7 +374,6 @@ export default function LoginPage() {
 
         <main className="flex-1 flex items-center justify-center px-6 py-12 overflow-y-auto">
           <div className="w-full max-w-[360px]">
-
             {/* Top bar */}
 
             <div className="flex items-center justify-between mb-8">
@@ -383,7 +409,6 @@ export default function LoginPage() {
               </h1>
               <p className="text-[12px] text-[#999]">
                 {copy.alreadyHave}{" "}
-
                 <Link
                   to="/signup"
                   className="text-[#185FA5] no-underline font-medium"
@@ -430,17 +455,19 @@ export default function LoginPage() {
             {/* Google sign-in */}
 
             <div className="animate-fadeUp fu2">
-              <div className="min-h-[48px] flex justify-center items-center">
-                {loading ? (
-                  <div className="flex items-center gap-3 text-[13px] text-[#777]">
+              <div className="min-h-[48px] flex flex-col justify-center items-center">
+                <div
+                  ref={googleButtonRef}
+                  className={`flex justify-center w-full ${
+                    loading ? "pointer-events-none opacity-40" : ""
+                  }`}
+                />
+
+                {loading && (
+                  <div className="flex items-center gap-3 text-[13px] text-[#777] mt-3">
                     <span className="inline-block w-4 h-4 rounded-full border-2 border-[#185FA5]/20 border-t-[#185FA5] animate-spin" />
                     {isAr ? "جارٍ تسجيل الدخول..." : "Signing in..."}
                   </div>
-                ) : (
-                  <div
-                    ref={googleButtonRef}
-                    className="flex justify-center w-full"
-                  />
                 )}
               </div>
 
@@ -455,12 +482,7 @@ export default function LoginPage() {
 
             <div className="animate-fadeUp fu3 mt-7 text-center">
               <span className="inline-flex items-center gap-1.5 bg-[#1D9E75]/10 border border-[#1D9E75]/20 rounded-2xl px-3 py-1 text-[11px] text-[#0F6E56]">
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                   <path
                     d="M5 1L1.5 2.5v3C1.5 7.4 3 8.8 5 9.5c2-0.7 3.5-2.1 3.5-4V2.5L5 1z"
                     stroke="#0F6E56"
